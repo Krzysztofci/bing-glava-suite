@@ -1,0 +1,30 @@
+#!/bin/bash
+# =============================================================================
+# glava-colorswitch
+# Przełącza GLava między trybem automatycznym (kolory z tapety Bing)
+# a trybem czerwonym (stały preset red.frag).
+# Tryb ręczny GUI ma pierwszeństwo — użyj "Przywróć Bing (auto)" w GUI.
+# =============================================================================
+
+export DISPLAY=:0
+export PATH=/usr/bin:/bin:/usr/local/bin
+
+CONFIG="$HOME/.config/glava"
+FLAG="$CONFIG/red.shift"
+REDFRAG="$CONFIG/graph_red.frag"
+LIVEFRAG="$CONFIG/graph/1.frag"
+
+mkdir -p "$CONFIG"
+
+if [ -f "$FLAG" ]; then
+    # Wyjście z trybu czerwonego → przywróć kolory z tapety
+    rm -f "$FLAG"
+    "$HOME/.local/bin/glava-colors-auto"
+else
+    # Wejście w tryb czerwony → skopiuj preset
+    touch "$FLAG"
+    cp "$REDFRAG" "$LIVEFRAG"
+    pkill -x glava 2>/dev/null
+    sleep 0.2
+    glava --desktop >/dev/null 2>&1 &
+fi

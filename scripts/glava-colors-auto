@@ -1,0 +1,79 @@
+#!/bin/bash
+# =============================================================================
+# glava-colors-auto
+# Analizuje aktualną tapetę Bing algorytmem KMeans (3 klastry), wyciąga
+# dominujące kolory i wpisuje je do aktywnego fragmentu shadera GLava.
+# Po zakończeniu usuwa flagi trybu ręcznego i restartuje GLava.
+# =============================================================================
+
+export DISPLAY=:0
+export PATH=/usr/bin:/bin:/usr/local/bin
+
+CONFIG="$HOME/.config/glava"
+REDFRAG="$CONFIG/graph_red.frag"
+LIVEFRAG="$CONFIG/graph/1.frag"
+WALLPAPER="$HOME/Pictures/Bing/bing_today.jpg"
+
+mkdir -p "$CONFIG"
+
+python3 <<EOF
+from PIL import Image
+import numpy as np
+from sklearn.cluster import KMeans
+import os
+import sys
+
+wallpaper  = os.path.expanduser("$WALLPAPER")
+red_frag   = os.path.expanduser("$REDFRAG")
+live_frag  = os.path.expanduser("$LIVEFRAG")
+
+if not os.path.exists(wallpaper):
+    print("Brak pliku tapety: " + wallpaper, file=sys.stderr)
+    sys.exit(1)
+
+if not os.path.exists(red_frag):
+    print("Brak pliku szablonu: " + red_frag, file=sys.stderr)
+    sys.exit(1)
+
+img = Image.open(wallpaper).convert('RGB')
+img.thumbnail((200, 200))
+pixels = np.array(img).reshape(-1, 3)
+
+kmeans = KMeans(n_clusters=3, n_init=10)
+kmeans.fit(pixels)
+colors = sorted(kmeans.cluster_centers_.astype(int), key=lambda c: sum(c))
+
+def vec3(rgb):
+    return "vec3({:.2f}, {:.2f}, {:.2f})".format(
+        rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
+
+with open(red_frag) as f:
+    lines = f.readlines()
+
+os.makedirs(os.path.dirname(live_frag), exist_ok=True)
+
+with open(live_frag, 'w') as f:
+    for line in lines:
+        if 'vec3 bottom' in line:
+            f.write("vec3 bottom = {};\n".format(vec3(colors[0])))
+        elif 'vec3 mid' in line:
+            f.write("vec3 mid = {};\n".format(vec3(colors[1])))
+        elif 'vec3 top' in line:
+            f.write("vec3 top = {};\n".format(vec3(colors[2])))
+        else:
+            f.write(line)
+
+print("Kolory zaktualizowane pomyślnie.")
+EOF
+
+# Usuń flagi trybu ręcznego — daemon i GUI wracają do trybu auto
+rm -f "$CONFIG/red.shift"
+rm -f "$CONFIG/manual.shift"
+
+# Restart GLava (jeśli nie jest wyłączona przez użytkownika)
+DISABLE_FLAG="$CONFIG/.glava_disabled"
+pkill -x glava 2>/dev/null
+sleep 0.2
+if [ ! -f "$DISABLE_FLAG" ]; then
+    glava --desktop >/dev/null 2>&1 &
+fi

@@ -1,0 +1,69 @@
+#!/bin/bash
+# =============================================================================
+# glava-color-daemon
+# Demon działający jako usługa systemd użytkownika. Nasłuchuje zmian pliku
+# tapety Bing przez inotifywait i automatycznie aktualizuje kolory GLava.
+#
+# Flagi stanu:
+#   red.shift      — tryb czerwony (ręczny preset), daemon nie nadpisuje kolorów
+#   manual.shift   — tryb GUI (kolory ustawione ręcznie), daemon nie nadpisuje
+#   .glava_disabled — GLava wyłączona przez użytkownika, demon jej nie uruchamia
+# =============================================================================
+DISABLE_FLAG="$HOME/.config/glava/.glava_disabled"
+FLAG_RED="$HOME/.config/glava/red.shift"
+FLAG_MANUAL="$HOME/.config/glava/manual.shift"
+LOG="$HOME/.local/logs/glava-color-daemon.log"
+WALLPAPER="$HOME/Pictures/Bing/bing_today.jpg"
+GLAVA_DIR="$HOME/.config/glava"
+BACKUP_DIR="$GLAVA_DIR/backup_frag"
+mkdir -p "$(dirname "$LOG")" "$BACKUP_DIR"
+# --- Blokada wielu instancji ---
+LOCKFILE="/tmp/glava-color-daemon-${USER}.lock"
+if [ -e "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
+    echo "$(date '+%F %T') - Daemon już działa (PID $(cat "$LOCKFILE")), wychodzę." >> "$LOG"
+    exit 0
+fi
+echo $$ > "$LOCKFILE"
+trap "rm -f '$LOCKFILE'; exit" SIGINT SIGTERM EXIT
+# --- Uruchom GLava jeśli nie działa ---
+if [ ! -f "$DISABLE_FLAG" ] && ! pgrep -x glava >/dev/null; then
+    glava --desktop >/dev/null 2>&1 &
+    echo "$(date '+%F %T') - GLava uruchomiona przy starcie daemona." >> "$LOG"
+fi
+# --- Funkcja aktualizacji kolorów ---
+update_colors() {
+    # Blokada przed pętlą — ignoruj zdarzenia przez 5 sekund po aktualizacji
+    LOCKFILE_UPDATE="/tmp/glava-update.lock"
+    if [ -e "$LOCKFILE_UPDATE" ]; then
+        return 0
+    fi
+    touch "$LOCKFILE_UPDATE"
+    sleep 5
+    rm -f "$LOCKFILE_UPDATE"
+    # Tryb ręczny GUI — nie nadpisuj
+    if [ -f "$FLAG_MANUAL" ]; then
+        echo "$(date '+%F %T') - Tryb GUI aktywny, pomijam auto-update." >> "$LOG"
+        return 0
+    fi
+    # Tryb czerwony — nie nadpisuj
+    if [ -f "$FLAG_RED" ]; then
+        echo "$(date '+%F %T') - Tryb RED aktywny, pomijam." >> "$LOG"
+        return 0
+    fi
+    # Backup aktywnych shaderów (zachowaj ostatnie 20)
+    TIMESTAMP=$(date '+%F_%H-%M-%S')
+    for f in "$GLAVA_DIR"/graph/*.frag; do
+        cp -u "$f" "$BACKUP_DIR/$(basename "$f").$TIMESTAMP.bak" 2>/dev/null
+    done
+    ls -t "$BACKUP_DIR"/*.bak 2>/dev/null | tail -n +21 | xargs -r rm --
+    # Generuj nowe kolory z tapety
+    "$HOME/.local/bin/glava-colors-auto" >> "$LOG" 2>&1
+    echo "$(date '+%F %T') - GLava zaktualizowana." >> "$LOG"
+}
+# --- Pętla główna: nasłuchuj zmian tapety ---
+echo "$(date '+%F %T') - Daemon uruchomiony, obserwuję: $WALLPAPER" >> "$LOG"
+while true; do
+    inotifywait -e close_write,create,move "$WALLPAPER" >/dev/null 2>&1
+    sleep 0.2
+    update_colors
+done

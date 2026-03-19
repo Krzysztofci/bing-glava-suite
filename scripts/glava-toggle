@@ -1,0 +1,16 @@
+#!/bin/bash
+# =============================================================================
+# glava-toggle
+# Włącza lub wyłącza GLava. Stan zapamiętywany jest w pliku flagi,
+# dzięki czemu demon nie uruchamia GLava ponownie po restarcie.
+# =============================================================================
+
+FLAG="$HOME/.config/glava/.glava_disabled"
+
+if pgrep -x glava >/dev/null; then
+    pkill -x glava
+    touch "$FLAG"
+else
+    rm -f "$FLAG"
+    glava --desktop >/dev/null 2>&1 &
+fi
