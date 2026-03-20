@@ -39,14 +39,34 @@ TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 TARGET_UID=$(id -u "$TARGET_USER")
 BIN_DIR="$TARGET_HOME/.local/bin"
 CONFIG_DIR="$TARGET_HOME/.config/systemd/user"
+GLAVA_CONFIG="$TARGET_HOME/.config/glava"
+BACKUP_DIR="$GLAVA_CONFIG/backup_install"
 
 info "Deinstalacja dla użytkownika: $TARGET_USER ($TARGET_HOME)"
 
 echo ""
-echo -e "${RED}Uwaga: ta operacja usunie skrypty, usługę systemd i wpis cron.${RST}"
-echo -e "Tapety w ~/Pictures/Bing/ oraz konfiguracja GLava NIE zostaną usunięte."
+echo -e "${YEL}Co zostanie usunięte:${RST}"
+echo -e "  - skrypty z $BIN_DIR"
+echo -e "  - usługa systemd glava-color-daemon"
+echo -e "  - wpis cron dla bing-downloader"
+echo -e "  - tapeta ekranu logowania"
 echo ""
-read -rp "Kontynuować? [t/N] " CONFIRM
+echo -e "${GRN}Co zostanie zachowane:${RST}"
+echo -e "  - tapety w ~/Pictures/Bing/"
+echo -e "  - logi w ~/.local/logs/"
+echo ""
+
+# Sprawdź czy są backupy konfiguracji GLava
+if [ -d "$BACKUP_DIR" ]; then
+    echo -e "${GRN}Znaleziono backupy konfiguracji GLava w:${RST} $BACKUP_DIR"
+    echo -e "Przywrócić oryginalne pliki konfiguracyjne GLava? [T/n]"
+    read -rp "" RESTORE
+    RESTORE="${RESTORE:-T}"
+else
+    RESTORE="N"
+fi
+
+read -rp "Kontynuować deinstalację? [t/N] " CONFIRM
 CONFIRM="${CONFIRM:-N}"
 if [[ ! "$CONFIRM" =~ ^[Tt]$ ]]; then
     echo "Przerwano."
@@ -122,13 +142,37 @@ rm -f "/usr/share/backgrounds/login-bing.jpg"
 info "Usunięto tapetę ekranu logowania."
 
 # =============================================================================
+# Przywracanie konfiguracji GLava (opcjonalne)
+# =============================================================================
+if [[ "$RESTORE" =~ ^[Tt]$ ]] && [ -d "$BACKUP_DIR" ]; then
+    section "Przywracanie konfiguracji GLava"
+
+    for bak in "$BACKUP_DIR"/*.bak; do
+        [ -f "$bak" ] || continue
+        ORIG="${bak%.bak}"
+        ORIG_NAME="$(basename "$ORIG")"
+        # graph/1.frag jest w podkatalogu
+        if [ "$ORIG_NAME" = "1.frag" ]; then
+            cp "$bak" "$GLAVA_CONFIG/graph/1.frag"
+            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph/1.frag"
+        else
+            cp "$bak" "$GLAVA_CONFIG/$ORIG_NAME"
+            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$ORIG_NAME"
+        fi
+        info "Przywrócono: $ORIG_NAME"
+    done
+
+    rm -rf "$BACKUP_DIR"
+    info "Backupy usunięte po przywróceniu."
+fi
+
+# =============================================================================
 # Podsumowanie
 # =============================================================================
 section "Deinstalacja zakończona"
 
 echo ""
-echo -e "  Zachowane:  ${BLD}$TARGET_HOME/Pictures/Bing/${RST} (tapety)"
-echo -e "  Zachowane:  ${BLD}$TARGET_HOME/.config/glava/${RST} (konfiguracja GLava)"
-echo -e "  Zachowane:  ${BLD}$TARGET_HOME/.local/logs/${RST} (logi)"
+echo -e "  Zachowane: ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
+echo -e "  Zachowane: ${BLD}$TARGET_HOME/.local/logs/${RST}"
 echo ""
 info "Gotowe."

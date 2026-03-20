@@ -15,6 +15,18 @@ warn()    { echo -e "${YEL}[!]${RST} $*"; }
 error()   { echo -e "${RED}[✗]${RST} $*"; exit 1; }
 section() { echo -e "\n${BLD}═══ $* ═══${RST}"; }
 
+# Backup pliku przed nadpisaniem
+backup_file() {
+    local FILE="$1"
+    local BACKUP_DIR="$2"
+    if [ -f "$FILE" ]; then
+        mkdir -p "$BACKUP_DIR"
+        cp "$FILE" "$BACKUP_DIR/$(basename "$FILE").bak"
+        chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
+        info "Backup: $(basename "$FILE") → $BACKUP_DIR"
+    fi
+}
+
 # =============================================================================
 # KROK 0: Podstawowe sprawdzenia
 # =============================================================================
@@ -48,6 +60,8 @@ TARGET_UID=$(id -u "$TARGET_USER")
 BIN_DIR="$TARGET_HOME/.local/bin"
 CONFIG_DIR="$TARGET_HOME/.config/systemd/user"
 LOG_DIR="$TARGET_HOME/.local/logs"
+GLAVA_CONFIG="$TARGET_HOME/.config/glava"
+BACKUP_DIR="$GLAVA_CONFIG/backup_install"
 
 info "Instalacja dla użytkownika: $TARGET_USER ($TARGET_HOME)"
 
@@ -147,58 +161,38 @@ chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
 info "Zainstalowano GUI: $DST (wrapper: glava-gui)"
 
 # =============================================================================
-# KROK 5b: Szablon shadera GLava (graph_red.frag)
-# Nie nadpisujemy — użytkownik może mieć własny preset
+# KROK 5b: Konfiguracja GLava
+# Wszystkie pliki są nadpisywane — oryginały trafiają do backup_install/
 # =============================================================================
-section "Konfiguracja szablonu GLava"
-
-GLAVA_CONFIG="$TARGET_HOME/.config/glava"
-SHADER_SRC="$SCRIPT_DIR/config/graph_red.frag"
-SHADER_DST="$GLAVA_CONFIG/graph_red.frag"
+section "Konfiguracja GLava"
 
 mkdir -p "$GLAVA_CONFIG"
 chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG"
 
-if [ -f "$SHADER_SRC" ]; then
-    if [ -f "$SHADER_DST" ]; then
-        warn "Plik $SHADER_DST już istnieje — pomijam (nie nadpisuję)."
-    else
-        cp "$SHADER_SRC" "$SHADER_DST"
-        chown "$TARGET_USER:$TARGET_USER" "$SHADER_DST"
-        info "Zainstalowano szablon shadera: $SHADER_DST"
-    fi
-else
-    warn "Brak pliku config/graph_red.frag — skopiuj go ręcznie do ~/.config/glava/"
-fi
+# graph_red.frag — szablon shadera z placeholderami kolorów
+backup_file "$GLAVA_CONFIG/graph_red.frag" "$BACKUP_DIR"
+cp "$SCRIPT_DIR/config/graph_red.frag" "$GLAVA_CONFIG/graph_red.frag"
+chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph_red.frag"
+info "Zainstalowano graph_red.frag"
 
-# =============================================================================
-# KROK 5c: Konfiguracja modułu GLava
-# rc.glsl    — nie nadpisujemy (użytkownik może mieć własną konfigurację)
-# graph.glsl — zawsze nadpisujemy (szablon modułu)
-# graph/1.frag — zawsze nadpisujemy (aktywny shader używany przez glava-colors-auto)
-# =============================================================================
-section "Konfiguracja modułu GLava"
+# rc.glsl — konfiguracja główna GLava (moduł, geometria, ustawienia)
+backup_file "$GLAVA_CONFIG/rc.glsl" "$BACKUP_DIR"
+cp "$SCRIPT_DIR/glava-config/rc.glsl" "$GLAVA_CONFIG/rc.glsl"
+chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/rc.glsl"
+info "Zainstalowano rc.glsl"
 
-GLAVA_CONFIG_SRC="$SCRIPT_DIR/glava-config"
+# graph.glsl i graph/1.frag — aktywny shader używany przez glava-colors-auto
+mkdir -p "$GLAVA_CONFIG/graph"
+backup_file "$GLAVA_CONFIG/graph.glsl" "$BACKUP_DIR"
+backup_file "$GLAVA_CONFIG/graph/1.frag" "$BACKUP_DIR"
+cp "$SCRIPT_DIR/glava-config/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
+cp "$SCRIPT_DIR/glava-config/graph/1.frag" "$GLAVA_CONFIG/graph/1.frag"
+chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph"
+chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
+info "Zainstalowano konfigurację modułu graph."
 
-if [ -d "$GLAVA_CONFIG_SRC" ]; then
-    # rc.glsl — tylko jeśli nie istnieje
-    if [ ! -f "$GLAVA_CONFIG/rc.glsl" ]; then
-        cp "$GLAVA_CONFIG_SRC/rc.glsl" "$GLAVA_CONFIG/rc.glsl"
-        chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/rc.glsl"
-        info "Zainstalowano rc.glsl"
-    else
-        warn "Plik rc.glsl już istnieje — pomijam."
-    fi
-    # graph.glsl i graph/1.frag — zawsze nadpisuj
-    mkdir -p "$GLAVA_CONFIG/graph"
-    cp "$GLAVA_CONFIG_SRC/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
-    cp "$GLAVA_CONFIG_SRC/graph/1.frag" "$GLAVA_CONFIG/graph/1.frag"
-    chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph"
-    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
-    info "Zainstalowano konfigurację modułu graph."
-else
-    warn "Brak katalogu glava-config — pomijam konfigurację GLava."
+if [ -d "$BACKUP_DIR" ]; then
+    info "Kopie zapasowe zapisano w: $BACKUP_DIR"
 fi
 
 # =============================================================================
@@ -212,7 +206,6 @@ SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
 cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
 
-# Utwórz katalog wants jeśli nie istnieje
 sudo -u "$TARGET_USER" mkdir -p "$CONFIG_DIR/default.target.wants"
 
 sudo -u "$TARGET_USER" \
@@ -225,7 +218,7 @@ sudo -u "$TARGET_USER" \
     DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
     systemctl --user enable glava-color-daemon.service
 
-info "Usługa systemd skonfigurowana i włączona (uruchomi się przy następnym logowaniu)."
+info "Usługa systemd skonfigurowana i włączona."
 warn "Aby uruchomić teraz: sudo -u $TARGET_USER systemctl --user start glava-color-daemon"
 
 # =============================================================================
@@ -269,8 +262,9 @@ echo -e "  Logi:             ${BLD}$LOG_DIR/${RST}"
 echo -e "  Tapety Bing:      ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Usługa systemd:   ${BLD}glava-color-daemon.service${RST}"
 echo -e "  GUI:              ${BLD}glava-gui${RST} (lub python3 $BIN_DIR/glava-gui.py)"
+echo -e "  Backupy GLava:    ${BLD}$BACKUP_DIR/${RST}"
 echo ""
-warn "WAŻNE: Po instalacji uruchom GLava: glava --copy-config"
-warn "       Następnie uruchom usługę:   systemctl --user start glava-color-daemon"
+warn "WAŻNE: Jeśli nie masz jeszcze konfiguracji GLava, uruchom: glava --copy-config"
+warn "       Następnie uruchom usługę: systemctl --user start glava-color-daemon"
 echo ""
 info "Gotowe! Wyloguj się i zaloguj ponownie, aby usługa systemd wystartowała."
