@@ -148,6 +148,7 @@ info "Zainstalowano GUI: $DST (wrapper: glava-gui)"
 
 # =============================================================================
 # KROK 5b: Szablon shadera GLava (graph_red.frag)
+# Nie nadpisujemy — użytkownik może mieć własny preset
 # =============================================================================
 section "Konfiguracja szablonu GLava"
 
@@ -171,14 +172,17 @@ else
 fi
 
 # =============================================================================
-# KROK 5c: Konfiguracja modułu GLava (rc.glsl, graph.glsl, graph/1.frag)
+# KROK 5c: Konfiguracja modułu GLava
+# rc.glsl    — nie nadpisujemy (użytkownik może mieć własną konfigurację)
+# graph.glsl — zawsze nadpisujemy (szablon modułu)
+# graph/1.frag — zawsze nadpisujemy (aktywny shader używany przez glava-colors-auto)
 # =============================================================================
 section "Konfiguracja modułu GLava"
 
 GLAVA_CONFIG_SRC="$SCRIPT_DIR/glava-config"
 
 if [ -d "$GLAVA_CONFIG_SRC" ]; then
-    # rc.glsl — tylko jeśli nie istnieje (nie nadpisujemy istniejącej konfiguracji)
+    # rc.glsl — tylko jeśli nie istnieje
     if [ ! -f "$GLAVA_CONFIG/rc.glsl" ]; then
         cp "$GLAVA_CONFIG_SRC/rc.glsl" "$GLAVA_CONFIG/rc.glsl"
         chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/rc.glsl"
@@ -186,7 +190,7 @@ if [ -d "$GLAVA_CONFIG_SRC" ]; then
     else
         warn "Plik rc.glsl już istnieje — pomijam."
     fi
-    # graph.glsl i graph/1.frag — szablon aktywnego shadera
+    # graph.glsl i graph/1.frag — zawsze nadpisuj
     mkdir -p "$GLAVA_CONFIG/graph"
     cp "$GLAVA_CONFIG_SRC/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
     cp "$GLAVA_CONFIG_SRC/graph/1.frag" "$GLAVA_CONFIG/graph/1.frag"
