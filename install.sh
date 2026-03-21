@@ -248,16 +248,20 @@ else
 fi
 
 # =============================================================================
-# KROK 7b: Sudoers — GUI może wywoływać bing-downloader bez hasła
+# KROK 7b: Polityka polkit (pkexec dla GUI)
 # =============================================================================
-section "Konfiguracja sudoers (GUI)"
+section "Konfiguracja polkit"
 
-SUDOERS_FILE="/etc/sudoers.d/bing-glava-$TARGET_USER"
-SUDOERS_LINE="$TARGET_USER ALL=(root) NOPASSWD: $BIN_DIR/bing-downloader.sh"
+POLICY_SRC="$SCRIPT_DIR/polkit/org.bing-glava-suite.policy"
+POLICY_DST="/usr/share/polkit-1/actions/org.bing-glava-suite.policy"
 
-echo "$SUDOERS_LINE" > "$SUDOERS_FILE"
-chmod 440 "$SUDOERS_FILE"
-info "Dodano wpis sudoers: $SUDOERS_FILE"
+if [ -f "$POLICY_SRC" ]; then
+    sed "s|__DOWNLOADER__|$BIN_DIR/bing-downloader.sh|g" "$POLICY_SRC" > "$POLICY_DST"
+    chmod 644 "$POLICY_DST"
+    info "Zainstalowano politykę polkit: $POLICY_DST"
+else
+    warn "Brak pliku polkit/org.bing-glava-suite.policy — pkexec może nie działać."
+fi
 
 # =============================================================================
 # KROK 8: Pierwsze uruchomienie downloadera

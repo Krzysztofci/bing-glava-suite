@@ -420,15 +420,15 @@ class GlavaControlCenter:
         """Pobiera tapetę Bing — tylko pulpit (--force --no-lightdm)"""
         self.root.focus()
         downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        subprocess.Popen(["sudo", downloader, "--force", "--no-lightdm"])
-        self.root.after(3000, self.update_status)
+        subprocess.Popen(["pkexec", downloader, "--force", "--no-lightdm"])
+        self.root.after(4000, self.update_status)
 
     def fetch_wallpaper_full(self):
         """Pobiera tapetę Bing — pulpit + ekran logowania LightDM (--force)"""
         self.root.focus()
         downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        subprocess.Popen(["sudo", downloader, "--force"])
-        self.root.after(3000, self.update_status)
+        subprocess.Popen(["pkexec", downloader, "--force"])
+        self.root.after(4000, self.update_status)
 
     def fetch_wallpaper(self):
         """Alias dla save_settings_action — pobiera z pulpitem tylko"""
