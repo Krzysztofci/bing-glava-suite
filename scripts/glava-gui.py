@@ -134,7 +134,10 @@ def set_crontab_minutes(minutes):
         new_lines = []
         for line in lines:
             if "bing-downloader" in line and not line.startswith("#"):
-                new_line = re.sub(r'^[\d\*\/]+', f'*/{minutes}', line)
+                if minutes == 60:
+                    new_line = re.sub(r'^[\d\*\/]+\s+\*', f'0 *', line)
+                else:
+                    new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
                 new_lines.append(new_line)
             else:
                 new_lines.append(line)
