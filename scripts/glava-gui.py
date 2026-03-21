@@ -100,10 +100,6 @@ def load_settings():
             defaults.update(data)
         except Exception:
             pass
-    # Zawsze odczytuj cron z crontaba (źródło prawdy)
-    defaults["cron_minutes"] = get_crontab_minutes()
-    # Zawsze odczytuj region z bing-downloader.sh (źródło prawdy)
-    defaults["bing_region"] = get_bing_region()
     return defaults
 
 
