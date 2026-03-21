@@ -127,6 +127,7 @@ def get_crontab_minutes():
 
 
 def set_crontab_minutes(minutes):
+    import tempfile
     try:
         result = subprocess.run(["sudo", "crontab", "-l"],
                                 capture_output=True, text=True)
@@ -135,15 +136,18 @@ def set_crontab_minutes(minutes):
         for line in lines:
             if "bing-downloader" in line and not line.startswith("#"):
                 if minutes == 60:
-                    new_line = re.sub(r'^[\d\*\/]+\s+\*', f'0 *', line)
+                    new_line = re.sub(r'^[\d\*\/]+\s+\*', '0 *', line)
                 else:
                     new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
                 new_lines.append(new_line)
             else:
                 new_lines.append(line)
         new_crontab = "\n".join(new_lines) + "\n"
-        proc = subprocess.Popen(["sudo", "crontab", "-"], stdin=subprocess.PIPE)
-        proc.communicate(new_crontab.encode())
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
+            f.write(new_crontab)
+            tmpfile = f.name
+        subprocess.run(["sudo", "crontab", tmpfile])
+        os.unlink(tmpfile)
         return True
     except Exception:
         return False
