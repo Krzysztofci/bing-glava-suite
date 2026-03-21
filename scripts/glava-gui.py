@@ -528,11 +528,17 @@ class GlavaControlCenter:
             return
         region = self.region_var.get()
         set_bing_region(region)
-        cron_ok = set_crontab_minutes(minutes)
         self.settings["cron_minutes"] = minutes
         self.settings["bing_region"] = region
         save_settings(self.settings)
         self.root.focus()
+        import threading
+        def do_cron():
+            cron_ok = set_crontab_minutes(minutes)
+            self.root.after(0, lambda: self._after_cron_save(cron_ok))
+        threading.Thread(target=do_cron, daemon=True).start()
+
+    def _after_cron_save(self, cron_ok):
         if cron_ok:
             messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
             self.fetch_wallpaper()
