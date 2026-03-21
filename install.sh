@@ -191,6 +191,20 @@ chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph"
 chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
 info "Zainstalowano konfigurację modułu graph."
 
+# util — shadery pomocnicze wymagane przez moduł graph
+if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
+    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/util"
+    chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
+    info "Zainstalowano katalog util."
+fi
+
+# smooth_parameters.glsl — parametry wygładzania audio
+if [ -f "$SCRIPT_DIR/glava-config/smooth_parameters.glsl" ]; then
+    cp "$SCRIPT_DIR/glava-config/smooth_parameters.glsl" "$GLAVA_CONFIG/smooth_parameters.glsl"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/smooth_parameters.glsl"
+    info "Zainstalowano smooth_parameters.glsl"
+fi
+
 if [ -d "$BACKUP_DIR" ]; then
     info "Kopie zapasowe zapisano w: $BACKUP_DIR"
 fi
@@ -226,7 +240,7 @@ warn "Aby uruchomić teraz: sudo -u $TARGET_USER systemctl --user start glava-co
 # =============================================================================
 section "Konfiguracja cron (root)"
 
-CRON_LINE="0 * * * * $BIN_DIR/bing-downloader.sh >> $LOG_DIR/bing-downloader.log 2>&1"
+CRON_LINE="*/15 * * * * $BIN_DIR/bing-downloader.sh >> $LOG_DIR/bing-downloader.log 2>&1"
 CRON_MARKER="# bing-glava-suite"
 
 EXISTING=$(crontab -l 2>/dev/null || true)
