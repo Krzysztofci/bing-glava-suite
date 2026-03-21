@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GLava Master Panel
+Name[pl]=GLava Master Panel
+Comment=Sterowanie kolorami i trybami GLava
+Comment[pl]=Sterowanie kolorami i trybami GLava
+Exec=/bin/bash -c '$HOME/.local/bin/glava-gui'
+Icon=preferences-color
+Terminal=false
+Categories=AudioVideo;GLava;
+Keywords=glava;kolory;tapeta;bing;audio;wizualizator
+StartupNotify=true

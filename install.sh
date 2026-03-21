@@ -210,6 +210,29 @@ if [ -d "$BACKUP_DIR" ]; then
 fi
 
 # =============================================================================
+# KROK 5d: Pliki .desktop (wpisy w menu aplikacji)
+# =============================================================================
+section "Instalacja wpisów menu"
+
+DESKTOP_DIR="$TARGET_HOME/.local/share/applications"
+DESKTOP_SRC="$SCRIPT_DIR/desktop"
+
+mkdir -p "$DESKTOP_DIR"
+chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DIR"
+
+if [ -d "$DESKTOP_SRC" ]; then
+    for f in "$DESKTOP_SRC"/*.desktop; do
+        cp "$f" "$DESKTOP_DIR/"
+        chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DIR/$(basename $f)"
+    done
+    info "Zainstalowano wpisy menu w: $DESKTOP_DIR"
+    # Odśwież cache menu
+    sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+else
+    warn "Brak katalogu desktop — pomijam wpisy menu."
+fi
+
+# =============================================================================
 # KROK 6: Usługa systemd użytkownika
 # =============================================================================
 section "Konfiguracja usługi systemd"

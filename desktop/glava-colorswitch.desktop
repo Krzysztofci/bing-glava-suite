@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GLava — tryb RED / AUTO
+Name[pl]=GLava — tryb RED / AUTO
+Comment=Przełącza GLava między trybem automatycznym (kolory z tapety) a czerwonym
+Comment[pl]=Przełącza GLava między trybem automatycznym (kolory z tapety) a czerwonym
+Exec=/bin/bash -c '$HOME/.local/bin/glava-colorswitch'
+Icon=preferences-desktop-wallpaper
+Terminal=false
+Categories=AudioVideo;GLava;
+Keywords=glava;kolor;czerwony;tapeta;bing;auto
+StartupNotify=false

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GLava — włącz/wyłącz
+Name[pl]=GLava — włącz/wyłącz
+Comment=Włącza lub wyłącza wizualizator GLava
+Comment[pl]=Włącza lub wyłącza wizualizator GLava
+Exec=/bin/bash -c '$HOME/.local/bin/glava-toggle'
+Icon=media-playback-start
+Terminal=false
+Categories=AudioVideo;GLava;
+Keywords=glava;toggle;włącz;wyłącz
+StartupNotify=false
