@@ -148,47 +148,28 @@ def get_crontab_minutes():
 
 
 def set_crontab_minutes(minutes):
+    """Aktualizuje interwał crona — jedno pytanie o hasło przez zenity."""
     import tempfile, shutil
     try:
-        # Odczyt bez sudo (crontab roota wymaga sudo)
-        result = subprocess.run(["sudo", "-n", "crontab", "-l"],
-                                capture_output=True, text=True)
-        if result.returncode != 0:
-            # sudo -n nie zadziałało — spróbuj przez zenity
-            if shutil.which("zenity"):
-                passwd = subprocess.run(
-                    ["zenity", "--password", "--title=Autoryzacja"],
-                    capture_output=True, text=True
-                ).stdout.strip()
-                if not passwd:
-                    return False
-                result = subprocess.run(
-                    ["sudo", "-S", "crontab", "-l"],
-                    input=passwd + "\n",
-                    capture_output=True, text=True
-                )
-                # Użyj tego samego hasła do zapisu
-                lines = result.stdout.splitlines()
-                new_lines = []
-                for line in lines:
-                    if "bing-downloader" in line and not line.startswith("#"):
-                        if minutes == 60:
-                            new_line = re.sub(r'^[\d\*\/]+\s+\*', '0 *', line)
-                        else:
-                            new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
-                        new_lines.append(new_line)
-                    else:
-                        new_lines.append(line)
-                new_crontab = "\n".join(new_lines) + "\n"
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
-                    f.write(new_crontab)
-                    tmpfile = f.name
-                subprocess.run(["sudo", "-S", "crontab", tmpfile],
-                               input=passwd + "\n", capture_output=True)
-                os.unlink(tmpfile)
-                return True
+        passwd = ""
+        if shutil.which("zenity"):
+            passwd = subprocess.run(
+                ["zenity", "--password", "--title=Autoryzacja (cron)"],
+                capture_output=True, text=True
+            ).stdout.strip()
+            if not passwd:
+                return False
+
+        # Odczyt crontaba
+        read_result = subprocess.run(
+            ["sudo", "-S", "crontab", "-l"],
+            input=passwd + "\n",
+            capture_output=True, text=True
+        )
+        if read_result.returncode != 0:
             return False
-        lines = result.stdout.splitlines()
+
+        lines = read_result.stdout.splitlines()
         new_lines = []
         for line in lines:
             if "bing-downloader" in line and not line.startswith("#"):
@@ -199,11 +180,18 @@ def set_crontab_minutes(minutes):
                 new_lines.append(new_line)
             else:
                 new_lines.append(line)
+
         new_crontab = "\n".join(new_lines) + "\n"
         with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
             f.write(new_crontab)
             tmpfile = f.name
-        subprocess.run(["sudo", "-n", "crontab", tmpfile])
+
+        # Zapis crontaba tym samym hasłem
+        subprocess.run(
+            ["sudo", "-S", "crontab", tmpfile],
+            input=passwd + "\n",
+            capture_output=True
+        )
         os.unlink(tmpfile)
         return True
     except Exception:
@@ -541,13 +529,16 @@ class GlavaControlCenter:
             return
         region = self.region_var.get()
         set_bing_region(region)
-        set_crontab_minutes(minutes)
+        cron_ok = set_crontab_minutes(minutes)
         self.settings["cron_minutes"] = minutes
         self.settings["bing_region"] = region
         save_settings(self.settings)
         self.root.focus()
-        messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
-        self.fetch_wallpaper()
+        if cron_ok:
+            messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
+            self.fetch_wallpaper()
+        else:
+            messagebox.showwarning("", "Region Bing zapisany. Nie udało się zaktualizować crona.")
 
     def restart_glava(self):
         subprocess.run(["pkill", "-x", "glava"])
