@@ -230,11 +230,14 @@ class GlavaControlCenter:
         mf = tk.LabelFrame(row1, text=T.get("section_modes", "Tryby"),
                             font=("Arial", 9, "bold"), padx=6, pady=6)
         mf.pack(side="left", fill="both", expand=True, padx=(4, 0))
-        tk.Button(mf, text=T.get("btn_fetch_wallpaper", "Pobierz tapetę Bing teraz"),
-                  command=self.fetch_wallpaper, bg="#1565c0", fg="white",
-                  height=2).pack(fill="x", pady=(0, 4))
+        tk.Button(mf, text=T.get("btn_fetch_wallpaper", "Pobierz tapetę Bing (pulpit)"),
+                  command=self.fetch_wallpaper_no_lightdm, bg="#1565c0", fg="white"
+                  ).pack(fill="x", pady=(0, 3))
+        tk.Button(mf, text=T.get("btn_fetch_wallpaper_full", "Pobierz tapetę Bing (pulpit + logowanie)"),
+                  command=self.fetch_wallpaper_full, bg="#0d47a1", fg="white"
+                  ).pack(fill="x", pady=(0, 6))
         tk.Button(mf, text=T.get("btn_restore_auto", "Przywróć Bing (auto)"),
-                  command=self.restore_auto, bg="#37474f", fg="white").pack(fill="x", pady=(0, 4))
+                  command=self.restore_auto, bg="#37474f", fg="white").pack(fill="x", pady=(0, 3))
         tk.Button(mf, text=T.get("btn_toggle_glava", "Włącz / Wyłącz GLava"),
                   command=self.run_toggle, bg="#424242", fg="white").pack(fill="x")
 
@@ -413,12 +416,23 @@ class GlavaControlCenter:
                 self.current_colors[key] = hex_c
                 getattr(self, f"btn_{key}").config(bg=hex_c)
 
-    def fetch_wallpaper(self):
-        """Pobiera tapetę Bing teraz (--force --no-lightdm, bez sudo dla lightdm)"""
+    def fetch_wallpaper_no_lightdm(self):
+        """Pobiera tapetę Bing — tylko pulpit (--force --no-lightdm)"""
         self.root.focus()
         downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
         subprocess.Popen(["sudo", downloader, "--force", "--no-lightdm"])
         self.root.after(3000, self.update_status)
+
+    def fetch_wallpaper_full(self):
+        """Pobiera tapetę Bing — pulpit + ekran logowania LightDM (--force)"""
+        self.root.focus()
+        downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
+        subprocess.Popen(["sudo", downloader, "--force"])
+        self.root.after(3000, self.update_status)
+
+    def fetch_wallpaper(self):
+        """Alias dla save_settings_action — pobiera z pulpitem tylko"""
+        self.fetch_wallpaper_no_lightdm()
 
     def restore_auto(self):
         for flag in (FLAG_RED, FLAG_MANUAL):
