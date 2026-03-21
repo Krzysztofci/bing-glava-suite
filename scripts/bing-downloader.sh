@@ -3,10 +3,24 @@
 # bing-downloader.sh
 # Pobiera dzisiejszą tapetę Bing, ustawia ją jako tło pulpitu (XFCE/Cinnamon)
 # oraz ekran logowania (LightDM). Uruchamiany z crona jako root.
+#
+# Flagi:
+#   --no-lightdm  Pomija aktualizację ekranu logowania LightDM (dla GUI)
+#   --force       Wymusza pobranie nawet jeśli URL się nie zmienił
 # =============================================================================
 
 # --- KONFIGURACJA (podmieniana przez install.sh) ---
 USER_NAME="__USER__"
+
+# --- FLAGI ---
+NO_LIGHTDM=false
+FORCE=false
+for arg in "$@"; do
+    case "$arg" in
+        --no-lightdm) NO_LIGHTDM=true ;;
+        --force)      FORCE=true ;;
+    esac
+done
 
 # --- ŚCIEŻKI ---
 PICTURES_DIR="/home/$USER_NAME/Pictures/Bing"
@@ -18,7 +32,7 @@ MINT_DEFAULT="/usr/share/backgrounds/linuxmint/default_background.jpg"
 
 mkdir -p "$PICTURES_DIR"
 
-# --- KROK 1: Pobierz URL tapety (region: Niemcy) ---
+# --- KROK 1: Pobierz URL tapety ---
 JSON_DATA=$(/usr/bin/curl -s --connect-timeout 10 \
     "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=de-DE")
 
@@ -32,7 +46,7 @@ URL_UHD=$(echo "$URL_PATH" | sed 's/1920x1080/UHD/g')
 FULL_URL="https://www.bing.com$URL_UHD"
 
 # --- KROK 2: Sprawdź, czy tapeta się zmieniła ---
-if [ -f "$URL_CACHE" ]; then
+if [ "$FORCE" = false ] && [ -f "$URL_CACHE" ]; then
     OLD_URL=$(cat "$URL_CACHE")
     if [ "$OLD_URL" = "$FULL_URL" ]; then
         exit 0
@@ -58,10 +72,12 @@ fi
 chown "$USER_NAME:$USER_NAME" "$FULL_PATH" "$URL_CACHE"
 chmod 644 "$FULL_PATH"
 
-# --- KROK 5: Ekran logowania ---
-cp "$FULL_PATH" "$LOGIN_BACKGROUND"
-chmod 644 "$LOGIN_BACKGROUND"
-ln -sf "$LOGIN_BACKGROUND" "$MINT_DEFAULT"
+# --- KROK 5: Ekran logowania (pomijany z --no-lightdm) ---
+if [ "$NO_LIGHTDM" = false ]; then
+    cp "$FULL_PATH" "$LOGIN_BACKGROUND"
+    chmod 644 "$LOGIN_BACKGROUND"
+    ln -sf "$LOGIN_BACKGROUND" "$MINT_DEFAULT"
+fi
 
 # --- KROK 6: Aktualizacja środowiska graficznego ---
 USER_ID=$(id -u "$USER_NAME")

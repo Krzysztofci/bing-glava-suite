@@ -21,20 +21,6 @@ Panel GUI pozwala ręcznie dobierać kolory, zapisywać własne presety i przeł
 
 ---
 
-## Screenshoty
-
-Kolory GLava automatycznie dopasowane do tapety Bing:
-
-![Jeżozwierz — odcienie szarości i brązu](screenshots/echidna-gray.png)
-
-![Portland nocą — złoto i pomarańcz](screenshots/portland-orange.png)
-
-![Panda — zielenie lasu](screenshots/panda-green.png)
-
-Panel sterowania GUI:
-
-![GLava Master Panel](screenshots/gui-panel.png)
-
 ## Wymagania
 
 ### System
@@ -295,5 +281,3 @@ Szczegóły w pliku `UNLICENSE`.
 **Known limitations:** GLava requires hardware OpenGL acceleration — does not work in virtual machines with software rendering. XFCE support uses `xfdesktop` process name and `su -c` for `xfconf-query` calls due to DBUS restrictions when running as root.
 
 **License:** Public domain (The Unlicense).
-
----
