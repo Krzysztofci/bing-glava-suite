@@ -22,6 +22,27 @@ import json
 import glob
 import datetime
 
+def sudo_run(cmd):
+    """Uruchamia komendę jako root z graficznym pytaniem o hasło przez zenity."""
+    import shutil
+    if shutil.which("zenity"):
+        passwd = subprocess.run(
+            ["zenity", "--password", "--title=Autoryzacja"],
+            capture_output=True, text=True
+        ).stdout.strip()
+        if not passwd:
+            return False
+        full_cmd = ["sudo", "-S"] + cmd
+        result = subprocess.run(
+            full_cmd,
+            input=passwd + "\n",
+            capture_output=True, text=True
+        )
+        return result.returncode == 0
+    else:
+        result = subprocess.run(["sudo"] + cmd)
+        return result.returncode == 0
+
 USER_HOME    = os.path.expanduser("~")
 CONFIG_DIR   = os.path.join(USER_HOME, ".config/glava")
 BIN_DIR      = os.path.join(USER_HOME, ".local/bin")
@@ -127,10 +148,46 @@ def get_crontab_minutes():
 
 
 def set_crontab_minutes(minutes):
-    import tempfile
+    import tempfile, shutil
     try:
-        result = subprocess.run(["sudo", "crontab", "-l"],
+        # Odczyt bez sudo (crontab roota wymaga sudo)
+        result = subprocess.run(["sudo", "-n", "crontab", "-l"],
                                 capture_output=True, text=True)
+        if result.returncode != 0:
+            # sudo -n nie zadziałało — spróbuj przez zenity
+            if shutil.which("zenity"):
+                passwd = subprocess.run(
+                    ["zenity", "--password", "--title=Autoryzacja"],
+                    capture_output=True, text=True
+                ).stdout.strip()
+                if not passwd:
+                    return False
+                result = subprocess.run(
+                    ["sudo", "-S", "crontab", "-l"],
+                    input=passwd + "\n",
+                    capture_output=True, text=True
+                )
+                # Użyj tego samego hasła do zapisu
+                lines = result.stdout.splitlines()
+                new_lines = []
+                for line in lines:
+                    if "bing-downloader" in line and not line.startswith("#"):
+                        if minutes == 60:
+                            new_line = re.sub(r'^[\d\*\/]+\s+\*', '0 *', line)
+                        else:
+                            new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
+                        new_lines.append(new_line)
+                    else:
+                        new_lines.append(line)
+                new_crontab = "\n".join(new_lines) + "\n"
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
+                    f.write(new_crontab)
+                    tmpfile = f.name
+                subprocess.run(["sudo", "-S", "crontab", tmpfile],
+                               input=passwd + "\n", capture_output=True)
+                os.unlink(tmpfile)
+                return True
+            return False
         lines = result.stdout.splitlines()
         new_lines = []
         for line in lines:
@@ -146,7 +203,7 @@ def set_crontab_minutes(minutes):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
             f.write(new_crontab)
             tmpfile = f.name
-        subprocess.run(["sudo", "crontab", tmpfile])
+        subprocess.run(["sudo", "-n", "crontab", tmpfile])
         os.unlink(tmpfile)
         return True
     except Exception:
@@ -427,15 +484,15 @@ class GlavaControlCenter:
         """Pobiera tapetę Bing — tylko pulpit (--force --no-lightdm)"""
         self.root.focus()
         downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        subprocess.Popen(["pkexec", downloader, "--force", "--no-lightdm"])
-        self.root.after(4000, self.update_status)
+        sudo_run([downloader, "--force", "--no-lightdm"])
+        self.root.after(3000, self.update_status)
 
     def fetch_wallpaper_full(self):
         """Pobiera tapetę Bing — pulpit + ekran logowania LightDM (--force)"""
         self.root.focus()
         downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        subprocess.Popen(["pkexec", downloader, "--force"])
-        self.root.after(4000, self.update_status)
+        sudo_run([downloader, "--force"])
+        self.root.after(3000, self.update_status)
 
     def fetch_wallpaper(self):
         """Alias dla save_settings_action — pobiera z pulpitem tylko"""
