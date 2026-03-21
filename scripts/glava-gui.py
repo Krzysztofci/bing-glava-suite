@@ -92,13 +92,19 @@ def available_langs():
 
 
 def load_settings():
+    defaults = {"lang": "pl", "cron_minutes": 15, "bing_region": "de-DE"}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE) as f:
-                return json.load(f)
+                data = json.load(f)
+            defaults.update(data)
         except Exception:
             pass
-    return {"lang": "pl", "cron_minutes": 15, "bing_region": "de-DE"}
+    # Zawsze odczytuj cron z crontaba (źródło prawdy)
+    defaults["cron_minutes"] = get_crontab_minutes()
+    # Zawsze odczytuj region z bing-downloader.sh (źródło prawdy)
+    defaults["bing_region"] = get_bing_region()
+    return defaults
 
 
 def save_settings(settings):
@@ -135,20 +141,21 @@ def write_geometry(x, y, w, h):
 
 def get_crontab_minutes():
     try:
-        result = subprocess.run(["sudo", "crontab", "-l"],
+        result = subprocess.run(["sudo", "-n", "crontab", "-l"],
                                 capture_output=True, text=True)
-        for line in result.stdout.splitlines():
-            if "bing-downloader" in line and not line.startswith("#"):
-                m = re.match(r'\*/(\d+)', line)
-                if m:
-                    return int(m.group(1))
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if "bing-downloader" in line and not line.startswith("#"):
+                    m = re.match(r'\*/(\d+)', line)
+                    if m:
+                        return int(m.group(1))
     except Exception:
         pass
-    return 15
+    settings = load_settings()
+    return settings.get("cron_minutes", 15)
 
 
 def set_crontab_minutes(minutes):
-    """Aktualizuje interwał crona — jedno pytanie o hasło przez zenity."""
     import tempfile, shutil
     try:
         passwd = ""
@@ -159,18 +166,14 @@ def set_crontab_minutes(minutes):
             ).stdout.strip()
             if not passwd:
                 return False
-
-        # Odczyt crontaba
-        read_result = subprocess.run(
+        result = subprocess.run(
             ["sudo", "-S", "crontab", "-l"],
             input=passwd + "\n",
             capture_output=True, text=True
         )
-        if read_result.returncode != 0:
-            return False
-
-        lines = read_result.stdout.splitlines()
+        lines = result.stdout.splitlines()
         new_lines = []
+        found = False
         for line in lines:
             if "bing-downloader" in line and not line.startswith("#"):
                 if minutes == 60:
@@ -178,15 +181,15 @@ def set_crontab_minutes(minutes):
                 else:
                     new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
                 new_lines.append(new_line)
+                found = True
             else:
                 new_lines.append(line)
-
+        if not found:
+            return False
         new_crontab = "\n".join(new_lines) + "\n"
         with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
             f.write(new_crontab)
             tmpfile = f.name
-
-        # Zapis crontaba tym samym hasłem
         subprocess.run(
             ["sudo", "-S", "crontab", tmpfile],
             input=passwd + "\n",
@@ -194,7 +197,7 @@ def set_crontab_minutes(minutes):
         )
         os.unlink(tmpfile)
         return True
-    except Exception:
+    except Exception as e:
         return False
 
 
@@ -351,7 +354,7 @@ class GlavaControlCenter:
         s_row.pack(fill="x")
         tk.Label(s_row, text=T.get("label_cron", "Cron (minuty)") + ":",
                  font=("Arial", 9)).pack(side="left")
-        self.cron_var = tk.StringVar(value=str(self.settings.get("cron_minutes", 15)))
+        self.cron_var = tk.StringVar(value=str(get_crontab_minutes()))
         tk.Entry(s_row, textvariable=self.cron_var, width=5, font=("Arial", 9)
                  ).pack(side="left", padx=(4, 16))
         tk.Label(s_row, text=T.get("label_region", "Region Bing") + ":",
