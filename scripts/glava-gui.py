@@ -8,7 +8,6 @@
 #   - Przywracanie trybu auto (kolory z tapety Bing)
 #   - Toggle GLava (włącz/wyłącz)
 #   - Konfiguracja geometrii GLava (X/Y/W/H → rc.glsl)
-#   - Ustawienia crona (częstotliwość pobierania tapety)
 #   - Wybór regionu Bing
 #   - Wielojęzyczność (pliki lang/*.json)
 # =============================================================================
@@ -92,7 +91,7 @@ def available_langs():
 
 
 def load_settings():
-    defaults = {"lang": "pl", "cron_minutes": 15, "bing_region": "de-DE"}
+    defaults = {"lang": "pl", "bing_region": "de-DE"}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE) as f:
@@ -133,69 +132,6 @@ def write_geometry(x, y, w, h):
     with open(RC_GLSL, "w") as f:
         f.write(new)
     return True
-
-
-def get_crontab_minutes():
-    try:
-        result = subprocess.run(["sudo", "-n", "crontab", "-l"],
-                                capture_output=True, text=True)
-        if result.returncode == 0:
-            for line in result.stdout.splitlines():
-                if "bing-downloader" in line and not line.startswith("#"):
-                    m = re.match(r'\*/(\d+)', line)
-                    if m:
-                        return int(m.group(1))
-    except Exception:
-        pass
-    settings = load_settings()
-    return settings.get("cron_minutes", 15)
-
-
-def set_crontab_minutes(minutes):
-    import tempfile, shutil
-    try:
-        passwd = ""
-        if shutil.which("zenity"):
-            passwd = subprocess.run(
-                ["zenity", "--password", "--title=Autoryzacja (cron)"],
-                capture_output=True, text=True
-            ).stdout.strip()
-            if not passwd:
-                return False
-        result = subprocess.run(
-            ["sudo", "-S", "crontab", "-l"],
-            input=passwd + "\n",
-            capture_output=True, text=True
-        )
-        lines = result.stdout.splitlines()
-        new_lines = []
-        found = False
-        for line in lines:
-            if "bing-downloader" in line and not line.startswith("#"):
-                if minutes == 60:
-                    new_line = re.sub(r'^[\d\*\/]+\s+\*', '0 *', line)
-                else:
-                    new_line = re.sub(r'^[\d\*\/]+(\s)', f'*/{minutes}\\1', line)
-                new_lines.append(new_line)
-                found = True
-            else:
-                new_lines.append(line)
-        if not found:
-            return False
-        new_crontab = "\n".join(new_lines) + "\n"
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.cron', delete=False) as f:
-            f.write(new_crontab)
-            tmpfile = f.name
-        subprocess.run(
-            ["sudo", "-S", "crontab", tmpfile],
-            input=passwd + "\n",
-            capture_output=True
-        )
-        os.unlink(tmpfile)
-        return True
-    except Exception as e:
-        return False
-
 
 def get_bing_region():
     downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
@@ -520,13 +456,6 @@ class GlavaControlCenter:
         save_settings(self.settings)
         self.root.focus()
         messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
-
-    def _after_cron_save(self, cron_ok):
-        if cron_ok:
-            messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
-            self.fetch_wallpaper()
-        else:
-            messagebox.showwarning("", "Region Bing zapisany. Nie udało się zaktualizować crona.")
 
     def restart_glava(self):
         subprocess.run(["pkill", "-x", "glava"])
