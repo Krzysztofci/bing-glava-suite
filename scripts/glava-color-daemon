@@ -24,7 +24,13 @@ if [ -e "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
     exit 0
 fi
 echo $$ > "$LOCKFILE"
-trap "rm -f '$LOCKFILE'; exit" SIGINT SIGTERM EXIT
+INOTIFY_PID=""
+cleanup() {
+    rm -f "$LOCKFILE"
+    [ -n "$INOTIFY_PID" ] && kill "$INOTIFY_PID" 2>/dev/null
+    exit 0
+}
+trap cleanup SIGINT SIGTERM EXIT
 # --- Uruchom GLava jeśli nie działa ---
 if [ ! -f "$DISABLE_FLAG" ] && ! pgrep -x glava >/dev/null; then
     glava --desktop >/dev/null 2>&1 &
@@ -63,7 +69,10 @@ update_colors() {
 # --- Pętla główna: nasłuchuj zmian tapety ---
 echo "$(date '+%F %T') - Daemon uruchomiony, obserwuję: $WALLPAPER" >> "$LOG"
 while true; do
-    inotifywait -e close_write,create,move "$WALLPAPER" >/dev/null 2>&1
+    inotifywait -e close_write,create,move "$WALLPAPER" >/dev/null 2>&1 &
+    INOTIFY_PID=$!
+    wait $INOTIFY_PID
+    INOTIFY_PID=""
     sleep 0.2
     update_colors
 done
