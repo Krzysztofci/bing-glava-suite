@@ -101,6 +101,7 @@ section "Tworzenie katalogów"
 
 mkdir -p "$BIN_DIR"
 mkdir -p "$CONFIG_DIR"
+chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/systemd"
 mkdir -p "$LOG_DIR"
 mkdir -p "$TARGET_HOME/Pictures/Bing"
 mkdir -p "/usr/share/backgrounds/linuxmint"
