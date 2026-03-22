@@ -348,11 +348,6 @@ class GlavaControlCenter:
         sf.pack(fill="x", padx=10, pady=4)
         s_row = tk.Frame(sf)
         s_row.pack(fill="x")
-        tk.Label(s_row, text=T.get("label_cron", "Cron (minuty)") + ":",
-                 font=("Arial", 9)).pack(side="left")
-        self.cron_var = tk.StringVar(value=str(get_crontab_minutes()))
-        tk.Entry(s_row, textvariable=self.cron_var, width=5, font=("Arial", 9)
-                 ).pack(side="left", padx=(4, 16))
         tk.Label(s_row, text=T.get("label_region", "Region Bing") + ":",
                  font=("Arial", 9)).pack(side="left")
         self.region_var = tk.StringVar(value=get_bing_region())
@@ -468,11 +463,11 @@ class GlavaControlCenter:
                 getattr(self, f"btn_{key}").config(bg=hex_c)
 
     def fetch_wallpaper_no_lightdm(self):
-        """Pobiera tapetę Bing — tylko pulpit (--force --no-lightdm)"""
+        """Pobiera tapetę Bing — tylko pulpit, bez sudo (bing-fetch-user.sh)"""
         self.root.focus()
-        downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        sudo_run([downloader, "--force", "--no-lightdm"])
-        self.root.after(3000, self.update_status)
+        fetcher = os.path.join(BIN_DIR, "bing-fetch-user.sh")
+        subprocess.Popen(["/bin/bash", fetcher, "--force"])
+        self.root.after(4000, self.update_status)
 
     def fetch_wallpaper_full(self):
         """Pobiera tapetę Bing — pulpit + ekran logowania LightDM (--force)"""
@@ -519,24 +514,12 @@ class GlavaControlCenter:
             self.restart_glava()
 
     def save_settings_action(self):
-        try:
-            minutes = int(self.cron_var.get())
-            if not (1 <= minutes <= 1440):
-                raise ValueError
-        except ValueError:
-            messagebox.showerror("", self.T.get("settings_cron_error", "Błąd: 1-1440."))
-            return
         region = self.region_var.get()
         set_bing_region(region)
-        self.settings["cron_minutes"] = minutes
         self.settings["bing_region"] = region
         save_settings(self.settings)
         self.root.focus()
-        import threading
-        def do_cron():
-            cron_ok = set_crontab_minutes(minutes)
-            self.root.after(0, lambda: self._after_cron_save(cron_ok))
-        threading.Thread(target=do_cron, daemon=True).start()
+        messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
 
     def _after_cron_save(self, cron_ok):
         if cron_ok:
