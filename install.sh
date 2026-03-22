@@ -162,14 +162,27 @@ chmod 755 "$BIN_DIR/glava-gui"
 chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
 info "Zainstalowano GUI: $DST (wrapper: glava-gui)"
 
-# Pliki językowe
-LANG_SRC="$SCRIPT_DIR/lang"
-LANG_DST="$BIN_DIR/../share/bing-glava-suite/lang"
-if [ -d "$LANG_SRC" ]; then
-    mkdir -p "$LANG_DST"
-    cp -r "$LANG_SRC/"*.json "$LANG_DST/"
-    chown -R "$TARGET_USER:$TARGET_USER" "$LANG_DST"
-    info "Zainstalowano pliki językowe: $LANG_DST"
+# =============================================================================
+# KROK 5c: Pliki .desktop (menu aplikacji)
+# =============================================================================
+section "Instalacja skrótów w menu"
+
+DESKTOP_SRC="$SCRIPT_DIR/desktop"
+DESKTOP_DST="$TARGET_HOME/.local/share/applications"
+
+mkdir -p "$DESKTOP_DST"
+chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DST"
+
+if [ -d "$DESKTOP_SRC" ]; then
+    for f in "$DESKTOP_SRC"/*.desktop "$DESKTOP_SRC"/*.directory; do
+        [ -f "$f" ] || continue
+        cp "$f" "$DESKTOP_DST/"
+        chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DST/$(basename "$f")"
+        info "Zainstalowano: $(basename "$f")"
+    done
+    sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || true
+else
+    warn "Brak katalogu desktop/ — pomijam."
 fi
 
 # =============================================================================
