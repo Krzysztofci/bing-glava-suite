@@ -120,6 +120,7 @@ BASH_SCRIPTS=(
     glava-toggle
     glava-colors-auto
     glava-color-daemon
+    bing-fetch-user.sh
 )
 
 for script in "${BASH_SCRIPTS[@]}"; do
