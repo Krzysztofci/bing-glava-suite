@@ -14,6 +14,7 @@ for arg in "$@"; do
     [ "$arg" = "--force" ] && FORCE=true
 done
 
+CONFIG_FILE="$HOME/.config/bing-glava/config"
 PICTURES_DIR="$HOME/Pictures/Bing"
 FULL_PATH="$PICTURES_DIR/bing_today.jpg"
 TEMP_PATH="$PICTURES_DIR/bing_temp.jpg"
@@ -21,18 +22,10 @@ URL_CACHE="$PICTURES_DIR/last_url.txt"
 
 mkdir -p "$PICTURES_DIR"
 
-# Odczyt regionu — najpierw z pliku config, potem z bing-downloader.sh jako fallback
+# Odczyt konfiguracji
 BING_REGION="de-DE"
-CONFIG_FILE="$HOME/.config/bing-glava/config"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
-else
-    # Fallback: odczytaj region z zainstalowanego bing-downloader.sh
-    DOWNLOADER="$HOME/.local/bin/bing-downloader.sh"
-    if [ -f "$DOWNLOADER" ]; then
-        EXTRACTED=$(grep -oP "mkt=\K[a-z]{2}-[A-Z]{2}" "$DOWNLOADER" | head -1)
-        [ -n "$EXTRACTED" ] && BING_REGION="$EXTRACTED"
-    fi
 fi
 
 # KROK 1: Pobierz URL

@@ -15,18 +15,6 @@ warn()    { echo -e "${YEL}[!]${RST} $*"; }
 error()   { echo -e "${RED}[✗]${RST} $*"; exit 1; }
 section() { echo -e "\n${BLD}═══ $* ═══${RST}"; }
 
-# Backup pliku przed nadpisaniem
-backup_file() {
-    local FILE="$1"
-    local BACKUP_DIR="$2"
-    if [ -f "$FILE" ]; then
-        mkdir -p "$BACKUP_DIR"
-        cp "$FILE" "$BACKUP_DIR/$(basename "$FILE").bak"
-        chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
-        info "Backup: $(basename "$FILE") → $BACKUP_DIR"
-    fi
-}
-
 # =============================================================================
 # KROK 0: Podstawowe sprawdzenia
 # =============================================================================
@@ -50,7 +38,6 @@ TARGET_USER="${INPUT_USER:-$SUDO_USER}"
 if [ -z "$TARGET_USER" ]; then
     error "Nie można ustalić nazwy użytkownika. Uruchom przez sudo."
 fi
-
 if ! id "$TARGET_USER" &>/dev/null; then
     error "Użytkownik '$TARGET_USER' nie istnieje."
 fi
@@ -58,15 +45,37 @@ fi
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 TARGET_UID=$(id -u "$TARGET_USER")
 BIN_DIR="$TARGET_HOME/.local/bin"
+SHARE_DIR="$TARGET_HOME/.local/share/bing-glava-suite"
 CONFIG_DIR="$TARGET_HOME/.config/systemd/user"
 LOG_DIR="$TARGET_HOME/.local/logs"
 GLAVA_CONFIG="$TARGET_HOME/.config/glava"
-BACKUP_DIR="$GLAVA_CONFIG/backup_install"
+BING_CONFIG_DIR="$TARGET_HOME/.config/bing-glava"
 
 info "Instalacja dla użytkownika: $TARGET_USER ($TARGET_HOME)"
 
 # =============================================================================
-# KROK 2: Zależności systemowe
+# KROK 2: Interwał crona
+# =============================================================================
+section "Konfiguracja crona"
+
+echo -e "Co ile minut pobierać tapetę Bing? (domyślnie: ${BLD}15${RST}, dla 1h wpisz 60)"
+read -rp "Interwał [minuty]: " INPUT_CRON
+INPUT_CRON="${INPUT_CRON:-15}"
+
+if ! [[ "$INPUT_CRON" =~ ^[0-9]+$ ]] || [ "$INPUT_CRON" -lt 1 ] || [ "$INPUT_CRON" -gt 1440 ]; then
+    warn "Nieprawidłowa wartość — ustawiam domyślne 15 minut."
+    INPUT_CRON=15
+fi
+
+if [ "$INPUT_CRON" -eq 60 ]; then
+    CRON_SCHEDULE="0 * * * *"
+else
+    CRON_SCHEDULE="*/$INPUT_CRON * * * *"
+fi
+info "Interwał crona: $CRON_SCHEDULE ($INPUT_CRON minut)"
+
+# =============================================================================
+# KROK 3: Zależności systemowe
 # =============================================================================
 section "Instalacja zależności systemowych"
 
@@ -95,28 +104,43 @@ if ! command -v glava &>/dev/null; then
 fi
 
 # =============================================================================
-# KROK 3: Katalogi
+# KROK 4: Katalogi
 # =============================================================================
 section "Tworzenie katalogów"
 
-mkdir -p "$BIN_DIR"
-mkdir -p "$CONFIG_DIR"
-chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/systemd"
-mkdir -p "$LOG_DIR"
-mkdir -p "$TARGET_HOME/Pictures/Bing"
-mkdir -p "/usr/share/backgrounds/linuxmint"
+mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" \
+         "$TARGET_HOME/Pictures/Bing" \
+         "$SHARE_DIR/lang" \
+         "$BING_CONFIG_DIR" \
+         "/usr/share/backgrounds/linuxmint"
 
-chown -R "$TARGET_USER:$TARGET_USER" "$BIN_DIR" "$LOG_DIR" \
-    "$TARGET_HOME/Pictures/Bing"
+chown -R "$TARGET_USER:$TARGET_USER" \
+    "$BIN_DIR" "$LOG_DIR" \
+    "$TARGET_HOME/Pictures/Bing" \
+    "$SHARE_DIR" \
+    "$BING_CONFIG_DIR"
 
 info "Katalogi gotowe."
 
 # =============================================================================
-# KROK 4: Instalacja skryptów bash
+# KROK 5: Systemowy skrypt bing-downloader.sh → /usr/local/bin/
 # =============================================================================
-section "Instalacja skryptów"
+section "Instalacja systemowego skryptu pobierania tapet"
 
-BASH_SCRIPTS=(
+DOWNLOADER_SRC="$SCRIPT_DIR/scripts/bing-downloader.sh"
+DOWNLOADER_DST="/usr/local/bin/bing-downloader.sh"
+
+cp "$DOWNLOADER_SRC" "$DOWNLOADER_DST"
+chmod 755 "$DOWNLOADER_DST"
+chown root:root "$DOWNLOADER_DST"
+info "Zainstalowano: $DOWNLOADER_DST (właściciel: root)"
+
+# =============================================================================
+# KROK 6: Skrypty użytkownika → ~/.local/bin/
+# =============================================================================
+section "Instalacja skryptów użytkownika"
+
+USER_SCRIPTS=(
     glava-colorswitch
     glava-toggle
     glava-colors-auto
@@ -124,7 +148,7 @@ BASH_SCRIPTS=(
     bing-fetch-user.sh
 )
 
-for script in "${BASH_SCRIPTS[@]}"; do
+for script in "${USER_SCRIPTS[@]}"; do
     SRC="$SCRIPT_DIR/scripts/$script"
     DST="$BIN_DIR/$script"
     if [ ! -f "$SRC" ]; then
@@ -136,23 +160,14 @@ for script in "${BASH_SCRIPTS[@]}"; do
     info "Zainstalowano: $DST"
 done
 
-SRC="$SCRIPT_DIR/scripts/bing-downloader.sh"
-DST_DOWNLOADER="$BIN_DIR/bing-downloader.sh"
-sed "s/__USER__/$TARGET_USER/g" "$SRC" > "$DST_DOWNLOADER"
-chmod 755 "$DST_DOWNLOADER"
-chown "$TARGET_USER:$TARGET_USER" "$DST_DOWNLOADER"
-info "Zainstalowano (z podmianą użytkownika): $DST_DOWNLOADER"
-
 # =============================================================================
-# KROK 5: Instalacja GUI (Python)
+# KROK 7: GUI (Python)
 # =============================================================================
 section "Instalacja GUI"
 
-SRC="$SCRIPT_DIR/scripts/glava-gui.py"
-DST="$BIN_DIR/glava-gui.py"
-cp "$SRC" "$DST"
-chmod 755 "$DST"
-chown "$TARGET_USER:$TARGET_USER" "$DST"
+cp "$SCRIPT_DIR/scripts/glava-gui.py" "$BIN_DIR/glava-gui.py"
+chmod 755 "$BIN_DIR/glava-gui.py"
+chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui.py"
 
 cat > "$BIN_DIR/glava-gui" <<WRAPPER
 #!/bin/bash
@@ -160,10 +175,91 @@ exec python3 "$BIN_DIR/glava-gui.py" "\$@"
 WRAPPER
 chmod 755 "$BIN_DIR/glava-gui"
 chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
-info "Zainstalowano GUI: $DST (wrapper: glava-gui)"
+info "Zainstalowano GUI (wrapper: glava-gui)"
+
+# Pliki językowe
+if [ -d "$SCRIPT_DIR/lang" ]; then
+    cp "$SCRIPT_DIR/lang/"*.json "$SHARE_DIR/lang/"
+    chown -R "$TARGET_USER:$TARGET_USER" "$SHARE_DIR/lang"
+    info "Zainstalowano pliki językowe."
+fi
 
 # =============================================================================
-# KROK 5c: Pliki .desktop (menu aplikacji)
+# KROK 8: Plik konfiguracyjny użytkownika
+# =============================================================================
+section "Konfiguracja użytkownika (region Bing)"
+
+BING_CONF="$BING_CONFIG_DIR/config"
+if [ ! -f "$BING_CONF" ]; then
+    cp "$SCRIPT_DIR/config/bing-glava.conf" "$BING_CONF"
+    chown "$TARGET_USER:$TARGET_USER" "$BING_CONF"
+    info "Utworzono plik konfiguracyjny: $BING_CONF"
+else
+    warn "Plik konfiguracyjny już istnieje — pomijam (zachowuję ustawienia)."
+fi
+
+# =============================================================================
+# KROK 9: Konfiguracja GLava
+# =============================================================================
+section "Konfiguracja GLava"
+
+mkdir -p "$GLAVA_CONFIG/graph" "$GLAVA_CONFIG/util"
+chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG"
+
+BACKUP_DIR="$GLAVA_CONFIG/backup_install"
+mkdir -p "$BACKUP_DIR"
+
+backup_file() {
+    local src="$1"
+    local bdir="$2"
+    if [ -f "$src" ]; then
+        cp "$src" "$bdir/$(basename "$src").bak"
+    fi
+}
+
+# graph_red.frag
+backup_file "$GLAVA_CONFIG/graph_red.frag" "$BACKUP_DIR"
+cp "$SCRIPT_DIR/config/graph_red.frag" "$GLAVA_CONFIG/graph_red.frag"
+chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph_red.frag"
+info "Zainstalowano graph_red.frag"
+
+# rc.glsl
+if [ -f "$SCRIPT_DIR/glava-config/rc.glsl" ]; then
+    backup_file "$GLAVA_CONFIG/rc.glsl" "$BACKUP_DIR"
+    cp "$SCRIPT_DIR/glava-config/rc.glsl" "$GLAVA_CONFIG/rc.glsl"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/rc.glsl"
+    info "Zainstalowano rc.glsl"
+fi
+
+# graph.glsl i graph/1.frag
+if [ -f "$SCRIPT_DIR/glava-config/graph.glsl" ]; then
+    backup_file "$GLAVA_CONFIG/graph.glsl" "$BACKUP_DIR"
+    backup_file "$GLAVA_CONFIG/graph/1.frag" "$BACKUP_DIR"
+    cp "$SCRIPT_DIR/glava-config/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
+    cp "$SCRIPT_DIR/glava-config/graph/1.frag" "$GLAVA_CONFIG/graph/1.frag"
+    chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
+    info "Zainstalowano konfigurację modułu graph."
+fi
+
+# util/
+if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
+    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/"
+    chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
+    info "Zainstalowano katalog util."
+fi
+
+# smooth_parameters.glsl
+if [ -f "$SCRIPT_DIR/glava-config/smooth_parameters.glsl" ]; then
+    cp "$SCRIPT_DIR/glava-config/smooth_parameters.glsl" "$GLAVA_CONFIG/smooth_parameters.glsl"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/smooth_parameters.glsl"
+    info "Zainstalowano smooth_parameters.glsl"
+fi
+
+chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
+
+# =============================================================================
+# KROK 9b: Pliki .desktop (menu aplikacji)
 # =============================================================================
 section "Instalacja skrótów w menu"
 
@@ -186,42 +282,7 @@ else
 fi
 
 # =============================================================================
-# KROK 5b: Konfiguracja GLava
-# Wszystkie pliki są nadpisywane — oryginały trafiają do backup_install/
-# =============================================================================
-section "Konfiguracja GLava"
-
-mkdir -p "$GLAVA_CONFIG"
-chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG"
-
-# graph_red.frag — szablon shadera z placeholderami kolorów
-backup_file "$GLAVA_CONFIG/graph_red.frag" "$BACKUP_DIR"
-cp "$SCRIPT_DIR/config/graph_red.frag" "$GLAVA_CONFIG/graph_red.frag"
-chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph_red.frag"
-info "Zainstalowano graph_red.frag"
-
-# rc.glsl — konfiguracja główna GLava (moduł, geometria, ustawienia)
-backup_file "$GLAVA_CONFIG/rc.glsl" "$BACKUP_DIR"
-cp "$SCRIPT_DIR/glava-config/rc.glsl" "$GLAVA_CONFIG/rc.glsl"
-chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/rc.glsl"
-info "Zainstalowano rc.glsl"
-
-# graph.glsl i graph/1.frag — aktywny shader używany przez glava-colors-auto
-mkdir -p "$GLAVA_CONFIG/graph"
-backup_file "$GLAVA_CONFIG/graph.glsl" "$BACKUP_DIR"
-backup_file "$GLAVA_CONFIG/graph/1.frag" "$BACKUP_DIR"
-cp "$SCRIPT_DIR/glava-config/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
-cp "$SCRIPT_DIR/glava-config/graph/1.frag" "$GLAVA_CONFIG/graph/1.frag"
-chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph"
-chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
-info "Zainstalowano konfigurację modułu graph."
-
-if [ -d "$BACKUP_DIR" ]; then
-    info "Kopie zapasowe zapisano w: $BACKUP_DIR"
-fi
-
-# =============================================================================
-# KROK 6: Usługa systemd użytkownika
+# KROK 10: Usługa systemd użytkownika
 # =============================================================================
 section "Konfiguracja usługi systemd"
 
@@ -232,6 +293,7 @@ cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
 
 sudo -u "$TARGET_USER" mkdir -p "$CONFIG_DIR/default.target.wants"
+chown "$TARGET_USER:$TARGET_USER" "$CONFIG_DIR/default.target.wants"
 
 sudo -u "$TARGET_USER" \
     XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
@@ -244,42 +306,29 @@ sudo -u "$TARGET_USER" \
     systemctl --user enable glava-color-daemon.service
 
 info "Usługa systemd skonfigurowana i włączona."
-warn "Aby uruchomić teraz: sudo -u $TARGET_USER systemctl --user start glava-color-daemon"
+warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
 
 # =============================================================================
-# KROK 7: Cron dla bing-downloader (root)
+# KROK 11: Cron (root)
 # =============================================================================
 section "Konfiguracja cron (root)"
 
-CRON_LINE="0 * * * * $BIN_DIR/bing-downloader.sh >> $LOG_DIR/bing-downloader.log 2>&1"
-CRON_MARKER="# bing-glava-suite"
+CRON_LINE="$CRON_SCHEDULE /usr/local/bin/bing-downloader.sh $TARGET_USER >> $LOG_DIR/bing-downloader.log 2>&1"
+CRON_MARKER="# bing-glava-suite:$TARGET_USER"
 
 EXISTING=$(crontab -l 2>/dev/null || true)
-if echo "$EXISTING" | grep -q "bing-downloader.sh"; then
-    warn "Wpis cron dla bing-downloader już istnieje, pomijam."
+if echo "$EXISTING" | grep -q "bing-downloader.sh $TARGET_USER"; then
+    # Zaktualizuj istniejący wpis
+    NEW_CRONTAB=$(echo "$EXISTING" | grep -v "bing-downloader.sh $TARGET_USER" | grep -v "# bing-glava-suite:$TARGET_USER")
+    (echo "$NEW_CRONTAB"; echo "$CRON_MARKER"; echo "$CRON_LINE") | crontab -
+    info "Zaktualizowano wpis cron dla użytkownika $TARGET_USER."
 else
     (echo "$EXISTING"; echo "$CRON_MARKER"; echo "$CRON_LINE") | crontab -
-    info "Dodano wpis cron (co godzinę, jako root)."
+    info "Dodano wpis cron: $CRON_SCHEDULE dla $TARGET_USER."
 fi
 
 # =============================================================================
-# KROK 7b: Polityka polkit (pkexec dla GUI)
-# =============================================================================
-section "Konfiguracja polkit"
-
-POLICY_SRC="$SCRIPT_DIR/polkit/org.bing-glava-suite.policy"
-POLICY_DST="/usr/share/polkit-1/actions/org.bing-glava-suite.policy"
-
-if [ -f "$POLICY_SRC" ]; then
-    sed "s|__DOWNLOADER__|$BIN_DIR/bing-downloader.sh|g" "$POLICY_SRC" > "$POLICY_DST"
-    chmod 644 "$POLICY_DST"
-    info "Zainstalowano politykę polkit: $POLICY_DST"
-else
-    warn "Brak pliku polkit/org.bing-glava-suite.policy — pkexec może nie działać."
-fi
-
-# =============================================================================
-# KROK 8: Pierwsze uruchomienie downloadera
+# KROK 12: Pierwsze pobranie tapety
 # =============================================================================
 section "Pierwsze pobranie tapety"
 
@@ -289,7 +338,9 @@ RUN_NOW="${RUN_NOW:-T}"
 
 if [[ "$RUN_NOW" =~ ^[Tt]$ ]]; then
     info "Uruchamiam bing-downloader.sh..."
-    bash "$DST_DOWNLOADER" && info "Tapeta pobrana." || warn "Pobieranie nie powiodło się. Spróbuj ręcznie później."
+    /usr/local/bin/bing-downloader.sh "$TARGET_USER" && \
+        info "Tapeta pobrana." || \
+        warn "Pobieranie nie powiodło się. Spróbuj ręcznie później."
 fi
 
 # =============================================================================
@@ -298,14 +349,15 @@ fi
 section "Instalacja zakończona"
 
 echo ""
-echo -e "  Skrypty:          ${BLD}$BIN_DIR/${RST}"
-echo -e "  Logi:             ${BLD}$LOG_DIR/${RST}"
-echo -e "  Tapety Bing:      ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
-echo -e "  Usługa systemd:   ${BLD}glava-color-daemon.service${RST}"
-echo -e "  GUI:              ${BLD}glava-gui${RST} (lub python3 $BIN_DIR/glava-gui.py)"
-echo -e "  Backupy GLava:    ${BLD}$BACKUP_DIR/${RST}"
+echo -e "  Skrypty użytkownika: ${BLD}$BIN_DIR/${RST}"
+echo -e "  Skrypt systemowy:    ${BLD}/usr/local/bin/bing-downloader.sh${RST}"
+echo -e "  Konfiguracja Bing:   ${BLD}$BING_CONF${RST}"
+echo -e "  Logi:                ${BLD}$LOG_DIR/${RST}"
+echo -e "  Tapety Bing:         ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
+echo -e "  Usługa systemd:      ${BLD}glava-color-daemon.service${RST}"
+echo -e "  GUI:                 ${BLD}glava-gui${RST}"
 echo ""
-warn "WAŻNE: Jeśli nie masz jeszcze konfiguracji GLava, uruchom: glava --copy-config"
-warn "       Następnie uruchom usługę: systemctl --user start glava-color-daemon"
+warn "Po instalacji GLava uruchom: glava --copy-config"
+warn "Następnie uruchom usługę:   systemctl --user start glava-color-daemon"
 echo ""
 info "Gotowe! Wyloguj się i zaloguj ponownie, aby usługa systemd wystartowała."

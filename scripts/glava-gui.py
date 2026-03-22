@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # =============================================================================
 # glava-gui.py
-# Graficzny panel sterowania GLava + Bing wallpaper suite.
+# Panel sterowania GLava + Bing wallpaper suite.
 #
-# Funkcje:
-#   - Ręczny dobór kolorów i zapis presetów
-#   - Przywracanie trybu auto (kolory z tapety Bing)
-#   - Toggle GLava (włącz/wyłącz)
+# Zmiany w stosunku do poprzedniej wersji:
+#   - Pobieranie tapety bez sudo (bing-fetch-user.sh)
+#   - Region Bing zapisywany w ~/.config/bing-glava/config
+#   - Brak zarządzania cronem w GUI (ustawiany przez instalator)
+#   - Wielojęzyczność (lang/*.json)
 #   - Konfiguracja geometrii GLava (X/Y/W/H → rc.glsl)
-#   - Wybór regionu Bing
-#   - Wielojęzyczność (pliki lang/*.json)
 # =============================================================================
 
 import tkinter as tk
@@ -21,49 +20,67 @@ import json
 import glob
 import datetime
 
-def sudo_run(cmd):
-    """Uruchamia komendę jako root z graficznym pytaniem o hasło przez zenity."""
-    import shutil
-    if shutil.which("zenity"):
-        passwd = subprocess.run(
-            ["zenity", "--password", "--title=Autoryzacja"],
-            capture_output=True, text=True
-        ).stdout.strip()
-        if not passwd:
-            return False
-        full_cmd = ["sudo", "-S"] + cmd
-        result = subprocess.run(
-            full_cmd,
-            input=passwd + "\n",
-            capture_output=True, text=True
-        )
-        return result.returncode == 0
-    else:
-        result = subprocess.run(["sudo"] + cmd)
-        return result.returncode == 0
-
-USER_HOME    = os.path.expanduser("~")
-CONFIG_DIR   = os.path.join(USER_HOME, ".config/glava")
-BIN_DIR      = os.path.join(USER_HOME, ".local/bin")
-LIVEFRAG     = os.path.join(CONFIG_DIR, "graph/1.frag")
-REDFRAG      = os.path.join(CONFIG_DIR, "graph_red.frag")
-RC_GLSL      = os.path.join(CONFIG_DIR, "rc.glsl")
-FLAG_RED     = os.path.join(CONFIG_DIR, "red.shift")
-FLAG_MANUAL  = os.path.join(CONFIG_DIR, "manual.shift")
-PRESETS_FILE = os.path.join(CONFIG_DIR, "presets.json")
-WALLPAPER    = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
+USER_HOME     = os.path.expanduser("~")
+CONFIG_DIR    = os.path.join(USER_HOME, ".config/glava")
+BIN_DIR       = os.path.join(USER_HOME, ".local/bin")
+BINGCONF_DIR  = os.path.join(USER_HOME, ".config/bing-glava")
+BINGCONF_FILE = os.path.join(BINGCONF_DIR, "config")
+LIVEFRAG      = os.path.join(CONFIG_DIR, "graph/1.frag")
+REDFRAG       = os.path.join(CONFIG_DIR, "graph_red.frag")
+RC_GLSL       = os.path.join(CONFIG_DIR, "rc.glsl")
+FLAG_RED      = os.path.join(CONFIG_DIR, "red.shift")
+FLAG_MANUAL   = os.path.join(CONFIG_DIR, "manual.shift")
+PRESETS_FILE  = os.path.join(CONFIG_DIR, "presets.json")
+WALLPAPER     = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "gui_settings.json")
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 LANG_DIR   = os.path.join(SCRIPT_DIR, "..", "lang")
 if not os.path.isdir(LANG_DIR):
     LANG_DIR = os.path.join(SCRIPT_DIR, "lang")
+if not os.path.isdir(LANG_DIR):
+    LANG_DIR = os.path.join(USER_HOME, ".local/share/bing-glava-suite/lang")
 
 BING_REGIONS = [
     "de-DE", "en-US", "en-GB", "fr-FR", "es-ES",
     "it-IT", "pt-BR", "ja-JP", "zh-CN", "pl-PL",
 ]
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plik konfiguracyjny użytkownika (~/.config/bing-glava/config)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def read_bing_config():
+    """Czyta plik config użytkownika, zwraca słownik."""
+    cfg = {"BING_REGION": "de-DE"}
+    if os.path.exists(BINGCONF_FILE):
+        with open(BINGCONF_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    cfg[key.strip()] = val.strip()
+    return cfg
+
+
+def write_bing_config(cfg):
+    """Zapisuje słownik do pliku config użytkownika."""
+    os.makedirs(BINGCONF_DIR, exist_ok=True)
+    lines = ["# bing-glava — konfiguracja użytkownika\n"]
+    for key, val in cfg.items():
+        lines.append(f"{key}={val}\n")
+    with open(BINGCONF_FILE, "w") as f:
+        f.writelines(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sudo przez zenity (tylko dla LightDM)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Język
+# ─────────────────────────────────────────────────────────────────────────────
 
 def load_lang(lang_code):
     path = os.path.join(LANG_DIR, f"{lang_code}.json")
@@ -87,11 +104,15 @@ def available_langs():
             langs[code] = data.get("lang_name", code)
         except Exception:
             langs[code] = code
-    return langs
+    return langs if langs else {"pl": "Polski", "en": "English"}
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ustawienia GUI
+# ─────────────────────────────────────────────────────────────────────────────
 
 def load_settings():
-    defaults = {"lang": "pl", "bing_region": "de-DE"}
+    defaults = {"lang": "pl"}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE) as f:
@@ -107,6 +128,10 @@ def save_settings(settings):
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=4)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Geometria GLava
+# ─────────────────────────────────────────────────────────────────────────────
 
 def read_geometry():
     if not os.path.exists(RC_GLSL):
@@ -133,27 +158,35 @@ def write_geometry(x, y, w, h):
         f.write(new)
     return True
 
-def get_bing_region():
-    downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-    if not os.path.exists(downloader):
-        return "de-DE"
-    with open(downloader) as f:
-        content = f.read()
-    m = re.search(r'mkt=([a-z]{2}-[A-Z]{2})', content)
-    return m.group(1) if m else "de-DE"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sudo przez zenity (tylko dla LightDM)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def sudo_run_zenity(cmd):
+    """Uruchamia komendę jako root z graficznym pytaniem o hasło (zenity)."""
+    import shutil
+    if shutil.which("zenity"):
+        passwd = subprocess.run(
+            ["zenity", "--password", "--title=Autoryzacja"],
+            capture_output=True, text=True
+        ).stdout.strip()
+        if not passwd:
+            return False
+        result = subprocess.run(
+            ["sudo", "-S"] + cmd,
+            input=passwd + "\n",
+            capture_output=True, text=True
+        )
+        return result.returncode == 0
+    else:
+        result = subprocess.run(["sudo"] + cmd)
+        return result.returncode == 0
 
 
-def set_bing_region(region):
-    downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-    if not os.path.exists(downloader):
-        return False
-    with open(downloader) as f:
-        content = f.read()
-    new = re.sub(r'mkt=[a-z]{2}-[A-Z]{2}', f'mkt={region}', content)
-    with open(downloader, "w") as f:
-        f.write(new)
-    return True
-
+# ─────────────────────────────────────────────────────────────────────────────
+# GUI
+# ─────────────────────────────────────────────────────────────────────────────
 
 class GlavaControlCenter:
     def __init__(self, root):
@@ -161,6 +194,7 @@ class GlavaControlCenter:
         self.settings = load_settings()
         self.T = load_lang(self.settings.get("lang", "pl"))
         self.langs = available_langs()
+        self.bing_cfg = read_bing_config()
         self.current_colors = {"top": "#ffffff", "mid": "#888888", "bottom": "#000000"}
         self.presets = {}
         self.load_presets()
@@ -197,7 +231,6 @@ class GlavaControlCenter:
         cf = tk.LabelFrame(row1, text=T.get("section_colors", "Kolorystyka"),
                             font=("Arial", 9, "bold"), padx=6, pady=6)
         cf.pack(side="left", fill="both", expand=True, padx=(0, 4))
-
         btn_row = tk.Frame(cf)
         btn_row.pack(fill="x", pady=(0, 6))
         for key in ["top", "mid", "bottom"]:
@@ -206,7 +239,6 @@ class GlavaControlCenter:
                             bg=self.current_colors[key], width=8, height=2)
             btn.pack(side="left", padx=2)
             setattr(self, f"btn_{key}", btn)
-
         tk.Button(cf, text=T.get("btn_apply_manual", "Zastosuj (ręczny)"),
                   command=self.apply_manual, bg="#2e7d32", fg="white",
                   font=("Arial", 9, "bold")).pack(fill="x", pady=(0, 3))
@@ -218,7 +250,7 @@ class GlavaControlCenter:
                             font=("Arial", 9, "bold"), padx=6, pady=6)
         mf.pack(side="left", fill="both", expand=True, padx=(4, 0))
         tk.Button(mf, text=T.get("btn_fetch_wallpaper", "Pobierz tapetę Bing (pulpit)"),
-                  command=self.fetch_wallpaper_no_lightdm, bg="#1565c0", fg="white"
+                  command=self.fetch_wallpaper_user, bg="#1565c0", fg="white"
                   ).pack(fill="x", pady=(0, 3))
         tk.Button(mf, text=T.get("btn_fetch_wallpaper_full", "Pobierz tapetę Bing (pulpit + logowanie)"),
                   command=self.fetch_wallpaper_full, bg="#0d47a1", fg="white"
@@ -278,7 +310,7 @@ class GlavaControlCenter:
                   command=self.apply_geometry, bg="#1565c0", fg="white",
                   font=("Arial", 9)).pack(fill="x")
 
-        # --- WIERSZ 3: Ustawienia ---
+        # --- WIERSZ 3: Ustawienia (tylko region) ---
         sf = tk.LabelFrame(self.root, text=T.get("section_settings", "Ustawienia"),
                            font=("Arial", 9, "bold"), padx=8, pady=6)
         sf.pack(fill="x", padx=10, pady=4)
@@ -286,10 +318,10 @@ class GlavaControlCenter:
         s_row.pack(fill="x")
         tk.Label(s_row, text=T.get("label_region", "Region Bing") + ":",
                  font=("Arial", 9)).pack(side="left")
-        self.region_var = tk.StringVar(value=get_bing_region())
+        self.region_var = tk.StringVar(value=self.bing_cfg.get("BING_REGION", "de-DE"))
         ttk.Combobox(s_row, textvariable=self.region_var, values=BING_REGIONS,
                      width=8, state="readonly").pack(side="left", padx=(4, 16))
-        tk.Button(s_row, text=T.get("btn_save_settings", "Zapisz ustawienia"),
+        tk.Button(s_row, text=T.get("btn_save_settings", "Zapisz"),
                   command=self.save_settings_action, font=("Arial", 9)).pack(side="left")
 
         # --- STATUS ---
@@ -297,7 +329,10 @@ class GlavaControlCenter:
                                       font=("Arial", 9, "italic"), anchor="w")
         self.status_label.pack(fill="x", padx=12, pady=(2, 8))
 
-    # -------------------------------------------------------------------------
+    # ─────────────────────────────────────────────────────────────────────────
+    # Język
+    # ─────────────────────────────────────────────────────────────────────────
+
     def change_language(self, event=None):
         lang = self.lang_var.get()
         self.settings["lang"] = lang
@@ -305,6 +340,10 @@ class GlavaControlCenter:
         self.T = load_lang(lang)
         self.root.title(self.T.get("title", "GLava Master Panel"))
         self.build_ui()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Presety
+    # ─────────────────────────────────────────────────────────────────────────
 
     def load_presets(self):
         if os.path.exists(PRESETS_FILE):
@@ -354,6 +393,10 @@ class GlavaControlCenter:
                 self.save_presets_to_file()
                 self.refresh_listbox()
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Kolory
+    # ─────────────────────────────────────────────────────────────────────────
+
     def pick_color(self, key):
         color = colorchooser.askcolor(color=self.current_colors[key])[1]
         if color:
@@ -398,23 +441,27 @@ class GlavaControlCenter:
                 self.current_colors[key] = hex_c
                 getattr(self, f"btn_{key}").config(bg=hex_c)
 
-    def fetch_wallpaper_no_lightdm(self):
-        """Pobiera tapetę Bing — tylko pulpit, bez sudo (bing-fetch-user.sh)"""
+    # ─────────────────────────────────────────────────────────────────────────
+    # Tapeta
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def fetch_wallpaper_user(self):
+        """Pobiera tapetę bez sudo — tylko pulpit (bing-fetch-user.sh)."""
         self.root.focus()
         fetcher = os.path.join(BIN_DIR, "bing-fetch-user.sh")
         subprocess.Popen(["/bin/bash", fetcher, "--force"])
         self.root.after(4000, self.update_status)
 
     def fetch_wallpaper_full(self):
-        """Pobiera tapetę Bing — pulpit + ekran logowania LightDM (--force)"""
+        """Pobiera tapetę z sudo — pulpit + ekran logowania LightDM."""
         self.root.focus()
-        downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
-        sudo_run([downloader, "--force"])
-        self.root.after(3000, self.update_status)
-
-    def fetch_wallpaper(self):
-        """Alias dla save_settings_action — pobiera z pulpitem tylko"""
-        self.fetch_wallpaper_no_lightdm()
+        downloader = "/usr/local/bin/bing-downloader.sh"
+        if not os.path.exists(downloader):
+            downloader = os.path.join(BIN_DIR, "bing-downloader.sh")
+        import getpass
+        user = getpass.getuser()
+        sudo_run_zenity([downloader, user, "--force"])
+        self.root.after(4000, self.update_status)
 
     def restore_auto(self):
         for flag in (FLAG_RED, FLAG_MANUAL):
@@ -426,6 +473,10 @@ class GlavaControlCenter:
     def run_toggle(self):
         subprocess.run(["/bin/bash", os.path.join(BIN_DIR, "glava-toggle")])
         self.root.after(500, self.update_status)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Geometria
+    # ─────────────────────────────────────────────────────────────────────────
 
     def detect_resolution(self):
         try:
@@ -449,13 +500,21 @@ class GlavaControlCenter:
             messagebox.showinfo("", self.T.get("geometry_applied", "Geometria zaktualizowana."))
             self.restart_glava()
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Ustawienia
+    # ─────────────────────────────────────────────────────────────────────────
+
     def save_settings_action(self):
+        """Zapisuje region Bing do pliku config użytkownika — bez sudo."""
         region = self.region_var.get()
-        set_bing_region(region)
-        self.settings["bing_region"] = region
-        save_settings(self.settings)
+        self.bing_cfg["BING_REGION"] = region
+        write_bing_config(self.bing_cfg)
         self.root.focus()
         messagebox.showinfo("", self.T.get("settings_saved", "Zapisano."))
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # GLava
+    # ─────────────────────────────────────────────────────────────────────────
 
     def restart_glava(self):
         subprocess.run(["pkill", "-x", "glava"])
@@ -479,7 +538,8 @@ class GlavaControlCenter:
             status = f"○ {T.get('status_inactive', 'GLava wyłączona')}"
             color = "red"
         if os.path.exists(WALLPAPER):
-            dt = datetime.datetime.fromtimestamp(os.path.getmtime(WALLPAPER)).strftime("%d %b %Y %H:%M")
+            dt = datetime.datetime.fromtimestamp(
+                os.path.getmtime(WALLPAPER)).strftime("%d %b %Y %H:%M")
             status += f"   |   {T.get('label_wallpaper', 'Tapeta')}: {dt}"
         else:
             status += f"   |   {T.get('label_no_wallpaper', 'brak tapety')}"

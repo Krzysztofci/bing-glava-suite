@@ -1,29 +1,44 @@
 #!/bin/bash
 # =============================================================================
 # bing-downloader.sh
-# Pobiera dzisiejszą tapetę Bing, ustawia ją jako tło pulpitu (XFCE/Cinnamon)
-# oraz ekran logowania (LightDM). Uruchamiany z crona jako root.
+# Systemowy skrypt pobierający tapetę Bing dla wskazanego użytkownika.
+# Instalowany w /usr/local/bin/ — nie może być edytowany przez użytkownika.
+# Uruchamiany z crona jako root z nazwą użytkownika jako argumentem.
+#
+# Użycie:
+#   /usr/local/bin/bing-downloader.sh <nazwa_użytkownika> [--no-lightdm] [--force]
 #
 # Flagi:
-#   --no-lightdm  Pomija aktualizację ekranu logowania LightDM (dla GUI)
+#   --no-lightdm  Pomija aktualizację ekranu logowania LightDM
 #   --force       Wymusza pobranie nawet jeśli URL się nie zmienił
 # =============================================================================
 
-# --- KONFIGURACJA (podmieniana przez install.sh) ---
-USER_NAME="__USER__"
+# --- Argument: nazwa użytkownika ---
+TARGET_USER="$1"
+if [ -z "$TARGET_USER" ]; then
+    echo "Użycie: $0 <nazwa_użytkownika> [--no-lightdm] [--force]"
+    exit 1
+fi
 
-# --- FLAGI ---
+if ! id "$TARGET_USER" &>/dev/null; then
+    echo "Użytkownik '$TARGET_USER' nie istnieje."
+    exit 1
+fi
+
+# --- Flagi ---
 NO_LIGHTDM=false
 FORCE=false
-for arg in "$@"; do
+for arg in "${@:2}"; do
     case "$arg" in
         --no-lightdm) NO_LIGHTDM=true ;;
         --force)      FORCE=true ;;
     esac
 done
 
-# --- ŚCIEŻKI ---
-PICTURES_DIR="/home/$USER_NAME/Pictures/Bing"
+# --- Ścieżki ---
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+CONFIG_FILE="$TARGET_HOME/.config/bing-glava/config"
+PICTURES_DIR="$TARGET_HOME/Pictures/Bing"
 FULL_PATH="$PICTURES_DIR/bing_today.jpg"
 TEMP_PATH="$PICTURES_DIR/bing_temp.jpg"
 URL_CACHE="$PICTURES_DIR/last_url.txt"
@@ -32,9 +47,15 @@ MINT_DEFAULT="/usr/share/backgrounds/linuxmint/default_background.jpg"
 
 mkdir -p "$PICTURES_DIR"
 
+# --- Odczyt konfiguracji użytkownika ---
+BING_REGION="de-DE"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
 # --- KROK 1: Pobierz URL tapety ---
 JSON_DATA=$(/usr/bin/curl -s --connect-timeout 10 \
-    "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=de-DE")
+    "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=$BING_REGION")
 
 if [ -z "$JSON_DATA" ]; then
     echo "Brak połączenia z siecią. Przerywam."
@@ -69,7 +90,7 @@ else
 fi
 
 # --- KROK 4: Uprawnienia ---
-chown "$USER_NAME:$USER_NAME" "$FULL_PATH" "$URL_CACHE"
+chown "$TARGET_USER:$TARGET_USER" "$FULL_PATH" "$URL_CACHE"
 chmod 644 "$FULL_PATH"
 
 # --- KROK 5: Ekran logowania (pomijany z --no-lightdm) ---
@@ -80,23 +101,23 @@ if [ "$NO_LIGHTDM" = false ]; then
 fi
 
 # --- KROK 6: Aktualizacja środowiska graficznego ---
-USER_ID=$(id -u "$USER_NAME")
+USER_ID=$(id -u "$TARGET_USER")
 DBUS_ADDR="unix:path=/run/user/$USER_ID/bus"
 
 # XFCE
-# Uwaga: xfconf-query wymaga su -c zamiast sudo -u ze względu na ograniczenia DBUS.
-# Nazwa procesu to "xfdesktop" (nie "xfce4-desktop").
-if pgrep -x "xfdesktop" > /dev/null; then
-    PROPS=$(sudo su -c "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR /usr/bin/xfconf-query -c xfce4-desktop -l | grep workspace.*last-image" "$USER_NAME")
+if pgrep -u "$TARGET_USER" -x "xfdesktop" > /dev/null; then
+    PROPS=$(sudo su -c "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR /usr/bin/xfconf-query \
+        -c xfce4-desktop -l | grep workspace.*last-image" "$TARGET_USER")
     for PROP in $PROPS; do
-        sudo su -c "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR /usr/bin/xfconf-query -c xfce4-desktop -p $PROP -s $FULL_PATH" "$USER_NAME"
+        sudo su -c "DBUS_SESSION_BUS_ADDRESS=$DBUS_ADDR /usr/bin/xfconf-query \
+            -c xfce4-desktop -p $PROP -s $FULL_PATH" "$TARGET_USER"
     done
 fi
 
 # Cinnamon
-if pgrep -x "cinnamon" > /dev/null; then
-    sudo -u "$USER_NAME" DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
+if pgrep -u "$TARGET_USER" -x "cinnamon" > /dev/null; then
+    sudo -u "$TARGET_USER" DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
         gsettings set org.cinnamon.desktop.background picture-uri "file://$FULL_PATH" 2>/dev/null
-    sudo -u "$USER_NAME" DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
+    sudo -u "$TARGET_USER" DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
         gsettings set org.cinnamon.desktop.background picture-options 'zoom' 2>/dev/null
 fi
