@@ -136,7 +136,6 @@ mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" \
          "/usr/share/backgrounds/linuxmint"
 
 chown -R "$TARGET_USER:$TARGET_USER" \
-    "$TARGET_HOME/.config/systemd" \
     "$BIN_DIR" "$LOG_DIR" \
     "$TARGET_HOME/Pictures/Bing" \
     "$SHARE_DIR" \
@@ -266,8 +265,7 @@ fi
 
 # util/
 if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
-    mkdir -p "$GLAVA_CONFIG/util"
-    cp -r "$SCRIPT_DIR/glava-config/util/." "$GLAVA_CONFIG/util/"
+    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/"
     chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
     info "Zainstalowano katalog util."
 fi
