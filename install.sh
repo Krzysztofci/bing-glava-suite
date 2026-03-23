@@ -136,6 +136,7 @@ mkdir -p "$BIN_DIR" "$CONFIG_DIR" "$LOG_DIR" \
          "/usr/share/backgrounds/linuxmint"
 
 chown -R "$TARGET_USER:$TARGET_USER" \
+    "$TARGET_HOME/.config/systemd" \
     "$BIN_DIR" "$LOG_DIR" \
     "$TARGET_HOME/Pictures/Bing" \
     "$SHARE_DIR" \
