@@ -41,5 +41,6 @@
     "label_no_wallpaper": "no wallpaper",
     "error_no_template": "Missing template file",
     "error_no_livefrag": "Missing active shader",
-    "btn_fetch_wallpaper": "Fetch Bing wallpaper now"
+    "btn_fetch_wallpaper": "Fetch Bing wallpaper (desktop only)",
+    "btn_fetch_wallpaper_full": "Fetch Bing wallpaper (desktop + login screen)"
 }

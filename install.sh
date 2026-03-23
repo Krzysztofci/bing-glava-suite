@@ -97,6 +97,7 @@ else
     info "Wszystkie wymagane pakiety są już zainstalowane."
 fi
 
+GLAVA_INSTALLED=false
 if ! command -v glava &>/dev/null; then
     warn "GLava nie została znaleziona w PATH."
     echo -e "Pobrać i zainstalować GLava automatycznie? [T/n]"
@@ -114,10 +115,13 @@ if ! command -v glava &>/dev/null; then
             dpkg -i "$GLAVA_DEB" || apt-get install -f -y
             rm -f "$GLAVA_DEB"
             info "GLava zainstalowana."
+            GLAVA_INSTALLED=true
         fi
     else
         warn "Kontynuuję bez GLava — demon nie będzie działał."
     fi
+else
+    GLAVA_INSTALLED=true
 fi
 
 # =============================================================================
@@ -261,8 +265,7 @@ fi
 
 # util/
 if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
-    mkdir -p "$GLAVA_CONFIG/util"
-    cp -r "$SCRIPT_DIR/glava-config/util/." "$GLAVA_CONFIG/util/"
+    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/"
     chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
     info "Zainstalowano katalog util."
 fi
@@ -297,6 +300,35 @@ if [ -d "$DESKTOP_SRC" ]; then
     sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || true
 else
     warn "Brak katalogu desktop/ — pomijam."
+fi
+
+# =============================================================================
+# KROK 9c: Autostart GLava
+# =============================================================================
+section "Konfiguracja autostartu GLava"
+
+AUTOSTART_DIR="$TARGET_HOME/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_DIR"
+
+if [ "$GLAVA_INSTALLED" = true ]; then
+    cat > "$AUTOSTART_DIR/glava.desktop" << AUTOSTART
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=GLava
+Comment=OpenGL audio visualizer
+Exec=glava --desktop
+Icon=multimedia-audio-player
+Terminal=false
+Categories=AudioVideo;
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+AUTOSTART
+    chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_DIR/glava.desktop"
+    info "Dodano autostart GLava: $AUTOSTART_DIR/glava.desktop"
+else
+    warn "GLava nie jest zainstalowana — pomijam autostart."
 fi
 
 # =============================================================================
