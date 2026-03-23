@@ -99,8 +99,25 @@ fi
 
 if ! command -v glava &>/dev/null; then
     warn "GLava nie została znaleziona w PATH."
-    warn "Zainstaluj GLava ręcznie (https://github.com/jarcode-foss/glava)"
-    warn "Kontynuuję instalację, ale demon nie będzie działał bez GLava."
+    echo -e "Pobrać i zainstalować GLava automatycznie? [T/n]"
+    read -rp "" INSTALL_GLAVA
+    INSTALL_GLAVA="${INSTALL_GLAVA:-T}"
+    if [[ "$INSTALL_GLAVA" =~ ^[Tt]$ ]]; then
+        info "Pobieram paczkę GLava z GitHub Releases..."
+        GLAVA_URL=$(curl -s https://api.github.com/repos/Krzysztofci/bing-glava-suite/releases/latest \
+            | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url')
+        if [ -z "$GLAVA_URL" ]; then
+            warn "Nie udało się pobrać URL paczki GLava. Zainstaluj ręcznie."
+        else
+            GLAVA_DEB="/tmp/glava_latest.deb"
+            wget -q --show-progress -O "$GLAVA_DEB" "$GLAVA_URL"
+            dpkg -i "$GLAVA_DEB" || apt-get install -f -y
+            rm -f "$GLAVA_DEB"
+            info "GLava zainstalowana."
+        fi
+    else
+        warn "Kontynuuję bez GLava — demon nie będzie działał."
+    fi
 fi
 
 # =============================================================================
