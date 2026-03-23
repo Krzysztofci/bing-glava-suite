@@ -265,7 +265,8 @@ fi
 
 # util/
 if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
-    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/"
+    mkdir -p "$GLAVA_CONFIG/util"
+    cp -r "$SCRIPT_DIR/glava-config/util/." "$GLAVA_CONFIG/util/"
     chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
     info "Zainstalowano katalog util."
 fi
