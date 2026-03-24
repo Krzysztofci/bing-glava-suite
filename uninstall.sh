@@ -1,7 +1,8 @@
 #!/bin/bash
 # =============================================================================
-# uninstall.sh — Deinstalator projektu bing-glava-suite
+# uninstall.sh — Deinstalator bing-glava-suite
 # =============================================================================
+set -e
 
 RED='\033[0;31m'
 GRN='\033[0;32m'
@@ -15,7 +16,7 @@ error()   { echo -e "${RED}[✗]${RST} $*"; exit 1; }
 section() { echo -e "\n${BLD}═══ $* ═══${RST}"; }
 
 # =============================================================================
-# Sprawdzenia
+# KROK 0: Sprawdzenie uprawnień
 # =============================================================================
 section "Sprawdzanie środowiska"
 
@@ -23,13 +24,14 @@ if [ "$EUID" -ne 0 ]; then
     error "Deinstalator musi być uruchomiony jako root (sudo ./uninstall.sh)"
 fi
 
-echo -e "Dla jakiego użytkownika deinstalować? (pozostaw puste = bieżący: ${BLD}$SUDO_USER${RST})"
+# =============================================================================
+# KROK 1: Ustalenie użytkownika
+# =============================================================================
+section "Ustalanie użytkownika"
+
+echo -e "Dla jakiego użytkownika usunąć instalację? (pozostaw puste = $SUDO_USER)"
 read -rp "Nazwa użytkownika: " INPUT_USER
 TARGET_USER="${INPUT_USER:-$SUDO_USER}"
-
-if [ -z "$TARGET_USER" ]; then
-    error "Nie można ustalić nazwy użytkownika."
-fi
 
 if ! id "$TARGET_USER" &>/dev/null; then
     error "Użytkownik '$TARGET_USER' nie istnieje."
@@ -37,142 +39,160 @@ fi
 
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 TARGET_UID=$(id -u "$TARGET_USER")
+
 BIN_DIR="$TARGET_HOME/.local/bin"
+SHARE_DIR="$TARGET_HOME/.local/share/bing-glava-suite"
 CONFIG_DIR="$TARGET_HOME/.config/systemd/user"
+LOG_DIR="$TARGET_HOME/.local/logs"
 GLAVA_CONFIG="$TARGET_HOME/.config/glava"
-BACKUP_DIR="$GLAVA_CONFIG/backup_install"
+BING_CONFIG_DIR="$TARGET_HOME/.config/bing-glava"
 
-info "Deinstalacja dla użytkownika: $TARGET_USER ($TARGET_HOME)"
-
-echo ""
-echo -e "${YEL}Co zostanie usunięte:${RST}"
-echo -e "  - skrypty z $BIN_DIR"
-echo -e "  - usługa systemd glava-color-daemon"
-echo -e "  - wpis cron dla bing-downloader"
-echo -e "  - tapeta ekranu logowania"
-echo ""
-echo -e "${GRN}Co zostanie zachowane:${RST}"
-echo -e "  - tapety w ~/Pictures/Bing/"
-echo -e "  - logi w ~/.local/logs/"
-echo ""
-
-# Sprawdź czy są backupy konfiguracji GLava
-if [ -d "$BACKUP_DIR" ]; then
-    echo -e "${GRN}Znaleziono backupy konfiguracji GLava w:${RST} $BACKUP_DIR"
-    echo -e "Przywrócić oryginalne pliki konfiguracyjne GLava? [T/n]"
-    read -rp "" RESTORE
-    RESTORE="${RESTORE:-T}"
-else
-    RESTORE="N"
-fi
-
-read -rp "Kontynuować deinstalację? [t/N] " CONFIRM
-CONFIRM="${CONFIRM:-N}"
-if [[ ! "$CONFIRM" =~ ^[Tt]$ ]]; then
-    echo "Przerwano."
-    exit 0
-fi
+info "Deinstalacja dla użytkownika: $TARGET_USER"
 
 # =============================================================================
-# Usługa systemd
+# KROK 2: Usuwanie skryptów użytkownika
 # =============================================================================
-section "Usuwanie usługi systemd"
+section "Usuwanie skryptów użytkownika"
 
-sudo -u "$TARGET_USER" \
-    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-    systemctl --user disable --now glava-color-daemon.service 2>/dev/null || true
-
-rm -f "$CONFIG_DIR/glava-color-daemon.service"
-rm -f "$CONFIG_DIR/default.target.wants/glava-color-daemon.service"
-
-sudo -u "$TARGET_USER" \
-    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-    systemctl --user daemon-reload 2>/dev/null || true
-
-info "Usługa systemd usunięta."
-
-# =============================================================================
-# Skrypty
-# =============================================================================
-section "Usuwanie skryptów"
-
-SCRIPTS=(
-    bing-downloader.sh
-    glava-color-daemon
-    glava-colors-auto
+USER_SCRIPTS=(
     glava-colorswitch
     glava-toggle
+    glava-colors-auto
+    glava-color-daemon
+    bing-fetch-user.sh
     glava-gui
     glava-gui.py
 )
 
-for script in "${SCRIPTS[@]}"; do
-    rm -f "$BIN_DIR/$script"
+for script in "${USER_SCRIPTS[@]}"; do
+    if [ -f "$BIN_DIR/$script" ]; then
+        rm -f "$BIN_DIR/$script"
+        info "Usunięto: $BIN_DIR/$script"
+    fi
 done
 
-info "Skrypty usunięte."
+# =============================================================================
+# KROK 3: Usuwanie systemowego skryptu
+# =============================================================================
+section "Usuwanie systemowego skryptu"
+
+if [ -f /usr/local/bin/bing-downloader.sh ]; then
+    rm -f /usr/local/bin/bing-downloader.sh
+    info "Usunięto: /usr/local/bin/bing-downloader.sh"
+fi
 
 # =============================================================================
-# Cron
+# KROK 4: Usuwanie katalogów
+# =============================================================================
+section "Usuwanie katalogów"
+
+rm -rf "$SHARE_DIR"
+rm -rf "$BING_CONFIG_DIR"
+rm -rf "$TARGET_HOME/Pictures/Bing"
+rm -rf "$LOG_DIR/bing-downloader.log"
+
+info "Usunięto katalogi konfiguracyjne i dane."
+
+# =============================================================================
+# KROK 5: Usuwanie .desktop
+# =============================================================================
+section "Usuwanie skrótów z menu"
+
+DESKTOP_DST="$TARGET_HOME/.local/share/applications"
+
+rm -f "$DESKTOP_DST/glava.desktop"
+rm -f "$DESKTOP_DST/bing-glava.desktop" 2>/dev/null || true
+
+info "Usunięto skróty .desktop."
+
+# =============================================================================
+# KROK 6: Usuwanie autostartu
+# =============================================================================
+section "Usuwanie autostartu"
+
+rm -f "$TARGET_HOME/.config/autostart/glava.desktop"
+
+info "Usunięto autostart GLava."
+
+# =============================================================================
+# KROK 7: Usuwanie usługi systemd
+# =============================================================================
+section "Usuwanie usługi systemd"
+
+SERVICE="$CONFIG_DIR/glava-color-daemon.service"
+
+sudo -u "$TARGET_USER" \
+    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+    systemctl --user disable glava-color-daemon.service 2>/dev/null || true
+
+rm -f "$SERVICE"
+rm -f "$CONFIG_DIR/default.target.wants/glava-color-daemon.service"
+
+info "Usunięto usługę systemd."
+
+# =============================================================================
+# KROK 8: Usuwanie wpisu cron
 # =============================================================================
 section "Usuwanie wpisu cron"
 
+CRON_MARKER="# bing-glava-suite:$TARGET_USER"
+
 EXISTING=$(crontab -l 2>/dev/null || true)
-if echo "$EXISTING" | grep -q "bing-downloader.sh"; then
-    echo "$EXISTING" | grep -v "bing-downloader.sh" | grep -v "# bing-glava-suite" | crontab -
-    info "Wpis cron usunięty."
+NEW_CRONTAB=$(echo "$EXISTING" | grep -v "bing-downloader.sh $TARGET_USER" | grep -v "$CRON_MARKER")
+
+echo "$NEW_CRONTAB" | crontab -
+
+info "Usunięto wpis cron."
+
+# =============================================================================
+# KROK 9: Usunięcie pakietu GLava (opcjonalnie)
+# =============================================================================
+section "Pakiet GLava"
+
+REMOVE_GLAVA=false
+
+if dpkg -s glava &>/dev/null; then
+    echo -e "Wykryto pakiet GLava. Usunąć go? [T/n]"
+    read -rp "" REMOVE_GLAVA_INPUT
+    REMOVE_GLAVA_INPUT="${REMOVE_GLAVA_INPUT:-T}"
+
+    if [[ "$REMOVE_GLAVA_INPUT" =~ ^[Tt]$ ]]; then
+        REMOVE_GLAVA=true
+        apt-get remove -y glava
+        info "Pakiet GLava został usunięty."
+    else
+        warn "Pozostawiono pakiet GLava."
+    fi
 else
-    warn "Brak wpisu cron — pomijam."
+    warn "Pakiet GLava nie jest zainstalowany."
 fi
 
 # =============================================================================
-# Ekran logowania
+# KROK 10: Usuwanie konfiguracji GLava (tylko jeśli GLava usunięta)
 # =============================================================================
-section "Przywracanie ekranu logowania"
+if [ "$REMOVE_GLAVA" = true ]; then
+    section "Usuwanie konfiguracji GLava"
 
-if [ -L "/usr/share/backgrounds/linuxmint/default_background.jpg" ]; then
-    ln -sf "/usr/share/backgrounds/linuxmint/linuxmint.jpg" \
-        "/usr/share/backgrounds/linuxmint/default_background.jpg"
-    info "Przywrócono domyślne tło ekranu logowania."
+    rm -rf "$GLAVA_CONFIG/graph_red.frag"
+    rm -rf "$GLAVA_CONFIG/graph.glsl"
+    rm -rf "$GLAVA_CONFIG/graph/1.frag"
+    rm -rf "$GLAVA_CONFIG/util"
+    rm -rf "$GLAVA_CONFIG/smooth_parameters.glsl"
+    rmdir "$GLAVA_CONFIG/graph" 2>/dev/null || true
+    rmdir "$GLAVA_CONFIG" 2>/dev/null || true
+
+    info "Usunięto konfigurację GLava zainstalowaną przez bing-glava-suite."
+else
+    section "Konfiguracja GLava"
+    warn "GLava pozostała zainstalowana — konfiguracja nie została usunięta."
 fi
 
-rm -f "/usr/share/backgrounds/login-bing.jpg"
-info "Usunięto tapetę ekranu logowania."
 
 # =============================================================================
-# Przywracanie konfiguracji GLava (opcjonalne)
-# =============================================================================
-if [[ "$RESTORE" =~ ^[Tt]$ ]] && [ -d "$BACKUP_DIR" ]; then
-    section "Przywracanie konfiguracji GLava"
-
-    for bak in "$BACKUP_DIR"/*.bak; do
-        [ -f "$bak" ] || continue
-        ORIG="${bak%.bak}"
-        ORIG_NAME="$(basename "$ORIG")"
-        # graph/1.frag jest w podkatalogu
-        if [ "$ORIG_NAME" = "1.frag" ]; then
-            cp "$bak" "$GLAVA_CONFIG/graph/1.frag"
-            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph/1.frag"
-        else
-            cp "$bak" "$GLAVA_CONFIG/$ORIG_NAME"
-            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$ORIG_NAME"
-        fi
-        info "Przywrócono: $ORIG_NAME"
-    done
-
-    rm -rf "$BACKUP_DIR"
-    info "Backupy usunięte po przywróceniu."
-fi
-
-# =============================================================================
-# Podsumowanie
+# KONIEC
 # =============================================================================
 section "Deinstalacja zakończona"
 
-echo ""
-echo -e "  Zachowane: ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
-echo -e "  Zachowane: ${BLD}$TARGET_HOME/.local/logs/${RST}"
-echo ""
-info "Gotowe."
+info "Wszystkie składniki bing-glava-suite zostały usunięte."
+echo -e "Możesz teraz usunąć katalog źródłowy projektu, jeśli chcesz."
+

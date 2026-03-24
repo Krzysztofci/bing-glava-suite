@@ -265,8 +265,15 @@ fi
 
 # util/
 if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
-    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/"
+    # Usuń istniejący katalog util, jeśli istnieje
+    rm -rf "$GLAVA_CONFIG/util"
+
+    # Skopiuj nowy katalog util
+    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/util"
+
+    # Ustaw właściciela
     chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
+
     info "Zainstalowano katalog util."
 fi
 

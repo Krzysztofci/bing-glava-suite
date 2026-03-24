@@ -57,7 +57,7 @@ update_colors() {
         return 0
     fi
     touch "$LOCKFILE_UPDATE"
-    sleep 5
+    sleep 0.5
     rm -f "$LOCKFILE_UPDATE"
 
     # Tryb ręczny GUI — nie nadpisuj
