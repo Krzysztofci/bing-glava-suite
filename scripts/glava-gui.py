@@ -549,5 +549,18 @@ class GlavaControlCenter:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    # Ikona aplikacji (Tkinter)
+    ICON_PATH = os.path.join(SCRIPT_DIR, "icon", "glava-gui.png")
+    print("ICON_PATH =", ICON_PATH)
+    print("EXISTS   =", os.path.exists(ICON_PATH))
+
+    try:
+        icon_img = tk.PhotoImage(file=ICON_PATH)
+        root.iconphoto(True, icon_img)
+        # ważne: zachowaj referencję
+        root._icon_img = icon_img
+    except Exception as e:
+        print("Nie udało się załadować ikony:", e)
+
     GlavaControlCenter(root)
     root.mainloop()

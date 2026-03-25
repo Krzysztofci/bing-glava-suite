@@ -189,6 +189,14 @@ section "Instalacja GUI"
 cp "$SCRIPT_DIR/scripts/glava-gui.py" "$BIN_DIR/glava-gui.py"
 chmod 755 "$BIN_DIR/glava-gui.py"
 chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui.py"
+install -d "$HOME/.local/bin/icon"
+cp -r scripts/icon/* "$HOME/.local/bin/icon/"
+install -d "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps"
+install -m644 "$SCRIPT_DIR/scripts/icon/glava-gui.png" \
+    "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
+chown "$TARGET_USER:$TARGET_USER" \
+    "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
+
 
 cat > "$BIN_DIR/glava-gui" <<WRAPPER
 #!/bin/bash
