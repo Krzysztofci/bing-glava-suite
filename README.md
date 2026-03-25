@@ -2,7 +2,9 @@
 
 Automatyczne tapety Bing z dopasowaniem kolorów GLava dla systemów Linux.
 
-> **English summary below the Polish documentation.**
+> **English summary below the Polish documentation.
+GLava Suite brings together Bing’s daily wallpapers and GLava’s audio‑reactive visualizer, with automatic color matching and a brand‑new GUI panel.
+One command, full setup, zero hassle.**
 
 ---
 
