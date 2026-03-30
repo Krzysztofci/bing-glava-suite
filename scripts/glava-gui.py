@@ -95,23 +95,25 @@ BING_REGIONS = [
 ]
 
 # Dostępne moduły GLava z opisami (klucze do tłumaczeń)
-GLAVA_MODULES = ["graph", "bars", "circle", "wave", "radial"]
+GLAVA_MODULES = ["bars", "circle", "graph", "graph2", "radial", "wave"]
 
 # Szablony dla każdego modułu
 MODULE_TEMPLATES = {
-    "graph":  "graph_red.frag",
     "bars":   "bars_colors.frag",
     "circle": "circle_colors.frag",
-    "wave":   "wave_colors.frag",
+    "graph":  "graph_red.frag",
+    "graph2": "graph2_colors.frag",
     "radial": "radial_colors.frag",
+    "wave":   "wave_colors.frag",
 }
 
 MODULE_LIVEFRAGS = {
-    "graph":  "graph/1.frag",
     "bars":   "bars/1.frag",
     "circle": "circle/1.frag",
-    "wave":   "wave/1.frag",
+    "graph":  "graph/1.frag",
+    "graph2":  "graph2/1.frag",
     "radial": "radial/1.frag",
+    "wave":   "wave/1.frag",
 }
 
 
