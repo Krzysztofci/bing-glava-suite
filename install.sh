@@ -270,6 +270,11 @@ chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 # =============================================================================
 section "Konfiguracja GLava — dodatkowe moduły"
 
+echo -e "Czy nadpisać istniejące pliki kolorów (.frag)?"
+echo -e "[T]ak (zalecane) / [n]ie / [p]ytaj dla każdego"
+read -rp "Wybór: " OVERWRITE_CHOICE
+OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-T}"
+
 EXTRA_MODULES=(graph2 bars circle wave radial)
 
 for module in "${EXTRA_MODULES[@]}"; do
@@ -300,17 +305,47 @@ for module in "${EXTRA_MODULES[@]}"; do
         info "$module.glsl już istnieje — pomijam."
     fi
 
-    # Szablon shadera z kolorami (np. bars_colors.frag)
-    FRAG_SRC="$SCRIPT_DIR/config/${module}_colors.frag"
-    FRAG_DST="$GLAVA_CONFIG/${module}_colors.frag"
+# Szablon shadera z kolorami (np. bars_colors.frag)
+FRAG_SRC="$SCRIPT_DIR/config/${module}_colors.frag"
+FRAG_DST="$GLAVA_CONFIG/${module}_colors.frag"
+
     if [ -f "$FRAG_SRC" ]; then
-        if [ ! -f "$FRAG_DST" ]; then
+
+        COPY_FILE=true
+
+        if [ -f "$FRAG_DST" ]; then
+            case "$OVERWRITE_CHOICE" in
+                [Tt])
+                    COPY_FILE=true
+                    ;;
+                [Nn])
+                    COPY_FILE=false
+                    ;;
+                [Pp])
+                    echo -e "Plik $FRAG_DST istnieje. Nadpisać? [t/N]"
+                    read -rp "" ans
+                    [[ "$ans" =~ ^[Tt]$ ]] && COPY_FILE=true || COPY_FILE=false
+                    ;;
+                *)
+                    COPY_FILE=true
+                    ;;
+            esac
+        fi
+
+        if [ "$COPY_FILE" = true ]; then
+
+            # backup
+            if [ -f "$FRAG_DST" ]; then
+                cp "$FRAG_DST" "$BACKUP_DIR/${module}_colors.frag.bak"
+            fi
+
             cp "$FRAG_SRC" "$FRAG_DST"
             chown "$TARGET_USER:$TARGET_USER" "$FRAG_DST"
-            info "Zainstalowano szablon: ${module}_colors.frag"
+            info "Zainstalowano: ${module}_colors.frag"
         else
-            warn "${module}_colors.frag już istnieje — pomijam (zachowuję istniejący)."
+            warn "Pominięto: ${module}_colors.frag"
         fi
+
     else
         warn "Brak szablonu $FRAG_SRC w repozytorium."
     fi
@@ -379,18 +414,24 @@ SERVICE_SRC="$SCRIPT_DIR/systemd/glava-color-daemon.service"
 SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
 cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
-sudo -u "$TARGET_USER" mkdir -p "$CONFIG_DIR/default.target.wants"
-chown "$TARGET_USER:$TARGET_USER" "$CONFIG_DIR/default.target.wants"
-sudo -u "$TARGET_USER" \
-    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-    systemctl --user daemon-reload
-sudo -u "$TARGET_USER" \
-    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-    systemctl --user enable glava-color-daemon.service
-info "Usługa systemd skonfigurowana i włączona."
-warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
+# sprawdź czy sesja systemd user istnieje
+if [ ! -d "/run/user/$TARGET_UID" ]; then
+    warn "Brak aktywnej sesji systemd użytkownika."
+    warn "Usługa zostanie aktywowana przy następnym logowaniu."
+else
+    sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        systemctl --user daemon-reload
+
+    sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        systemctl --user enable glava-color-daemon.service
+
+    info "Usługa systemd skonfigurowana i włączona."
+    warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
+fi
 
 # =============================================================================
 # KROK 11: Cron (root)
