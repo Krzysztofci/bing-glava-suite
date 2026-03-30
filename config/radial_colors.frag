@@ -29,18 +29,25 @@ out vec4 fragment;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 
-// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM KOLORÓW — ZGODNY Z TWOIM GUI
 // GRADIENT_MODE: rgb
-vec3 bottom = vec3(0.5, 0.0, 0.0);
-vec3 mid    = vec3(0.9, 0.1, 0.1);
-vec3 top    = vec3(0.8, 0.8, 0.8);
+// ─────────────────────────────────────────────────────────────────────────────
+uniform vec3 bottom;
+uniform vec3 mid;
+uniform vec3 top;
+
+#define USE_OUTLINE 1   // 1 = outline włączony, 0 = wyłączony
 
 vec4 gradient_color(float t) {
-    // RGB: proste mieszanie kolorów
     vec3 col = t < 0.5
         ? mix(bottom, mid, t * 2.0)
         : mix(mid, top, (t - 0.5) * 2.0);
     return vec4(col, 1.0);
+}
+
+vec4 outline_color(vec4 base) {
+    return vec4(min(base.rgb * 1.5, vec3(1.0)), base.a);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -53,41 +60,63 @@ void main() {
     #define APPLY_FRAG(f, c) f = c
     #endif
 
-    float
-        dx = gl_FragCoord.x - (screen.x / 2) + CENTER_OFFSET_X,
-        dy = gl_FragCoord.y - (screen.y / 2) + CENTER_OFFSET_Y;
-    float theta = atan(dy, dx);
-    float d     = sqrt((dx * dx) + (dy * dy));
+    float dx = gl_FragCoord.x - (screen.x / 2) + CENTER_OFFSET_X;
+    float dy = gl_FragCoord.y - (screen.y / 2) + CENTER_OFFSET_Y;
 
-    if (d > C_RADIUS - (float(C_LINE) / 2.0F) && d < C_RADIUS + (float(C_LINE) / 2.0F)) {
-        // okrąg bazowy — kolor środkowy
-        APPLY_FRAG(fragment, vec4(mid, 1.0));
-        #if _USE_ALPHA > 0
+    float theta = atan(dy, dx);
+    float d = sqrt(dx * dx + dy * dy);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // WEWNĘTRZNY OKRĄG (OUTLINE)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (d > C_RADIUS - (float(C_LINE) / 2.0F) &&
+        d < C_RADIUS + (float(C_LINE) / 2.0F)) {
+
+        float t = clamp((d - (C_RADIUS - C_LINE)) / C_LINE, 0.0, 1.0);
+        vec4 base = gradient_color(t);
+
+    #if USE_OUTLINE
+        APPLY_FRAG(fragment, outline_color(base));
+    #else
+        APPLY_FRAG(fragment, base);
+    #endif
+
+    #if _USE_ALPHA > 0
         fragment.a *= clamp(((C_LINE / 2) - abs(C_RADIUS - d)) * C_ALIAS_FACTOR, 0, 1);
-        #else
+    #else
         return;
-        #endif
+    #endif
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ZEWNĘTRZNE SŁUPKI
+    // ─────────────────────────────────────────────────────────────────────────
     if (d > C_RADIUS) {
+
         const float section = (TWOPI / NBARS);
-        const float center  = ((TWOPI / NBARS) / 2.0F);
-        float m   = mod(theta, section);
-        float ym  = d * sin(center - m);
+        const float center = section / 2.0F;
+
+        float m = mod(theta, section);
+        float ym = d * sin(center - m);
+
         if (abs(ym) < BAR_WIDTH / 2) {
+
             float idx = theta + ROTATE;
             float dir = mod(abs(idx), TWOPI);
             if (dir > PI)
                 idx = -sign(idx) * (TWOPI - dir);
+
             #if INVERT == 0
             idx = -idx;
             #endif
+
             float pos = int(abs(idx) / section) / float(NBARS / 2);
+
             #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)
-            float v;
-            if (idx > 0) v = smooth_f(audio_l);
-            else         v = smooth_f(audio_r);
-            v *= AMPLIFY;
+            float v = (idx > 0) ? smooth_f(audio_l) : smooth_f(audio_r);
             #undef smooth_f
+
+            v *= AMPLIFY;
 
             #if _USE_ALPHA > 0
             #define ALIAS_FACTOR (((BAR_WIDTH / 2) - abs(ym)) * BAR_ALIAS_FACTOR)
@@ -97,35 +126,40 @@ void main() {
             d -= C_RADIUS + (float(C_LINE) / 2.0F);
             #endif
 
+            float t = clamp(d / max(v, 0.001), 0.0, 1.0);
+            vec4 base = gradient_color(t);
+
             if (d <= v - BAR_OUTLINE_WIDTH) {
-                vec4 r;
-                #if BAR_OUTLINE_WIDTH > 0
+
+            #if USE_OUTLINE && BAR_OUTLINE_WIDTH > 0
                 if (abs(ym) < (BAR_WIDTH / 2) - BAR_OUTLINE_WIDTH)
-                    r = gradient_color(clamp(d / 80.0, 0.0, 1.0));
+                    APPLY_FRAG(fragment, base);
                 else
-                    r = gradient_color(0.5) * 1.5;   // outline = rozjaśniony mid
-                #else
-                r = gradient_color(clamp(d / 80.0, 0.0, 1.0));
-                #endif
-                #if _USE_ALPHA > 0
-                r.a *= ALIAS_FACTOR;
-                #endif
-                APPLY_FRAG(fragment, r);
-                return;
-            }
-            #if BAR_OUTLINE_WIDTH > 0
-            if (d <= v) {
-                #if _USE_ALPHA > 0
-                vec4 r = gradient_color(0.5) * 1.5;
-                r.a *= ALIAS_FACTOR;
-                APPLY_FRAG(fragment, r);
-                #else
-                APPLY_FRAG(fragment, gradient_color(0.5) * 1.5);
-                #endif
-                return;
-            }
+                    APPLY_FRAG(fragment, outline_color(base));
+            #else
+                APPLY_FRAG(fragment, base);
             #endif
+
+            #if _USE_ALPHA > 0
+                fragment.a *= ALIAS_FACTOR;
+            #endif
+
+                return;
+            }
+
+        #if USE_OUTLINE && BAR_OUTLINE_WIDTH > 0
+            if (d <= v) {
+                vec4 o = outline_color(base);
+            #if _USE_ALPHA > 0
+                o.a *= ALIAS_FACTOR;
+            #endif
+                APPLY_FRAG(fragment, o);
+                return;
+            }
+        #endif
         }
     }
-    APPLY_FRAG(fragment, vec4(0, 0, 0, 0));
+
+    fragment = APPLY_FRAG(fragment, vec4(0, 0, 0, 0));
 }
+

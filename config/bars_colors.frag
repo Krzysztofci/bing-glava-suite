@@ -33,18 +33,25 @@ out vec4 fragment;
 #define _CHANNELS 2
 #endif
 
-// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM KOLORÓW — ZGODNY Z TWOIM GUI
 // GRADIENT_MODE: rgb
-vec3 bottom = vec3(0.5, 0.0, 0.0);
-vec3 mid    = vec3(0.9, 0.1, 0.1);
-vec3 top    = vec3(0.8, 0.8, 0.8);
+// ─────────────────────────────────────────────────────────────────────────────
+uniform vec3 bottom;
+uniform vec3 mid;
+uniform vec3 top;
+
+#define USE_OUTLINE 1   // 1 = outline włączony, 0 = wyłączony
 
 vec4 gradient_color(float t) {
-    // RGB: proste mieszanie kolorów
     vec3 col = t < 0.5
         ? mix(bottom, mid, t * 2.0)
         : mix(mid, top, (t - 0.5) * 2.0);
     return vec4(col, 1.0);
+}
+
+vec4 outline_color(vec4 base) {
+    return vec4(min(base.rgb * 1.5, vec3(1.0)), base.a);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,6 +78,7 @@ void main() {
     float dx = AREA_X;
     #endif
     #endif
+
     #if FLIP == 0
     float d = AREA_Y;
     #else
@@ -127,24 +135,31 @@ void main() {
         #undef smooth_f
 
         v *= AMPLIFY;
+
+        float t = clamp(d / float(AREA_HEIGHT), 0.0, 1.0);
+        vec4 base = gradient_color(t);
+
         if (d < v - BAR_OUTLINE_WIDTH) {
-            #if BAR_OUTLINE_WIDTH > 0
+        #if USE_OUTLINE && BAR_OUTLINE_WIDTH > 0
             if (md < ceil(float(BAR_WIDTH) / 2) - BAR_OUTLINE_WIDTH &&
                 md >= -floor(float(BAR_WIDTH) / 2) + BAR_OUTLINE_WIDTH)
-                fragment = gradient_color(clamp(d / float(AREA_HEIGHT), 0.0, 1.0));
+                fragment = base;
             else
-                fragment = gradient_color(clamp(d / float(AREA_HEIGHT), 0.0, 1.0)) * 1.5;
-            #else
-            fragment = gradient_color(clamp(d / float(AREA_HEIGHT), 0.0, 1.0));
-            #endif
+                fragment = outline_color(base);
+        #else
+            fragment = base;
+        #endif
             return;
         }
-        #if BAR_OUTLINE_WIDTH > 0
+
+        #if USE_OUTLINE && BAR_OUTLINE_WIDTH > 0
         if (d <= v) {
-            fragment = gradient_color(clamp(d / float(AREA_HEIGHT), 0.0, 1.0)) * 1.5;
+            fragment = outline_color(base);
             return;
         }
         #endif
     }
+
     fragment = vec4(0, 0, 0, 0);
 }
+
