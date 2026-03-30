@@ -3,56 +3,90 @@
 # glava-colors-auto
 # Analizuje aktualną tapetę Bing algorytmem KMeans (3 klastry), wyciąga
 # dominujące kolory i wpisuje je do aktywnego fragmentu shadera GLava.
-# Po zakończeniu usuwa flagi trybu ręcznego i restartuje GLava.
+# Obsługuje moduły: graph, bars, circle, wave, radial.
+# Zachowuje aktywny tryb gradientu (rgb/hsv) z gui_settings.json.
 # =============================================================================
 
 export DISPLAY=:0
 export PATH=/usr/bin:/bin:/usr/local/bin
 
 CONFIG="$HOME/.config/glava"
-REDFRAG="$CONFIG/graph_red.frag"
-LIVEFRAG="$CONFIG/graph/1.frag"
 WALLPAPER="$HOME/Pictures/Bing/bing_today.jpg"
+ACTIVE_MODULE_FILE="$CONFIG/active_module"
+SETTINGS_FILE="$CONFIG/gui_settings.json"
 
 mkdir -p "$CONFIG"
 
-python3 <<EOF
+# Odczytaj aktywny moduł (domyślnie graph)
+ACTIVE_MODULE="graph"
+if [ -f "$ACTIVE_MODULE_FILE" ]; then
+    ACTIVE_MODULE="$(cat "$ACTIVE_MODULE_FILE")"
+fi
+
+# Mapowanie modułu → szablon i plik docelowy
+case "$ACTIVE_MODULE" in
+    graph)  TEMPLATE="$CONFIG/graph_red.frag";    LIVEFRAG="$CONFIG/graph/1.frag"  ;;
+    bars)   TEMPLATE="$CONFIG/bars_colors.frag";   LIVEFRAG="$CONFIG/bars/1.frag"   ;;
+    circle) TEMPLATE="$CONFIG/circle_colors.frag"; LIVEFRAG="$CONFIG/circle/1.frag" ;;
+    wave)   TEMPLATE="$CONFIG/wave_colors.frag";   LIVEFRAG="$CONFIG/wave/1.frag"   ;;
+    radial) TEMPLATE="$CONFIG/radial_colors.frag"; LIVEFRAG="$CONFIG/radial/1.frag" ;;
+    *)
+        echo "Nieznany moduł: $ACTIVE_MODULE, używam graph." >&2
+        ACTIVE_MODULE="graph"
+        TEMPLATE="$CONFIG/graph_red.frag"
+        LIVEFRAG="$CONFIG/graph/1.frag"
+        ;;
+esac
+
+# Odczytaj tryb gradientu z gui_settings.json
+GRADIENT_MODE=$(python3 -c "
+import json, os, sys
+f = '$SETTINGS_FILE'
+try:
+    d = json.load(open(f))
+    print(d.get('gradient_mode', 'rgb'))
+except:
+    print('rgb')
+" 2>/dev/null || echo "rgb")
+
+# Wygeneruj kolory z tapety i zapisz do live frag
+python3 - "$TEMPLATE" "$LIVEFRAG" "$GRADIENT_MODE" << 'PYEOF'
 from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
-import os
-import sys
+import os, sys, re
 
-wallpaper  = os.path.expanduser("$WALLPAPER")
-red_frag   = os.path.expanduser("$REDFRAG")
-live_frag  = os.path.expanduser("$LIVEFRAG")
+wallpaper     = os.path.expanduser(os.environ.get('HOME', '~') + '/Pictures/Bing/bing_today.jpg')
+template_path = sys.argv[1]
+live_path     = sys.argv[2]
+gradient_mode = sys.argv[3] if len(sys.argv) > 3 else 'rgb'
 
 if not os.path.exists(wallpaper):
     print("Brak pliku tapety: " + wallpaper, file=sys.stderr)
     sys.exit(1)
 
-if not os.path.exists(red_frag):
-    print("Brak pliku szablonu: " + red_frag, file=sys.stderr)
+if not os.path.exists(template_path):
+    print("Brak pliku szablonu: " + template_path, file=sys.stderr)
     sys.exit(1)
 
+# Analiza kolorów KMeans
 img = Image.open(wallpaper).convert('RGB')
 img.thumbnail((200, 200))
 pixels = np.array(img).reshape(-1, 3)
-
 kmeans = KMeans(n_clusters=3, n_init=10)
 kmeans.fit(pixels)
 colors = sorted(kmeans.cluster_centers_.astype(int), key=lambda c: sum(c))
 
 def vec3(rgb):
-    return "vec3({:.2f}, {:.2f}, {:.2f})".format(
-        rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
+    return "vec3({:.2f}, {:.2f}, {:.2f})".format(rgb[0]/255, rgb[1]/255, rgb[2]/255)
 
-with open(red_frag) as f:
+# Wczytaj szablon i podmień kolory
+with open(template_path) as f:
     lines = f.readlines()
 
-os.makedirs(os.path.dirname(live_frag), exist_ok=True)
+os.makedirs(os.path.dirname(live_path), exist_ok=True)
 
-with open(live_frag, 'w') as f:
+with open(live_path, 'w') as f:
     for line in lines:
         if 'vec3 bottom' in line:
             f.write("vec3 bottom = {};\n".format(vec3(colors[0])))
@@ -63,14 +97,68 @@ with open(live_frag, 'w') as f:
         else:
             f.write(line)
 
-print("Kolory zaktualizowane pomyślnie.")
-EOF
+# Podmień tryb gradientu jeśli HSV
+if gradient_mode == 'hsv':
+    with open(live_path) as f:
+        src = f.read()
 
-# Usuń flagi trybu ręcznego — daemon i GUI wracają do trybu auto
+    HSV_FUNC = (
+        "vec3 rgb2hsv(vec3 c) {\n"
+        "    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);\n"
+        "    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n"
+        "    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n"
+        "    float d = q.x - min(q.w, q.y);\n"
+        "    float e = 1.0e-10;\n"
+        "    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n"
+        "}\n"
+        "vec3 hsv2rgb(vec3 c) {\n"
+        "    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);\n"
+        "    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n"
+        "    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n"
+        "}\n"
+        "vec4 gradient_color(float t) {\n"
+        "    // HSV: interpolacja przez przestrzen HSV\n"
+        "    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);\n"
+        "    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);\n"
+        "    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;\n"
+        "    float dh = hsv_b.x - hsv_a.x;\n"
+        "    if (dh > 0.5)  dh -= 1.0;\n"
+        "    if (dh < -0.5) dh += 1.0;\n"
+        "    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));\n"
+        "    return vec4(hsv2rgb(hsv), 1.0);\n"
+        "}"
+    )
+
+    # Podmień tylko ciało funkcji gradient_color (zachowując vec3 bottom/mid/top)
+    src = re.sub(
+        r'(// GRADIENT_MODE: )rgb',
+        r'\1hsv',
+        src
+    )
+    src = re.sub(
+        r'vec4 gradient_color\(float t\) \{[^}]*\}',
+        HSV_FUNC,
+        src,
+        flags=re.DOTALL
+    )
+    with open(live_path, 'w') as f:
+        f.write(src)
+
+print("Kolory zaktualizowane ({}, gradient: {}).".format(
+    os.path.basename(os.path.dirname(live_path)), gradient_mode))
+PYEOF
+
+# Usuń flagi trybu ręcznego
 rm -f "$CONFIG/red.shift"
 rm -f "$CONFIG/manual.shift"
 
-# Restart GLava (jeśli nie jest wyłączona przez użytkownika)
+# Ustaw aktywny moduł w rc.glsl
+RC="$CONFIG/rc.glsl"
+if [ -f "$RC" ]; then
+    sed -i "s/^#request mod .*/#request mod $ACTIVE_MODULE/" "$RC"
+fi
+
+# Restart GLava
 DISABLE_FLAG="$CONFIG/.glava_disabled"
 pkill -x glava 2>/dev/null
 sleep 0.2

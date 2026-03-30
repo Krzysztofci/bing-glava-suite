@@ -3,8 +3,8 @@
 # glava-toggle
 # Włącza lub wyłącza GLava. Stan zapamiętywany jest w pliku flagi,
 # dzięki czemu demon nie uruchamia GLava ponownie po restarcie.
+# Aktywny moduł jest zapisany w rc.glsl (#request mod ...).
 # =============================================================================
-
 FLAG="$HOME/.config/glava/.glava_disabled"
 
 if pgrep -x glava >/dev/null; then

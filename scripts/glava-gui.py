@@ -2,13 +2,6 @@
 # =============================================================================
 # glava-gui.py
 # Panel sterowania GLava + Bing wallpaper suite.
-#
-# Zmiany w stosunku do poprzedniej wersji:
-#   - Pobieranie tapety bez sudo (bing-fetch-user.sh)
-#   - Region Bing zapisywany w ~/.config/bing-glava/config
-#   - Brak zarządzania cronem w GUI (ustawiany przez instalator)
-#   - Wielojęzyczność (lang/*.json)
-#   - Konfiguracja geometrii GLava (X/Y/W/H → rc.glsl)
 # =============================================================================
 
 import tkinter as tk
@@ -16,6 +9,62 @@ from tkinter import colorchooser, messagebox, simpledialog, ttk
 import os
 import subprocess
 import re
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bloki gradientu (RGB / HSV) — podmieniane w szablonie shadera
+# ─────────────────────────────────────────────────────────────────────────────
+
+GRADIENT_BLOCK_RGB = """// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
+// GRADIENT_MODE: rgb
+vec3 bottom = vec3(0.5, 0.0, 0.0);
+vec3 mid    = vec3(0.9, 0.1, 0.1);
+vec3 top    = vec3(0.8, 0.8, 0.8);
+
+vec4 gradient_color(float t) {
+    // RGB: proste mieszanie kolorów
+    vec3 col = t < 0.5
+        ? mix(bottom, mid, t * 2.0)
+        : mix(mid, top, (t - 0.5) * 2.0);
+    return vec4(col, 1.0);
+}
+// ─────────────────────────────────────────────────────────────────────────────"""
+
+GRADIENT_BLOCK_HSV = """// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
+// GRADIENT_MODE: hsv
+vec3 bottom = vec3(0.5, 0.0, 0.0);
+vec3 mid    = vec3(0.9, 0.1, 0.1);
+vec3 top    = vec3(0.8, 0.8, 0.8);
+
+vec3 rgb2hsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+vec4 gradient_color(float t) {
+    // HSV: interpolacja przez przestrzeń HSV — czyste przejścia kolorów
+    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);
+    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);
+    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;
+    float dh = hsv_b.x - hsv_a.x;
+    if (dh > 0.5)  dh -= 1.0;
+    if (dh < -0.5) dh += 1.0;
+    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));
+    return vec4(hsv2rgb(hsv), 1.0);
+}
+// ─────────────────────────────────────────────────────────────────────────────"""
+
+GRADIENT_PATTERN = re.compile(
+    r'// ── gradient 3-kolorowy.*?// ─{20,}',
+    re.DOTALL
+)
 import json
 import glob
 import datetime
@@ -25,14 +74,13 @@ CONFIG_DIR    = os.path.join(USER_HOME, ".config/glava")
 BIN_DIR       = os.path.join(USER_HOME, ".local/bin")
 BINGCONF_DIR  = os.path.join(USER_HOME, ".config/bing-glava")
 BINGCONF_FILE = os.path.join(BINGCONF_DIR, "config")
-LIVEFRAG      = os.path.join(CONFIG_DIR, "graph/1.frag")
-REDFRAG       = os.path.join(CONFIG_DIR, "graph_red.frag")
 RC_GLSL       = os.path.join(CONFIG_DIR, "rc.glsl")
 FLAG_RED      = os.path.join(CONFIG_DIR, "red.shift")
 FLAG_MANUAL   = os.path.join(CONFIG_DIR, "manual.shift")
 PRESETS_FILE  = os.path.join(CONFIG_DIR, "presets.json")
 WALLPAPER     = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "gui_settings.json")
+ACTIVE_MODULE_FILE = os.path.join(CONFIG_DIR, "active_module")
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 LANG_DIR   = os.path.join(SCRIPT_DIR, "..", "lang")
@@ -46,13 +94,59 @@ BING_REGIONS = [
     "it-IT", "pt-BR", "ja-JP", "zh-CN", "pl-PL",
 ]
 
+# Dostępne moduły GLava z opisami (klucze do tłumaczeń)
+GLAVA_MODULES = ["graph", "bars", "circle", "wave", "radial"]
+
+# Szablony dla każdego modułu
+MODULE_TEMPLATES = {
+    "graph":  "graph_red.frag",
+    "bars":   "bars_colors.frag",
+    "circle": "circle_colors.frag",
+    "wave":   "wave_colors.frag",
+    "radial": "radial_colors.frag",
+}
+
+MODULE_LIVEFRAGS = {
+    "graph":  "graph/1.frag",
+    "bars":   "bars/1.frag",
+    "circle": "circle/1.frag",
+    "wave":   "wave/1.frag",
+    "radial": "radial/1.frag",
+}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Plik konfiguracyjny użytkownika (~/.config/bing-glava/config)
+
+def read_active_module():
+    if os.path.exists(ACTIVE_MODULE_FILE):
+        with open(ACTIVE_MODULE_FILE) as f:
+            m = f.read().strip()
+        if m in GLAVA_MODULES:
+            return m
+    return "graph"
+
+
+def write_active_module(module):
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(ACTIVE_MODULE_FILE, "w") as f:
+        f.write(module)
+
+
+def get_live_frag(module=None):
+    if module is None:
+        module = read_active_module()
+    return os.path.join(CONFIG_DIR, MODULE_LIVEFRAGS.get(module, "graph/1.frag"))
+
+
+def get_template(module=None):
+    if module is None:
+        module = read_active_module()
+    return os.path.join(CONFIG_DIR, MODULE_TEMPLATES.get(module, "graph_red.frag"))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 def read_bing_config():
-    """Czyta plik config użytkownika, zwraca słownik."""
     cfg = {"BING_REGION": "de-DE"}
     if os.path.exists(BINGCONF_FILE):
         with open(BINGCONF_FILE) as f:
@@ -65,7 +159,6 @@ def read_bing_config():
 
 
 def write_bing_config(cfg):
-    """Zapisuje słownik do pliku config użytkownika."""
     os.makedirs(BINGCONF_DIR, exist_ok=True)
     lines = ["# bing-glava — konfiguracja użytkownika\n"]
     for key, val in cfg.items():
@@ -74,12 +167,6 @@ def write_bing_config(cfg):
         f.writelines(lines)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Sudo przez zenity (tylko dla LightDM)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Język
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_lang(lang_code):
@@ -108,11 +195,9 @@ def available_langs():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Ustawienia GUI
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_settings():
-    defaults = {"lang": "pl"}
+    defaults = {"lang": "pl", "gradient_mode": "rgb"}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE) as f:
@@ -129,8 +214,6 @@ def save_settings(settings):
         json.dump(settings, f, indent=4)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Geometria GLava
 # ─────────────────────────────────────────────────────────────────────────────
 
 def read_geometry():
@@ -160,11 +243,8 @@ def write_geometry(x, y, w, h):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Sudo przez zenity (tylko dla LightDM)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def sudo_run_zenity(cmd):
-    """Uruchamia komendę jako root z graficznym pytaniem o hasło (zenity)."""
     import shutil
     if shutil.which("zenity"):
         passwd = subprocess.run(
@@ -185,8 +265,6 @@ def sudo_run_zenity(cmd):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GUI
-# ─────────────────────────────────────────────────────────────────────────────
 
 class GlavaControlCenter:
     def __init__(self, root):
@@ -197,6 +275,8 @@ class GlavaControlCenter:
         self.bing_cfg = read_bing_config()
         self.current_colors = {"top": "#ffffff", "mid": "#888888", "bottom": "#000000"}
         self.presets = {}
+        self.active_module = read_active_module()
+        self.gradient_mode = self.settings.get("gradient_mode", "rgb")
         self.load_presets()
         self.root.title(self.T.get("title", "GLava Master Panel"))
         self.root.resizable(True, True)
@@ -223,6 +303,24 @@ class GlavaControlCenter:
         lang_cb.pack(side="left")
         lang_cb.bind("<<ComboboxSelected>>", self.change_language)
 
+        # --- WIERSZ 0: Wybór motywu ---
+        mf = tk.LabelFrame(self.root,
+                            text=T.get("section_module", "Motyw GLava"),
+                            font=("Arial", 9, "bold"), padx=8, pady=6)
+        mf.pack(fill="x", padx=10, pady=(4, 2))
+        module_row = tk.Frame(mf)
+        module_row.pack(fill="x")
+        tk.Label(module_row, text=T.get("label_module", "Aktywny motyw") + ":",
+                 font=("Arial", 9)).pack(side="left")
+        self.module_var = tk.StringVar(value=self.active_module)
+        module_cb = ttk.Combobox(module_row, textvariable=self.module_var,
+                                  values=GLAVA_MODULES, width=10, state="readonly")
+        module_cb.pack(side="left", padx=(6, 12))
+        module_cb.bind("<<ComboboxSelected>>", self.change_module)
+        tk.Button(module_row, text=T.get("btn_apply_module", "Zastosuj motyw"),
+                  command=self.apply_module, bg="#1565c0", fg="white",
+                  font=("Arial", 9)).pack(side="left")
+
         # --- WIERSZ 1: Kolorystyka + Tryby ---
         row1 = tk.Frame(self.root)
         row1.pack(fill="x", padx=10, pady=4)
@@ -244,20 +342,30 @@ class GlavaControlCenter:
                   font=("Arial", 9, "bold")).pack(fill="x", pady=(0, 3))
         tk.Button(cf, text=T.get("btn_capture", "Pobierz z ekranu"),
                   command=self.capture_current, bg="#f39c12", fg="white").pack(fill="x")
+        # Radio: RGB / HSV
+        grad_row = tk.Frame(cf)
+        grad_row.pack(fill="x", pady=(6, 0))
+        tk.Label(grad_row, text=T.get("label_gradient", "Gradient:"),
+                 font=("Arial", 9)).pack(side="left")
+        self.gradient_var = tk.StringVar(value=self.gradient_mode)
+        for val, lbl in [("rgb", "RGB"), ("hsv", "HSV")]:
+            tk.Radiobutton(grad_row, text=lbl, variable=self.gradient_var,
+                           value=val, command=self.change_gradient_mode,
+                           font=("Arial", 9)).pack(side="left", padx=(4, 0))
 
         # Tryby
-        mf = tk.LabelFrame(row1, text=T.get("section_modes", "Tryby"),
+        tf = tk.LabelFrame(row1, text=T.get("section_modes", "Tryby"),
                             font=("Arial", 9, "bold"), padx=6, pady=6)
-        mf.pack(side="left", fill="both", expand=True, padx=(4, 0))
-        tk.Button(mf, text=T.get("btn_fetch_wallpaper", "Pobierz tapetę Bing (pulpit)"),
+        tf.pack(side="left", fill="both", expand=True, padx=(4, 0))
+        tk.Button(tf, text=T.get("btn_fetch_wallpaper", "Pobierz tapetę Bing (pulpit)"),
                   command=self.fetch_wallpaper_user, bg="#1565c0", fg="white"
                   ).pack(fill="x", pady=(0, 3))
-        tk.Button(mf, text=T.get("btn_fetch_wallpaper_full", "Pobierz tapetę Bing (pulpit + logowanie)"),
+        tk.Button(tf, text=T.get("btn_fetch_wallpaper_full", "Pobierz tapetę Bing (pulpit + logowanie)"),
                   command=self.fetch_wallpaper_full, bg="#0d47a1", fg="white"
                   ).pack(fill="x", pady=(0, 6))
-        tk.Button(mf, text=T.get("btn_restore_auto", "Przywróć Bing (auto)"),
+        tk.Button(tf, text=T.get("btn_restore_auto", "Przywróć Bing (auto)"),
                   command=self.restore_auto, bg="#37474f", fg="white").pack(fill="x", pady=(0, 3))
-        tk.Button(mf, text=T.get("btn_toggle_glava", "Włącz / Wyłącz GLava"),
+        tk.Button(tf, text=T.get("btn_toggle_glava", "Włącz / Wyłącz GLava"),
                   command=self.run_toggle, bg="#424242", fg="white").pack(fill="x")
 
         # --- WIERSZ 2: Profile + Geometria ---
@@ -310,7 +418,7 @@ class GlavaControlCenter:
                   command=self.apply_geometry, bg="#1565c0", fg="white",
                   font=("Arial", 9)).pack(fill="x")
 
-        # --- WIERSZ 3: Ustawienia (tylko region) ---
+        # --- WIERSZ 3: Ustawienia ---
         sf = tk.LabelFrame(self.root, text=T.get("section_settings", "Ustawienia"),
                            font=("Arial", 9, "bold"), padx=8, pady=6)
         sf.pack(fill="x", padx=10, pady=4)
@@ -328,6 +436,54 @@ class GlavaControlCenter:
         self.status_label = tk.Label(self.root, text="...",
                                       font=("Arial", 9, "italic"), anchor="w")
         self.status_label.pack(fill="x", padx=12, pady=(2, 8))
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Moduł / motyw
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def change_module(self, event=None):
+        """Aktualizuje podgląd wybranego modułu bez restartu."""
+        self.active_module = self.module_var.get()
+
+    def apply_module(self):
+        """Zapisuje wybrany moduł i restartuje GLava."""
+        module = self.module_var.get()
+        self.active_module = module
+        write_active_module(module)
+        # Sprawdź czy szablon istnieje
+        tmpl = get_template(module)
+        if not os.path.exists(tmpl):
+            messagebox.showerror("",
+                f"{self.T.get('error_no_template', 'Brak szablonu')}:\n{tmpl}\n\n"
+                f"Skopiuj plik {MODULE_TEMPLATES[module]} do {CONFIG_DIR}/")
+            return
+        # Jeśli tryb auto — wygeneruj kolory dla nowego modułu
+        if not os.path.exists(FLAG_RED) and not os.path.exists(FLAG_MANUAL):
+            subprocess.Popen(["/bin/bash", os.path.join(BIN_DIR, "glava-colors-auto")])
+            self.root.after(1500, self.update_status)
+        else:
+            self.restart_glava()
+            self.root.after(500, self.update_status)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Gradient RGB / HSV
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def change_gradient_mode(self):
+        mode = self.gradient_var.get()
+        self.gradient_mode = mode
+        self.settings["gradient_mode"] = mode
+        save_settings(self.settings)
+        # Podmień blok gradientu w aktywnym szablonie i live frag
+        block = GRADIENT_BLOCK_HSV if mode == "hsv" else GRADIENT_BLOCK_RGB
+        for path in [get_template(self.active_module), get_live_frag(self.active_module)]:
+            if os.path.exists(path):
+                with open(path) as f:
+                    src = f.read()
+                new_src = GRADIENT_PATTERN.sub(block, src)
+                with open(path, "w") as f:
+                    f.write(new_src)
+        self.restart_glava()
 
     # ─────────────────────────────────────────────────────────────────────────
     # Język
@@ -407,13 +563,15 @@ class GlavaControlCenter:
     def apply_manual(self):
         open(FLAG_RED, "a").close()
         open(FLAG_MANUAL, "a").close()
-        if not os.path.exists(REDFRAG):
-            messagebox.showerror("", f"{self.T.get('error_no_template', 'Brak szablonu')}:\n{REDFRAG}")
+        tmpl = get_template(self.active_module)
+        live = get_live_frag(self.active_module)
+        if not os.path.exists(tmpl):
+            messagebox.showerror("", f"{self.T.get('error_no_template', 'Brak szablonu')}:\n{tmpl}")
             return
-        with open(REDFRAG) as f:
+        with open(tmpl) as f:
             lines = f.readlines()
-        os.makedirs(os.path.dirname(LIVEFRAG), exist_ok=True)
-        with open(LIVEFRAG, "w") as f:
+        os.makedirs(os.path.dirname(live), exist_ok=True)
+        with open(live, "w") as f:
             for line in lines:
                 written = False
                 for k in ["bottom", "mid", "top"]:
@@ -425,13 +583,20 @@ class GlavaControlCenter:
                         break
                 if not written:
                     f.write(line)
+        # Zachowaj aktywny tryb gradientu
+        block = GRADIENT_BLOCK_HSV if self.gradient_mode == "hsv" else GRADIENT_BLOCK_RGB
+        with open(live, "r") as f:
+            src = f.read()
+        with open(live, "w") as f:
+            f.write(GRADIENT_PATTERN.sub(block, src))
         self.save_presets_to_file()
         self.restart_glava()
 
     def capture_current(self):
-        if not os.path.exists(LIVEFRAG):
+        live = get_live_frag(self.active_module)
+        if not os.path.exists(live):
             return
-        with open(LIVEFRAG) as f:
+        with open(live) as f:
             content = f.read()
         for key in ["bottom", "mid", "top"]:
             m = re.search(rf"vec3\s+{key}\s*=\s*vec3\s*\((.*?)\)\s*;", content)
@@ -446,14 +611,12 @@ class GlavaControlCenter:
     # ─────────────────────────────────────────────────────────────────────────
 
     def fetch_wallpaper_user(self):
-        """Pobiera tapetę bez sudo — tylko pulpit (bing-fetch-user.sh)."""
         self.root.focus()
         fetcher = os.path.join(BIN_DIR, "bing-fetch-user.sh")
         subprocess.Popen(["/bin/bash", fetcher, "--force"])
         self.root.after(4000, self.update_status)
 
     def fetch_wallpaper_full(self):
-        """Pobiera tapetę z sudo — pulpit + ekran logowania LightDM."""
         self.root.focus()
         downloader = "/usr/local/bin/bing-downloader.sh"
         if not os.path.exists(downloader):
@@ -505,7 +668,6 @@ class GlavaControlCenter:
     # ─────────────────────────────────────────────────────────────────────────
 
     def save_settings_action(self):
-        """Zapisuje region Bing do pliku config użytkownika — bez sudo."""
         region = self.region_var.get()
         self.bing_cfg["BING_REGION"] = region
         write_bing_config(self.bing_cfg)
@@ -517,14 +679,28 @@ class GlavaControlCenter:
     # ─────────────────────────────────────────────────────────────────────────
 
     def restart_glava(self):
+        self._write_rc_module(self.active_module)
         subprocess.run(["pkill", "-x", "glava"])
         self.root.after(500, lambda: subprocess.Popen(
-            ["glava", "--desktop"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            ["glava", "--desktop"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+    def _write_rc_module(self, module):
+        """Zapisuje aktywny moduł do rc.glsl (#request mod ...)."""
+        if not os.path.exists(RC_GLSL):
+            return
+        with open(RC_GLSL) as f:
+            content = f.read()
+        import re
+        new = re.sub(r'^#request mod .*', f'#request mod {module}', content, flags=re.MULTILINE)
+        with open(RC_GLSL, "w") as f:
+            f.write(new)
 
     def update_status(self):
         T = self.T
         res = subprocess.run(["pgrep", "-x", "glava"], capture_output=True)
         running = res.returncode == 0
+        module = read_active_module()
         if running:
             if os.path.exists(FLAG_MANUAL):
                 mode = T.get("mode_manual", "tryb ręczny")
@@ -532,7 +708,7 @@ class GlavaControlCenter:
                 mode = T.get("mode_red", "tryb RED")
             else:
                 mode = T.get("mode_auto", "tryb AUTO")
-            status = f"● {T.get('status_active', 'GLava aktywna')} [{mode}]"
+            status = f"● {T.get('status_active', 'GLava aktywna')} [{module}] [{mode}]"
             color = "green"
         else:
             status = f"○ {T.get('status_inactive', 'GLava wyłączona')}"
@@ -549,18 +725,14 @@ class GlavaControlCenter:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    # Ikona aplikacji (Tkinter)
     ICON_PATH = os.path.join(SCRIPT_DIR, "icon", "glava-gui.png")
     print("ICON_PATH =", ICON_PATH)
     print("EXISTS   =", os.path.exists(ICON_PATH))
-
     try:
         icon_img = tk.PhotoImage(file=ICON_PATH)
         root.iconphoto(True, icon_img)
-        # ważne: zachowaj referencję
         root._icon_img = icon_img
     except Exception as e:
         print("Nie udało się załadować ikony:", e)
-
     GlavaControlCenter(root)
     root.mainloop()
