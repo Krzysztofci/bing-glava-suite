@@ -416,37 +416,22 @@ SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
 cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
 
-if [ ! -d "/run/user/$TARGET_UID" ]; then
-    warn "Brak aktywnej sesji systemd użytkownika."
-    warn "Usługa nie może być teraz włączona automatycznie."
+sudo -u "$TARGET_USER" mkdir -p "$CONFIG_DIR/default.target.wants"
+chown "$TARGET_USER:$TARGET_USER" "$CONFIG_DIR/default.target.wants"
 
-    echo ""
-    echo -e "Uruchom po zalogowaniu jako ${BLD}$TARGET_USER${RST}:"
-    echo -e "  ${BLD}systemctl --user daemon-reload${RST}"
-    echo -e "  ${BLD}systemctl --user enable --now glava-color-daemon.service${RST}"
-    echo ""
+sudo -u "$TARGET_USER" \
+    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+    systemctl --user daemon-reload
 
-else
-    if sudo -u "$TARGET_USER" \
-        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-        systemctl --user daemon-reload && \
-       sudo -u "$TARGET_USER" \
-        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
-        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-        systemctl --user enable --now glava-color-daemon.service
-    then
-        info "Usługa systemd włączona i uruchomiona."
-    else
-        warn "Nie udało się automatycznie włączyć usługi."
+sudo -u "$TARGET_USER" \
+    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+    systemctl --user enable glava-color-daemon.service
 
-        echo ""
-        echo -e "Uruchom ręcznie jako ${BLD}$TARGET_USER${RST}:"
-        echo -e "  ${BLD}systemctl --user daemon-reload${RST}"
-        echo -e "  ${BLD}systemctl --user enable --now glava-color-daemon.service${RST}"
-        echo ""
-    fi
-fi
+info "Usługa systemd skonfigurowana i włączona."
+warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
+
 # =============================================================================
 # KROK 11: Cron (root)
 # =============================================================================
