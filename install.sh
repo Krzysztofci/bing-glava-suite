@@ -285,8 +285,7 @@ for module in "${EXTRA_MODULES[@]}"; do
             chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module"
             info "Skopiowano katalog modułu: $module"
         else
-            warn "Brak /etc/xdg/glava/$module — pomijam."
-            continue
+            warn "Brak /etc/xdg/glava/$module — pomijam kopiowanie modułu, ale instaluję .frag."
         fi
     else
         info "Katalog $module/ już istnieje — pomijam kopiowanie."
@@ -410,29 +409,44 @@ fi
 # KROK 10: Usługa systemd użytkownika
 # =============================================================================
 section "Konfiguracja usługi systemd"
+
 SERVICE_SRC="$SCRIPT_DIR/systemd/glava-color-daemon.service"
 SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
+
 cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
-# sprawdź czy sesja systemd user istnieje
+
 if [ ! -d "/run/user/$TARGET_UID" ]; then
     warn "Brak aktywnej sesji systemd użytkownika."
-    warn "Usługa zostanie aktywowana przy następnym logowaniu."
+    warn "Usługa nie może być teraz włączona automatycznie."
+
+    echo ""
+    echo -e "Uruchom po zalogowaniu jako ${BLD}$TARGET_USER${RST}:"
+    echo -e "  ${BLD}systemctl --user daemon-reload${RST}"
+    echo -e "  ${BLD}systemctl --user enable --now glava-color-daemon.service${RST}"
+    echo ""
+
 else
-    sudo -u "$TARGET_USER" \
+    if sudo -u "$TARGET_USER" \
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-        systemctl --user daemon-reload
-
-    sudo -u "$TARGET_USER" \
+        systemctl --user daemon-reload && \
+       sudo -u "$TARGET_USER" \
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-        systemctl --user enable glava-color-daemon.service
+        systemctl --user enable --now glava-color-daemon.service
+    then
+        info "Usługa systemd włączona i uruchomiona."
+    else
+        warn "Nie udało się automatycznie włączyć usługi."
 
-    info "Usługa systemd skonfigurowana i włączona."
-    warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
+        echo ""
+        echo -e "Uruchom ręcznie jako ${BLD}$TARGET_USER${RST}:"
+        echo -e "  ${BLD}systemctl --user daemon-reload${RST}"
+        echo -e "  ${BLD}systemctl --user enable --now glava-color-daemon.service${RST}"
+        echo ""
+    fi
 fi
-
 # =============================================================================
 # KROK 11: Cron (root)
 # =============================================================================
