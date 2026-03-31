@@ -412,6 +412,12 @@ section "Konfiguracja usługi systemd"
 SERVICE_SRC="$SCRIPT_DIR/systemd/glava-color-daemon.service"
 SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
 
+# Włącz linger (wymagane dla usług użytkownika bez aktywnej sesji)
+if ! loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes"; then
+    loginctl enable-linger "$TARGET_USER"
+    info "Włączono linger dla $TARGET_USER (wymagane dla systemd --user)."
+fi
+
 cp "$SERVICE_SRC" "$SERVICE_DST"
 chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
 
