@@ -412,16 +412,16 @@ section "Konfiguracja usługi systemd"
 SERVICE_SRC="$SCRIPT_DIR/systemd/glava-color-daemon.service"
 SERVICE_DST="$CONFIG_DIR/glava-color-daemon.service"
 
-# Włącz linger (wymagane dla usług użytkownika bez aktywnej sesji)
+# Włącz linger
 if ! loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes"; then
     loginctl enable-linger "$TARGET_USER"
-    info "Włączono linger dla $TARGET_USER (wymagane dla systemd --user)."
+    info "Włączono linger dla $TARGET_USER."
 fi
 
 cp "$SERVICE_SRC" "$SERVICE_DST"
-chown "$TARGET_USER:$TARGET_USER" "$SERVICE_DST"
+# Kluczowe: katalog musi należeć do użytkownika, nie root
+chown -R "$TARGET_USER:$TARGET_USER" "$CONFIG_DIR"
 
-# sprawdź czy sesja systemd user istnieje
 if [ ! -d "/run/user/$TARGET_UID" ]; then
     warn "Brak aktywnej sesji systemd użytkownika."
     warn "Usługa zostanie aktywowana przy następnym logowaniu."
@@ -430,12 +430,10 @@ else
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
         systemctl --user daemon-reload
-
     sudo -u "$TARGET_USER" \
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
-        systemctl --user enable "$SERVICE_DST"
-
+        systemctl --user enable glava-color-daemon.service
     info "Usługa systemd skonfigurowana i włączona."
     warn "Aby uruchomić teraz: systemctl --user start glava-color-daemon"
 fi
