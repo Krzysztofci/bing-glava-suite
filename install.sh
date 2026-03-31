@@ -270,6 +270,17 @@ chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 # =============================================================================
 section "Konfiguracja GLava — dodatkowe moduły"
 
+for f in /etc/xdg/glava/*.glsl; do
+    [ -f "$f" ] || continue
+    fname="$(basename "$f")"
+    dst="$GLAVA_CONFIG/$fname"
+    if [ ! -f "$dst" ]; then
+        cp "$f" "$dst"
+        chown "$TARGET_USER:$TARGET_USER" "$dst"
+        info "Skopiowano: $fname"
+    fi
+done
+
 echo -e "Czy nadpisać istniejące pliki kolorów (.frag)?"
 echo -e "[T]ak (zalecane) / [n]ie / [p]ytaj dla każdego"
 read -rp "Wybór: " OVERWRITE_CHOICE
