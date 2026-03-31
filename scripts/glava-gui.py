@@ -235,7 +235,7 @@ def write_geometry(x, y, w, h):
     with open(RC_GLSL) as f:
         content = f.read()
     new = re.sub(
-        r'(#request\s+setgeometry\s+)\d+\s+\d+\s+\d+\s+\d+',
+        r'(#request\s+setgeometry\s+)-?\d+\s+-?\d+\s+-?\d+\s+-?\d+',
         f'\\g<1>{x} {y} {w} {h}',
         content
     )
@@ -660,6 +660,10 @@ class GlavaControlCenter:
             w = int(self.geo_vars["w"].get())
             h = int(self.geo_vars["h"].get())
         except ValueError:
+            messagebox.showerror("", "Wartości muszą być liczbami całkowitymi.")
+            return
+        if w <= 0 or h <= 0:
+            messagebox.showerror("", "Szerokość i wysokość muszą być większe od zera.")
             return
         if write_geometry(x, y, w, h):
             messagebox.showinfo("", self.T.get("geometry_applied", "Geometria zaktualizowana."))
