@@ -1,5 +1,86 @@
 # bing-glava-suite
 
+> **GLava that configures itself.**
+>  
+> Automatically:
+> - 🎨 syncs colors with your wallpaper  
+> - 🖼 downloads Bing daily wallpapers (UHD)  
+> - 📐 adapts to your screen geometry  
+> - ⚙️ runs fully in background (daemon)  
+>  
+> **1 command install. Zero manual config.**
+
+---
+
+## ⚡ What makes this different?
+
+GLava is powerful — but painful to configure.
+
+**bing-glava-suite turns it into a fully automatic system:**
+
+- no manual shader editing  
+- no config tweaking  
+- no restarting things manually  
+
+👉 it just works and adapts in real-time
+
+---
+
+## 🎥 What it looks like
+
+👉 Wallpaper changes → GLava updates colors automatically  
+👉 Geometry adjusts to your panel and screen  
+👉 Everything runs in background
+
+*(add GIF here — this is critical)*
+
+---
+
+## 🧠 Core idea
+
+This is not just a script.
+
+This is a **self-configuring GLava environment**:
+
+- daemon watches wallpaper changes (`inotify`)
+- KMeans extracts dominant colors
+- shader updates automatically
+- GLava restarts with new theme
+- GUI lets you override everything when you want
+
+---
+
+## 🧩 Features
+
+### 🔥 Fully automatic mode
+- Bing wallpaper downloader (cron)
+- auto color extraction (KMeans)
+- live shader update
+- systemd user daemon
+
+### 🎛 GUI Control Panel
+- manual color editing (top / mid / bottom)
+- RGB / HSV gradient modes
+- color presets system
+- module switching (graph / bars / circle / wave / radial)
+- geometry editor (X/Y/W/H)
+- auto geometry detection (screen + panel aware)
+- Bing region + language settings
+
+### ⚙️ Smart behavior
+- respects manual overrides (flags system)
+- won’t overwrite your settings
+- works per-user
+- persistent across reboots
+
+---
+
+## 🚀 Installation
+
+```bash
+git clone https://github.com/Krzysztofci/bing-glava-suite.git
+cd bing-glava-suite
+sudo ./install.sh
 Automatyczne tapety Bing z dopasowaniem kolorów GLava dla systemów Linux.
 
 > **GLava Suite brings together Bing’s daily wallpapers and GLava’s audio‑reactive visualizer, with automatic color matching and a brand‑new GUI panel.
