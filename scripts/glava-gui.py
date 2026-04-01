@@ -95,25 +95,23 @@ BING_REGIONS = [
 ]
 
 # Dostępne moduły GLava z opisami (klucze do tłumaczeń)
-GLAVA_MODULES = ["bars", "circle", "graph", "graph2", "radial", "wave"]
+GLAVA_MODULES = ["graph", "bars", "circle", "wave", "radial"]
 
 # Szablony dla każdego modułu
 MODULE_TEMPLATES = {
+    "graph":  "graph_red.frag",
     "bars":   "bars_colors.frag",
     "circle": "circle_colors.frag",
-    "graph":  "graph_red.frag",
-    "graph2": "graph2_colors.frag",
-    "radial": "radial_colors.frag",
     "wave":   "wave_colors.frag",
+    "radial": "radial_colors.frag",
 }
 
 MODULE_LIVEFRAGS = {
+    "graph":  "graph/1.frag",
     "bars":   "bars/1.frag",
     "circle": "circle/1.frag",
-    "graph":  "graph/1.frag",
-    "graph2":  "graph2/1.frag",
-    "radial": "radial/1.frag",
     "wave":   "wave/1.frag",
+    "radial": "radial/1.frag",
 }
 
 
@@ -220,13 +218,18 @@ def save_settings(settings):
 
 def read_geometry():
     if not os.path.exists(RC_GLSL):
-        return 0, 660, 1600, 200
+        screen_w, screen_h, work_h = get_screen_info()
+        panel_h = screen_h - work_h
+        return calc_geometry("graph", screen_w, screen_h, panel_h)
     with open(RC_GLSL) as f:
         content = f.read()
-    m = re.search(r'#request\s+setgeometry\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)', content)
+    m = re.search(r'#request\s+setgeometry\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)', content)
     if m:
         return int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-    return 0, 660, 1600, 200
+    # Fallback jeśli wpis nie istnieje w rc.glsl
+    screen_w, screen_h, work_h = get_screen_info()
+    panel_h = screen_h - work_h
+    return calc_geometry("graph", screen_w, screen_h, panel_h)
 
 
 def write_geometry(x, y, w, h):
@@ -267,6 +270,75 @@ def sudo_run_zenity(cmd):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wykrywanie geometrii ekranu i paska zadań
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Moduły centrowane względem okna (środek ekranu)
+MODULES_CENTERED = {"circle", "radial", "wave"}
+# Moduły rysowane od dołu okna (podstawa na pasku/krawędzi)
+MODULES_BOTTOM   = {"graph", "graph2", "bars"}
+
+def get_screen_info():
+    """
+    Zwraca (screen_w, screen_h, work_h) używając _NET_WORKAREA i _NET_DESKTOP_GEOMETRY.
+    Fallback: xrandr.
+    """
+    try:
+        # _NET_WORKAREA: x, y, w, h (powtórzone dla każdego wirtualnego pulpitu)
+        r = subprocess.run(["xprop", "-root", "_NET_WORKAREA"],
+                           capture_output=True, text=True)
+        wa = re.findall(r'\d+', r.stdout)
+        # _NET_DESKTOP_GEOMETRY: w, h
+        r2 = subprocess.run(["xprop", "-root", "_NET_DESKTOP_GEOMETRY"],
+                            capture_output=True, text=True)
+        dg = re.findall(r'\d+', r2.stdout)
+        if len(wa) >= 4 and len(dg) >= 2:
+            screen_w = int(dg[0])
+            screen_h = int(dg[1])
+            work_h   = int(wa[3])   # wysokość obszaru roboczego (bez paska)
+            return screen_w, screen_h, work_h
+    except Exception:
+        pass
+    # Fallback: xrandr
+    try:
+        r = subprocess.run(["xrandr", "--current"], capture_output=True, text=True)
+        m = re.search(r'current (\d+) x (\d+)', r.stdout)
+        if m:
+            w, h = int(m.group(1)), int(m.group(2))
+            return w, h, h   # brak info o pasku → work_h = screen_h
+    except Exception:
+        pass
+    return 1600, 900, 860   # ostateczny fallback
+
+
+def calc_geometry(module, screen_w, screen_h, panel_h):
+    """
+    Oblicza (x, y, w, h) dla danego modułu na podstawie rozdzielczości i paska.
+
+    graph / graph2 / bars:
+        Podstawa wizualizacji leży na górnej krawędzi paska zadań.
+        Y ujemne przesuwa dół okna nad pasek.
+        H = screen_h zapewnia że wizualizacja ma pełną wysokość do dyspozycji.
+
+    circle / radial / wave:
+        Centrowane w pełnym ekranie.
+        X=0, Y=0, W=screen_w, H=screen_h.
+    """
+    if module in MODULES_BOTTOM:
+        x = 0
+        y = -panel_h      # przesuń okno w górę o wysokość paska
+        w = screen_w
+        h = screen_h
+    else:
+        # MODULES_CENTERED
+        x = 0
+        y = 0
+        w = screen_w
+        h = screen_h
+    return x, y, w, h
 
 class GlavaControlCenter:
     def __init__(self, root):
@@ -413,9 +485,9 @@ class GlavaControlCenter:
             self.geo_vars[key] = var
             tk.Entry(geo_grid, textvariable=var, width=7, font=("Arial", 9)
                      ).grid(row=i//2, column=(i%2)*2+1, padx=(0, 8), pady=2)
-        tk.Button(gf, text=T.get("btn_detect_resolution", "Wykryj rozdzielczość"),
-                  command=self.detect_resolution, font=("Arial", 9)
-                  ).pack(fill="x", pady=(0, 4))
+        tk.Button(gf, text=T.get("btn_auto_geometry", "Auto-konfiguracja geometrii"),
+                  command=self.detect_geometry_auto, bg="#37474f", fg="white",
+                  font=("Arial", 9)).pack(fill="x", pady=(0, 4))
         tk.Button(gf, text=T.get("btn_apply_geometry", "Zastosuj geometrię"),
                   command=self.apply_geometry, bg="#1565c0", fg="white",
                   font=("Arial", 9)).pack(fill="x")
@@ -652,6 +724,27 @@ class GlavaControlCenter:
                 self.geo_vars["w"].set(m.group(1))
         except Exception:
             pass
+
+    def detect_geometry_auto(self):
+        """Wykryj rozdzielczość i wysokość paska, ustaw optymalną geometrię dla aktywnego modułu."""
+        screen_w, screen_h, work_h = get_screen_info()
+        panel_h = screen_h - work_h
+        module  = self.active_module
+        x, y, w, h = calc_geometry(module, screen_w, screen_h, panel_h)
+        self.geo_vars["x"].set(str(x))
+        self.geo_vars["y"].set(str(y))
+        self.geo_vars["w"].set(str(w))
+        self.geo_vars["h"].set(str(h))
+        info_msg = (
+            f"{self.T.get('auto_geo_info', 'Wykryto')}: "
+            f"{screen_w}\u00d7{screen_h}, "
+            f"{self.T.get('auto_geo_panel', 'pasek zadań')}: {panel_h}px\n"
+            f"X={x}  Y={y}  W={w}  H={h}"
+        )
+        messagebox.showinfo(
+            self.T.get("auto_geo_title", "Auto-konfiguracja geometrii"),
+            info_msg
+        )
 
     def apply_geometry(self):
         try:

@@ -417,6 +417,74 @@ else
 fi
 
 # =============================================================================
+# KROK 9e: Auto-konfiguracja geometrii GLava w rc.glsl
+# =============================================================================
+section "Auto-konfiguracja geometrii GLava"
+
+# Wykryj rozdzielczość i obszar roboczy przez xprop
+SCREEN_W=1600; SCREEN_H=900; WORK_H=860  # fallback
+
+if command -v xprop &>/dev/null; then
+    # Musimy uruchomić xprop jako użytkownik (wymaga DISPLAY)
+    XPROP_OUT=$(sudo -u "$TARGET_USER" \
+        DISPLAY=:0 \
+        XAUTHORITY="$TARGET_HOME/.Xauthority" \
+        xprop -root _NET_WORKAREA _NET_DESKTOP_GEOMETRY 2>/dev/null || true)
+
+    DG=$(echo "$XPROP_OUT" | grep "_NET_DESKTOP_GEOMETRY" | grep -o '[0-9]*' | tr '\n' ' ')
+    WA=$(echo "$XPROP_OUT" | grep "_NET_WORKAREA" | grep -o '[0-9]*' | tr '\n' ' ')
+
+    DG_W=$(echo "$DG" | awk '{print $1}')
+    DG_H=$(echo "$DG" | awk '{print $2}')
+    WA_H=$(echo "$WA" | awk '{print $4}')  # czwarty element: wysokość obszaru roboczego
+
+    if [ -n "$DG_W" ] && [ -n "$DG_H" ] && [ -n "$WA_H" ]; then
+        SCREEN_W=$DG_W
+        SCREEN_H=$DG_H
+        WORK_H=$WA_H
+        info "Wykryto: ${SCREEN_W}×${SCREEN_H}, obszar roboczy: ${WORK_H}px wysokości"
+    else
+        warn "Nie udało się wykryć geometrii przez xprop — używam fallback ${SCREEN_W}×${SCREEN_H}."
+    fi
+else
+    warn "xprop niedostępny — używam fallback ${SCREEN_W}×${SCREEN_H}."
+fi
+
+PANEL_H=$((SCREEN_H - WORK_H))
+info "Wykryty pasek zadań: ${PANEL_H}px"
+
+# Funkcja zapisująca geometrię do rc.glsl
+set_glava_geometry() {
+    local x=$1 y=$2 w=$3 h=$4
+    local rc="$GLAVA_CONFIG/rc.glsl"
+    if [ -f "$rc" ]; then
+        sed -i "s/#request setgeometry [0-9-]* [0-9-]* [0-9-]* [0-9-]*/#request setgeometry $x $y $w $h/" "$rc"
+        info "Geometria w rc.glsl: X=$x Y=$y W=$w H=$h"
+    fi
+}
+
+# Pobierz aktywny moduł
+ACTIVE_MOD="graph"
+if [ -f "$GLAVA_CONFIG/active_module" ]; then
+    ACTIVE_MOD=$(cat "$GLAVA_CONFIG/active_module")
+fi
+
+# Ustaw geometrię według typu modułu
+case "$ACTIVE_MOD" in
+    graph|graph2|bars)
+        # Podstawa na pasku: Y ujemne = przesuń okno nad pasek
+        set_glava_geometry 0 "-$PANEL_H" "$SCREEN_W" "$SCREEN_H"
+        ;;
+    circle|radial|wave)
+        # Centrowane: pełny ekran
+        set_glava_geometry 0 0 "$SCREEN_W" "$SCREEN_H"
+        ;;
+    *)
+        set_glava_geometry 0 "-$PANEL_H" "$SCREEN_W" "$SCREEN_H"
+        ;;
+esac
+
+# =============================================================================
 # KROK 10: Usługa systemd użytkownika
 # =============================================================================
 section "Konfiguracja usługi systemd"
