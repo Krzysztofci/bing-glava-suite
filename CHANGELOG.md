@@ -30,9 +30,14 @@ Example profile "Circle Center":
 - geometry: centered on screen
 
 ### Added
+- Lock/unlock mechanism for wallpaper.
 - Increased automation — less manual intervention required
 - New functions in the GUI control panel
 
+### Changed
+- Updated GUI to support the new lock/unlock wallpaper functionality.
+- Updated `bing-downloader.sh` and `bing-fetch-user.sh`.
+- Updated language JSON files.
 ---
 
 ## [0.2.0] — feature/new-architecture (first pass)
