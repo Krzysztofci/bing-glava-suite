@@ -27,6 +27,12 @@ BING_REGION="de-DE"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 fi
+# Sprawdź blokadę tapety
+WALLPAPER_LOCK="$HOME/.config/bing-glava/wallpaper.lock"
+if [ -f "$WALLPAPER_LOCK" ]; then
+    echo "Tapeta zablokowana — pomijam pobieranie."
+    exit 0
+fi
 
 # KROK 1: Pobierz URL
 JSON_DATA=$(/usr/bin/curl -s --connect-timeout 10 \

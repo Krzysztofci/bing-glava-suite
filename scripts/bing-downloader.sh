@@ -26,6 +26,12 @@ if ! id "$TARGET_USER" &>/dev/null; then
 fi
 
 # --- Flagi ---
+LOCK_FILE="$USER_HOME/.config/bing-glava/wallpaper.lock"
+if [ -f "$LOCK_FILE" ]; then
+    echo "Wallpaper locked, skipping." >> "$LOG_FILE"
+    exit 0
+fi
+
 NO_LIGHTDM=false
 FORCE=false
 for arg in "${@:2}"; do

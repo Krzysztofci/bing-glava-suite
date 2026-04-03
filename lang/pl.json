@@ -41,5 +41,7 @@
     "label_no_wallpaper": "brak tapety",
     "error_no_template": "Brak pliku szablonu",
     "error_no_livefrag": "Brak aktywnego shadera",
-    "btn_fetch_wallpaper": "Pobierz tapetę Bing teraz"
+    "btn_fetch_wallpaper": "Pobierz tapetę Bing teraz",
+    "label_wallpaper_locked": "tapeta zablokowana",
+    "btn_lock_wallpaper": "Zablokuj / Odblokuj tapetę"
 }

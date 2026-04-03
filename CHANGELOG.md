@@ -7,6 +7,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — feature/new-architecture (active)
 
+### Planned: Module profiles
+
+A module profile bundles everything that defines a GLava layout into a single
+named preset: the visualizer module, its colors, and its screen geometry.
+
+One click switches all three at once — no separate steps for module, colors,
+and position.
+
+Useful for people who run multiple desktop layouts (e.g. different Conky
+setups, presentation mode, minimal mode) and want to switch GLava to match
+without manual reconfiguration.
+
+Example profile "Minimal Bottom":
+- module: graph
+- colors: warm brown gradient
+- geometry: full width, anchored above taskbar
+
+Example profile "Circle Center":
+- module: radial
+- colors: grey/white
+- geometry: centered on screen
+
 ### Added
 - Increased automation — less manual intervention required
 - New functions in the GUI control panel

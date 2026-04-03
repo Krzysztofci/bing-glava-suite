@@ -77,6 +77,7 @@ BINGCONF_FILE = os.path.join(BINGCONF_DIR, "config")
 RC_GLSL       = os.path.join(CONFIG_DIR, "rc.glsl")
 FLAG_RED      = os.path.join(CONFIG_DIR, "red.shift")
 FLAG_MANUAL   = os.path.join(CONFIG_DIR, "manual.shift")
+WALLPAPER_LOCK = os.path.join(BINGCONF_DIR, "wallpaper.lock")
 PRESETS_FILE  = os.path.join(CONFIG_DIR, "presets.json")
 WALLPAPER     = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "gui_settings.json")
@@ -505,6 +506,9 @@ class GlavaControlCenter:
                      width=8, state="readonly").pack(side="left", padx=(4, 16))
         tk.Button(s_row, text=T.get("btn_save_settings", "Zapisz"),
                   command=self.save_settings_action, font=("Arial", 9)).pack(side="left")
+        tk.Button(s_row, text=T.get("btn_lock_wallpaper", "Zablokuj tapetę"),
+                  command=self.toggle_wallpaper_lock, bg="#6a1b9a", fg="white",
+                  font=("Arial", 9)).pack(side="left", padx=(8, 0))
 
         # --- STATUS ---
         self.status_label = tk.Label(self.root, text="...",
@@ -795,6 +799,13 @@ class GlavaControlCenter:
         with open(RC_GLSL, "w") as f:
             f.write(new)
 
+    def toggle_wallpaper_lock(self):
+        if os.path.exists(WALLPAPER_LOCK):
+            os.remove(WALLPAPER_LOCK)
+        else:
+            open(WALLPAPER_LOCK, "a").close()
+        self.update_status()
+
     def update_status(self):
         T = self.T
         res = subprocess.run(["pgrep", "-x", "glava"], capture_output=True)
@@ -818,6 +829,8 @@ class GlavaControlCenter:
             status += f"   |   {T.get('label_wallpaper', 'Tapeta')}: {dt}"
         else:
             status += f"   |   {T.get('label_no_wallpaper', 'brak tapety')}"
+        if os.path.exists(WALLPAPER_LOCK):
+            status += f"   |   🔒 {T.get('label_wallpaper_locked', 'tapeta zablokowana')}"
         self.status_label.config(text=status, fg=color)
         self.root.after(3000, self.update_status)
 
