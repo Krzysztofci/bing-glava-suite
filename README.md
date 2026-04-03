@@ -22,9 +22,10 @@ sudo ./install.sh
 ## What you get
 
 **1. Live geometry control**  
-Position and resize GLava exactly where you want it — directly from the GUI.  
+1. Live geometry control
+Position and resize GLava exactly where you want it — directly from the GUI.
 X, Y, width, height. Apply. Done. The visualizer moves instantly.
-
+The installer sets up a sensible default geometry automatically based on your screen resolution. If you want to fine-tune it later, the GUI can detect your screen size and panel height and suggest the right values — one click, no measuring.
 This is what GLava power users do in config files, except here it takes 5 seconds instead of 20 minutes.
 
 **2. Automatic colors from your wallpaper**  
