@@ -32,7 +32,26 @@ GLava is powerful — but painful to configure.
 👉 Geometry adjusts to your panel and screen  
 👉 Everything runs in background
 
-*(add GIF here — this is critical)*
+## 🎛️ GLava Master Panel – Quick Demo
+
+![GLava GUI Demo](screenshots/glava-gui-positioning-demo.gif)
+
+This demo shows how you can **precisely control GLava in real time** using a simple graphical interface.
+
+### ✨ Features demonstrated
+
+* 🎯 **Live positioning** – move the visualizer exactly where you want
+* 🎨 **Color control** – adjust colors on the fly
+* ⚡ **Instant feedback** – see changes immediately without restarting
+
+### 💡 Use case
+
+Perfect for quickly matching GLava to your wallpaper or creating visually appealing layouts without manual config editing.
+
+---
+
+> This is an early preview – more improvements and features are coming.
+
 
 ---
 
