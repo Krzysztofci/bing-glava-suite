@@ -40,6 +40,7 @@ Example profile "Circle Center":
 - Updated language JSON files.
 
 ### Fixed
+- Bars module: corrected gradient color mapping — t is now calculated relative to bar height instead of full screen height, fixing the issue where only the bottom gradient color was visible.
 - Corrected logic in wallpaper lock/unlock function (minor patch; prevents incorrect state switching).
 ---
 
