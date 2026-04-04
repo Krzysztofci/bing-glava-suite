@@ -136,7 +136,7 @@ void main() {
 
         v *= AMPLIFY;
 
-        float t = clamp(d / float(AREA_HEIGHT), 0.0, 1.0);
+        float t = clamp(d / v, 0.0, 1.0);
         vec4 base = gradient_color(t);
 
         if (d < v - BAR_OUTLINE_WIDTH) {
