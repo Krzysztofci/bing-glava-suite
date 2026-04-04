@@ -26,11 +26,6 @@ if ! id "$TARGET_USER" &>/dev/null; then
 fi
 
 # --- Flagi ---
-LOCK_FILE="$USER_HOME/.config/bing-glava/wallpaper.lock"
-if [ -f "$LOCK_FILE" ]; then
-    echo "Wallpaper locked, skipping." >> "$LOG_FILE"
-    exit 0
-fi
 
 NO_LIGHTDM=false
 FORCE=false
@@ -43,6 +38,10 @@ done
 
 # --- Ścieżki ---
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+LOCK_FILE="$TARGET_HOME/.config/bing-glava/wallpaper.lock"
+if [ -f "$LOCK_FILE" ]; then
+    exit 0
+fi
 CONFIG_FILE="$TARGET_HOME/.config/bing-glava/config"
 PICTURES_DIR="$TARGET_HOME/Pictures/Bing"
 FULL_PATH="$PICTURES_DIR/bing_today.jpg"
