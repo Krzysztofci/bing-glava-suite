@@ -38,6 +38,9 @@ Example profile "Circle Center":
 - Updated GUI to support the new lock/unlock wallpaper functionality.
 - Updated `bing-downloader.sh` and `bing-fetch-user.sh`.
 - Updated language JSON files.
+
+### Fixed
+- Corrected logic in wallpaper lock/unlock function (minor patch; prevents incorrect state switching).
 ---
 
 ## [0.2.0] — feature/new-architecture (first pass)
