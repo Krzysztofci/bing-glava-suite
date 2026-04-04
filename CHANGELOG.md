@@ -29,6 +29,8 @@ Example profile "Circle Center":
 - colors: grey/white
 - geometry: centered on screen
 
+## [0.2.1] — Hotfix release
+
 ### Added
 - Lock/unlock mechanism for wallpaper.
 - Increased automation — less manual intervention required
