@@ -29,6 +29,27 @@ Example profile "Circle Center":
 - colors: grey/white
 - geometry: centered on screen
 
+## [0.2.2-pre] — Pending testing
+
+### Added
+- New tool: `tools/gradient_compare.py` for comparing RGB vs HSV gradients.
+- GUI now detects `HSV_MODE` directly from shader files when switching modules.
+
+### Changed
+- Enabled functional HSV support across all shader modules.
+- GUI updates gradient mode and radio buttons based on live shader state.
+- GUI shows a warning label (⚠ RGB only) for shaders without HSV support.
+- Updated GLava configuration defaults (`circle.glsl`, `rc.glsl`).
+
+### Fixed
+- Corrected and standardized `t` calculations in multiple shader modules:
+  - bars: simplified conditionals, HSV_MODE enabled
+  - graph: `t = pos/s` instead of fixed divisor
+  - circle: `t` based on amplitude
+  - wave: `t = (s - screen.y*0.5)/(AMPLIFY*0.5) + 0.5`
+  - radial: HSV_MODE enabled
+---
+
 ## [0.2.1] — Hotfix release
 
 ### Added
