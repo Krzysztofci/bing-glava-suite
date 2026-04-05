@@ -479,24 +479,35 @@ class GlavaControlCenter:
         self.update_hsv_compat_label()
 
     def update_hsv_compat_label(self):
-        """Aktualizuje informację o kompatybilności HSV dla aktywnego shadera."""
+        """Aktualizuje informację o kompatybilności HSV i stan radio buttonów."""
         if not hasattr(self, 'hsv_compat_label'):
             return
         live = get_live_frag(self.active_module)
         tmpl = get_template(self.active_module)
         compatible = False
+        hsv_mode = None
         for path in [live, tmpl]:
             if os.path.exists(path):
                 with open(path) as f:
-                    if "#define HSV_MODE" in f.read():
-                        compatible = True
-                        break
+                    src = f.read()
+                if "#define HSV_MODE" in src:
+                    compatible = True
+                    import re
+                    m = re.search(r'#define HSV_MODE ([01])', src)
+                    if m:
+                        hsv_mode = "hsv" if m.group(1) == "1" else "rgb"
+                    break
         T = self.T
         if compatible:
             self.hsv_compat_label.config(text="")
+            if hsv_mode and hasattr(self, 'gradient_var'):
+                self.gradient_var.set(hsv_mode)
+                self.gradient_mode = hsv_mode
         else:
             self.hsv_compat_label.config(
                 text=T.get("label_hsv_no_support", "⚠ RGB only"))
+            if hasattr(self, 'gradient_var'):
+                self.gradient_var.set("rgb")
 
     def apply_module(self):
         """Zapisuje wybrany moduł i restartuje GLava."""
@@ -510,6 +521,11 @@ class GlavaControlCenter:
                 f"{self.T.get('error_no_template', 'Brak szablonu')}:\n{tmpl}\n\n"
                 f"Skopiuj plik {MODULE_TEMPLATES[module]} do {CONFIG_DIR}/")
             return
+        # Jeśli live frag nie istnieje — utwórz go z szablonu
+        live = get_live_frag(module)
+        if not os.path.exists(live):
+            self.apply_manual()
+            return
         # Jeśli tryb auto — wygeneruj kolory dla nowego modułu
         if not os.path.exists(FLAG_RED) and not os.path.exists(FLAG_MANUAL):
             subprocess.Popen(["/bin/bash", os.path.join(BIN_DIR, "glava-colors-auto")])
@@ -517,6 +533,7 @@ class GlavaControlCenter:
         else:
             self.restart_glava()
             self.root.after(500, self.update_status)
+        self.root.after(200, self.update_hsv_compat_label)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Gradient RGB / HSV
@@ -713,10 +730,6 @@ class GlavaControlCenter:
         panel_h = screen_h - work_h
         module  = self.active_module
         x, y, w, h = calc_geometry(module, screen_w, screen_h, panel_h)
-        self.geo_vars["x"].set(str(x))
-        self.geo_vars["y"].set(str(y))
-        self.geo_vars["w"].set(str(w))
-        self.geo_vars["h"].set(str(h))
         info_msg = (
             f"{self.T.get('auto_geo_info', 'Wykryto')}: "
             f"{screen_w}\u00d7{screen_h}, "
@@ -727,6 +740,10 @@ class GlavaControlCenter:
             self.T.get("auto_geo_title", "Auto-konfiguracja geometrii"),
             info_msg
         )
+        self.geo_vars["x"].set(str(x))
+        self.geo_vars["y"].set(str(y))
+        self.geo_vars["w"].set(str(w))
+        self.geo_vars["h"].set(str(h))
 
     def apply_geometry(self):
         try:

@@ -97,50 +97,12 @@ with open(live_path, 'w') as f:
         else:
             f.write(line)
 
-# Podmień tryb gradientu jeśli HSV
-if gradient_mode == 'hsv':
-    with open(live_path) as f:
-        src = f.read()
-
-    HSV_FUNC = (
-        "vec3 rgb2hsv(vec3 c) {\n"
-        "    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);\n"
-        "    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n"
-        "    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n"
-        "    float d = q.x - min(q.w, q.y);\n"
-        "    float e = 1.0e-10;\n"
-        "    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n"
-        "}\n"
-        "vec3 hsv2rgb(vec3 c) {\n"
-        "    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);\n"
-        "    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n"
-        "    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n"
-        "}\n"
-        "vec4 gradient_color(float t) {\n"
-        "    // HSV: interpolacja przez przestrzen HSV\n"
-        "    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);\n"
-        "    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);\n"
-        "    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;\n"
-        "    float dh = hsv_b.x - hsv_a.x;\n"
-        "    if (dh > 0.5)  dh -= 1.0;\n"
-        "    if (dh < -0.5) dh += 1.0;\n"
-        "    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));\n"
-        "    return vec4(hsv2rgb(hsv), 1.0);\n"
-        "}"
-    )
-
-    # Podmień tylko ciało funkcji gradient_color (zachowując vec3 bottom/mid/top)
-    src = re.sub(
-        r'(// GRADIENT_MODE: )rgb',
-        r'\1hsv',
-        src
-    )
-    src = re.sub(
-        r'vec4 gradient_color\(float t\) \{[^}]*\}',
-        HSV_FUNC,
-        src,
-        flags=re.DOTALL
-    )
+# Podmień tryb gradientu (HSV_MODE 0/1)
+with open(live_path) as f:
+    src = f.read()
+if '#define HSV_MODE' in src:
+    hsv_val = '1' if gradient_mode == 'hsv' else '0'
+    src = re.sub(r'#define HSV_MODE [01]', f'#define HSV_MODE {hsv_val}', src)
     with open(live_path, 'w') as f:
         f.write(src)
 
