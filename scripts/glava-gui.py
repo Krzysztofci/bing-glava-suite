@@ -14,57 +14,7 @@ import re
 # Bloki gradientu (RGB / HSV) — podmieniane w szablonie shadera
 # ─────────────────────────────────────────────────────────────────────────────
 
-GRADIENT_BLOCK_RGB = """// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
-// GRADIENT_MODE: rgb
-vec3 bottom = vec3(0.5, 0.0, 0.0);
-vec3 mid    = vec3(0.9, 0.1, 0.1);
-vec3 top    = vec3(0.8, 0.8, 0.8);
-
-vec4 gradient_color(float t) {
-    // RGB: proste mieszanie kolorów
-    vec3 col = t < 0.5
-        ? mix(bottom, mid, t * 2.0)
-        : mix(mid, top, (t - 0.5) * 2.0);
-    return vec4(col, 1.0);
-}
-// ─────────────────────────────────────────────────────────────────────────────"""
-
-GRADIENT_BLOCK_HSV = """// ── gradient 3-kolorowy ──────────────────────────────────────────────────────
-// GRADIENT_MODE: hsv
-vec3 bottom = vec3(0.5, 0.0, 0.0);
-vec3 mid    = vec3(0.9, 0.1, 0.1);
-vec3 top    = vec3(0.8, 0.8, 0.8);
-
-vec3 rgb2hsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-vec3 hsv2rgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-vec4 gradient_color(float t) {
-    // HSV: interpolacja przez przestrzeń HSV — czyste przejścia kolorów
-    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);
-    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);
-    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;
-    float dh = hsv_b.x - hsv_a.x;
-    if (dh > 0.5)  dh -= 1.0;
-    if (dh < -0.5) dh += 1.0;
-    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));
-    return vec4(hsv2rgb(hsv), 1.0);
-}
-// ─────────────────────────────────────────────────────────────────────────────"""
-
-GRADIENT_PATTERN = re.compile(
-    r'// ── gradient 3-kolorowy.*?// ─{20,}',
-    re.DOTALL
-)
+HSV_MODE_PATTERN = re.compile(r'#define HSV_MODE [01]')
 import json
 import glob
 import datetime
@@ -427,6 +377,9 @@ class GlavaControlCenter:
             tk.Radiobutton(grad_row, text=lbl, variable=self.gradient_var,
                            value=val, command=self.change_gradient_mode,
                            font=("Arial", 9)).pack(side="left", padx=(4, 0))
+        self.hsv_compat_label = tk.Label(grad_row, text="",
+                                          font=("Arial", 8), fg="#e65100")
+        self.hsv_compat_label.pack(side="left", padx=(6, 0))
 
         # Tryby
         tf = tk.LabelFrame(row1, text=T.get("section_modes", "Tryby"),
@@ -511,6 +464,7 @@ class GlavaControlCenter:
                   font=("Arial", 9)).pack(side="left", padx=(8, 0))
 
         # --- STATUS ---
+        self.root.after(100, self.update_hsv_compat_label)
         self.status_label = tk.Label(self.root, text="...",
                                       font=("Arial", 9, "italic"), anchor="w")
         self.status_label.pack(fill="x", padx=12, pady=(2, 8))
@@ -522,6 +476,27 @@ class GlavaControlCenter:
     def change_module(self, event=None):
         """Aktualizuje podgląd wybranego modułu bez restartu."""
         self.active_module = self.module_var.get()
+        self.update_hsv_compat_label()
+
+    def update_hsv_compat_label(self):
+        """Aktualizuje informację o kompatybilności HSV dla aktywnego shadera."""
+        if not hasattr(self, 'hsv_compat_label'):
+            return
+        live = get_live_frag(self.active_module)
+        tmpl = get_template(self.active_module)
+        compatible = False
+        for path in [live, tmpl]:
+            if os.path.exists(path):
+                with open(path) as f:
+                    if "#define HSV_MODE" in f.read():
+                        compatible = True
+                        break
+        T = self.T
+        if compatible:
+            self.hsv_compat_label.config(text="")
+        else:
+            self.hsv_compat_label.config(
+                text=T.get("label_hsv_no_support", "⚠ RGB only"))
 
     def apply_module(self):
         """Zapisuje wybrany moduł i restartuje GLava."""
@@ -552,14 +527,15 @@ class GlavaControlCenter:
         self.gradient_mode = mode
         self.settings["gradient_mode"] = mode
         save_settings(self.settings)
-        # Podmień blok gradientu w aktywnym szablonie i live frag
-        block = GRADIENT_BLOCK_HSV if mode == "hsv" else GRADIENT_BLOCK_RGB
-        for path in [get_template(self.active_module), get_live_frag(self.active_module)]:
-            if os.path.exists(path):
-                with open(path) as f:
+        hsv_val = "1" if mode == "hsv" else "0"
+        for fpath in [get_template(self.active_module), get_live_frag(self.active_module)]:
+            if os.path.exists(fpath):
+                with open(fpath) as f:
                     src = f.read()
-                new_src = GRADIENT_PATTERN.sub(block, src)
-                with open(path, "w") as f:
+                if "#define HSV_MODE" not in src:
+                    continue  # stary shader — pomijamy, działa w RGB
+                new_src = HSV_MODE_PATTERN.sub(f"#define HSV_MODE {hsv_val}", src)
+                with open(fpath, "w") as f:
                     f.write(new_src)
         self.restart_glava()
 
@@ -661,12 +637,14 @@ class GlavaControlCenter:
                         break
                 if not written:
                     f.write(line)
-        # Zachowaj aktywny tryb gradientu
-        block = GRADIENT_BLOCK_HSV if self.gradient_mode == "hsv" else GRADIENT_BLOCK_RGB
+        # Zachowaj aktywny tryb gradientu (tylko dla kompatybilnych shaderów)
+        hsv_val = "1" if self.gradient_mode == "hsv" else "0"
         with open(live, "r") as f:
             src = f.read()
+        if "#define HSV_MODE" in src:
+            src = HSV_MODE_PATTERN.sub(f"#define HSV_MODE {hsv_val}", src)
         with open(live, "w") as f:
-            f.write(GRADIENT_PATTERN.sub(block, src))
+            f.write(src)
         self.save_presets_to_file()
         self.restart_glava()
 

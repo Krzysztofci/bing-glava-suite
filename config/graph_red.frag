@@ -1,39 +1,8 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 #request uniform "screen" screen
-uniform ivec2 screen; /* screen dimensions */
+uniform ivec2 screen;
 #request uniform "audio_sz" audio_sz
 uniform int audio_sz;
-/* When we transform our audio, we need to go through the following steps: 
-   
-   transform -> "window"
-       First, apply a window function to taper off the ends of the spectrum, helping
-       avoid artifacts in the FFT output.
-   
-   transform -> "fft"
-       Apply the Fast Fourier Transform algorithm to separate raw audio data (waves)
-       into their respective spectrums.
-   
-   transform -> "fft"
-       As part of the FFT process, we return spectrum magnitude on a log(n) scale,
-       as this is how the (decibel) dB scale functions.
-       
-   transform -> "gravity"
-       To help make our data more pleasing to look at, we apply our data received over
-       time to a buffer, taking the max of either the existing value in the buffer or
-       the data from the input. We then reduce the data by the 'gravity step', and
-       return the storage buffer.
-       
-       This makes frequent and abrupt changes in frequency less distracting, and keeps
-       short frequency responses on the screen longer.
-       
-   transform -> "avg"
-       As a final step, we take the average of several data frames (specified by
-       'setavgframes') and return the result to further help smooth the resulting
-       animation. In order to mitigate abrupt changes to the average, the values
-       at each end of the average buffer can be weighted less with a window function
-       (the same window function used at the start of this step!). It can be disabled
-       with 'setavgwindow'.
-*/
 #include ":util/smooth.glsl"
 #include "@graph.glsl"
 #include ":graph.glsl"
@@ -50,16 +19,13 @@ uniform sampler1D audio_l;
 #request transform audio_r "avg"
 uniform sampler1D audio_r;
 out vec4 fragment;
-/* distance from center */
+
 #define CDIST (abs((screen.x / 2) - gl_FragCoord.x) / screen.x)
-/* distance from sides (far) */
 #define FDIST (min(gl_FragCoord.x, screen.x - gl_FragCoord.x) / screen.x)
 #if DIRECTION < 0
 #define LEFT_IDX (gl_FragCoord.x)
 #define RIGHT_IDX (-gl_FragCoord.x + screen.x)
-/* distance from base frequencies */
 #define BDIST FDIST
-/* distance from high frequencies */
 #define HDIST CDIST
 #else
 #define LEFT_IDX (half_w - gl_FragCoord.x)
@@ -68,17 +34,58 @@ out vec4 fragment;
 #define HDIST FDIST
 #endif
 #define TWOPI 6.28318530718
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM KOLORÓW — ZGODNY Z GUI
+// ─────────────────────────────────────────────────────────────────────────────
+vec3 bottom = vec3(0.50, 0.00, 0.00);
+vec3 mid    = vec3(0.90, 0.10, 0.10);
+vec3 top    = vec3(0.80, 0.80, 0.80);
+
+#define HSV_MODE 1  // 0 = RGB, 1 = HSV
+
+vec3 rgb2hsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+vec4 gradient_color(float t) {
+#if HSV_MODE == 1
+    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);
+    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);
+    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;
+    float dh = hsv_b.x - hsv_a.x;
+    if (dh > 0.5)  dh -= 1.0;
+    if (dh < -0.5) dh += 1.0;
+    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));
+    return vec4(hsv2rgb(hsv), 1.0);
+#else
+    vec3 col = t < 0.5
+        ? mix(bottom, mid, t * 2.0)
+        : mix(mid, top, (t - 0.5) * 2.0);
+    return vec4(col, 1.0);
+#endif
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 float half_w;
 float middle;
 highp float pixel = 1.0F / float(screen.x);
+
 float get_line_height(in sampler1D tex, float idx) {
     float s = smooth_audio_adj(tex, audio_sz, idx / half_w, pixel);
-    /* scale the data upwards so we can see it */
     s *= VSCALE;
-    /* clamp far ends of the screen down to make the ends of the graph smoother */
     float fact = clamp((abs((screen.x / 2) - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
     #if JOIN_CHANNELS > 0
-    fact = -2 * pow(fact, 3) + 3 * pow(fact, 2);    /* To avoid spikes */
+    fact = -2 * pow(fact, 3) + 3 * pow(fact, 2);
     s = fact * s + (1 - fact) * middle;
     #else
     s *= fact;
@@ -86,23 +93,9 @@ float get_line_height(in sampler1D tex, float idx) {
     s *= clamp((min(gl_FragCoord.x, screen.x - gl_FragCoord.x) / screen.x) * 48, 0.0F, 1.0F);
     return s;
 }
-vec4 hsv2rgba(float hue, float sat, float val) {
-    float h = hue * 6.0;
-    float c = val * sat;
-    float x = c * (1.0 - abs(mod(h, 2.0) - 1.0));
-    float m = val - c;
-    vec3 rgb;
-    if      (h < 1.0) rgb = vec3(c, x, 0);
-    else if (h < 2.0) rgb = vec3(x, c, 0);
-    else if (h < 3.0) rgb = vec3(0, c, x);
-    else if (h < 4.0) rgb = vec3(0, x, c);
-    else if (h < 5.0) rgb = vec3(x, 0, c);
-    else               rgb = vec3(c, 0, x);
-    return vec4(rgb + m, 1.0);
-}
+
 void render_side(in sampler1D tex, float idx) {
     float s = get_line_height(tex, idx);
-    /* and finally set fragment color if we are in range */
     #if INVERT > 0
     float d = float(screen.y) - gl_FragCoord.y;
     #else
@@ -110,17 +103,13 @@ void render_side(in sampler1D tex, float idx) {
     #endif
     #define pos d
     if (pos + 1.5 <= s) {
-        // gradient: ciemny czerwony na dole -> jasna czerwien -> szarosc na gorze
-float t = clamp(pos / 200.0, 0.0, 1.0);
-vec3 bottom = vec3(0.5, 0.0, 0.0);   // ciemny bordowy
-vec3 mid    = vec3(0.9, 0.1, 0.1);   // czerwien
-vec3 top    = vec3(0.8, 0.8, 0.8);   // jasna szarosc
-vec3 col = t < 0.5 ? mix(bottom, mid, t * 2.0) : mix(mid, top, (t - 0.5) * 2.0);
-fragment = vec4(col, 1.0);
+        float t = clamp(pos / s, 0.0, 1.0);
+        fragment = gradient_color(t);
     } else {
         fragment = vec4(0, 0, 0, 0);
     }
 }
+
 void main() {
     half_w = (screen.x / 2);
     middle = VSCALE * (smooth_audio_adj(audio_l, audio_sz, 1, pixel) + smooth_audio_adj(audio_r, audio_sz, 0, pixel)) / 2;

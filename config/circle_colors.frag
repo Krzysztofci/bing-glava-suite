@@ -10,6 +10,12 @@ uniform int audio_sz;
 #include "@circle.glsl"
 #include ":circle.glsl"
 
+// Nadpisz grubość linii (domyślnie 1.5 w circle.glsl)
+#ifdef C_LINE
+#undef C_LINE
+#endif
+#define C_LINE 3
+
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
 #request transform audio_l "fft"
@@ -29,26 +35,9 @@ out vec4 fragment;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SYSTEM KOLORÓW — ZGODNY Z TWOIM GUI
-// GRADIENT_MODE: rgb
-// ─────────────────────────────────────────────────────────────────────────────
-uniform vec3 bottom;
-uniform vec3 mid;
-uniform vec3 top;
 
-#define USE_OUTLINE 1   // 1 = outline włączony, 0 = wyłączony
 
-vec4 gradient_color(float t) {
-    vec3 col = t < 0.5
-        ? mix(bottom, mid, t * 2.0)
-        : mix(mid, top, (t - 0.5) * 2.0);
-    return vec4(col, 1.0);
-}
 
-vec4 outline_color(vec4 base) {
-    return vec4(min(base.rgb * 1.5, vec3(1.0)), base.a);
-}
 // ─────────────────────────────────────────────────────────────────────────────
 
 float apply_smooth(float theta) {
@@ -68,6 +57,51 @@ float apply_smooth(float theta) {
     #undef smooth_f
     return v;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM KOLORÓW — ZGODNY Z GUI
+// ─────────────────────────────────────────────────────────────────────────────
+vec3 bottom = vec3(0.50, 0.00, 0.00);
+vec3 mid    = vec3(0.90, 0.10, 0.10);
+vec3 top    = vec3(0.80, 0.80, 0.80);
+
+#define HSV_MODE 1  // 0 = RGB, 1 = HSV
+
+vec3 rgb2hsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+vec4 gradient_color(float t) {
+#if HSV_MODE == 1
+    vec3 hsv_a = rgb2hsv(t < 0.5 ? bottom : mid);
+    vec3 hsv_b = rgb2hsv(t < 0.5 ? mid    : top);
+    float lt   = t < 0.5 ? t * 2.0 : (t - 0.5) * 2.0;
+    float dh = hsv_b.x - hsv_a.x;
+    if (dh > 0.5)  dh -= 1.0;
+    if (dh < -0.5) dh += 1.0;
+    vec3 hsv = vec3(hsv_a.x + dh * lt, mix(hsv_a.y, hsv_b.y, lt), mix(hsv_a.z, hsv_b.z, lt));
+    return vec4(hsv2rgb(hsv), 1.0);
+#else
+    vec3 col = t < 0.5
+        ? mix(bottom, mid, t * 2.0)
+        : mix(mid, top, (t - 0.5) * 2.0);
+    return vec4(col, 1.0);
+#endif
+}
+
+vec4 outline_color(vec4 base) {
+    return vec4(min(base.rgb * 1.5, vec3(1.0)), base.a);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 void main() {
     fragment = vec4(0, 0, 0, 0);
@@ -102,7 +136,7 @@ void main() {
         #endif
 
         if (BOUNDS) {
-            float t = clamp((d + v) / (v + C_LINE), 0.0, 1.0);
+            float t = clamp(v / (AMPLIFY * 0.5), 0.0, 1.0);
             vec4 base = gradient_color(t);
 
         #if USE_OUTLINE
