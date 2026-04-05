@@ -28,6 +28,17 @@ Example profile "Circle Center":
 - module: radial
 - colors: grey/white
 - geometry: centered on screen
+---
+
+## [0.2.2] — 2026-04-06
+
+### Fixed
+- glava-colors-auto now uses `HSV_MODE` define instead of replacing `gradient_color` function
+- `restore_auto` no longer resets HSV mode
+- Auto-geometry values now populate fields after dialog closes
+- Module switch now correctly reflects HSV/RGB state in radio buttons
+- Missing live `.frag` triggers `apply_manual` automatically
+---
 
 ## [0.2.2-pre] — Pending testing
 
