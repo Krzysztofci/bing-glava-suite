@@ -513,9 +513,18 @@ def _read_raw_define(path, key):
 def _write_raw_define(path, key, val):
     if not os.path.exists(path): return
     with open(path) as f: content = f.read()
-    new = re.sub(rf'^(#define\s+{key}\s+).+$', rf'\g<1>{val}',
-                 content, flags=re.MULTILINE)
-    content = new if new != content else content + f"\n#define {key} {val}\n"
+    # Usuń wszystkie wystąpienia tego define (zapobiega duplikacji)
+    content = re.sub(rf'^#define\s+{key}\s+.*$\n?', '', content, flags=re.MULTILINE)
+    # Znajdź miejsce wstawienia — po ostatnim #define lub na końcu
+    m = list(re.finditer(r'^#define\s+\w+', content, re.MULTILINE))
+    if m:
+        insert_pos = m[-1].end()
+        rest = content[insert_pos:]
+        eol = rest.find('\n')
+        insert_pos += eol + 1 if eol >= 0 else len(rest)
+        content = content[:insert_pos] + f"#define {key} {val}\n" + content[insert_pos:]
+    else:
+        content = content.rstrip() + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _rotate_to_deg(raw):
