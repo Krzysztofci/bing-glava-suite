@@ -20,17 +20,17 @@ import os, re
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
 
-def _graph_glsl():  return os.path.join(CONFIG_DIR, "graph.glsl")
-def _smooth_glsl(): return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _graph_tmpl():  return os.path.join(CONFIG_DIR, "graph_colors.frag")
-def _graph_1frag(): return os.path.join(CONFIG_DIR, "graph", "1.frag")
+def _graph_glsl():  return os.path.join(GLAVA_DIR, "graph.glsl")
+def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+def _graph_tmpl():  return os.path.join(GLAVA_DIR, "graph_colors.frag")
+def _graph_1frag(): return os.path.join(GLAVA_DIR, "graph", "1.frag")
 
 SHAPE_PARAMS = [
     ("VSCALE",   "Wzmocnienie",   50, 800, 350, "",

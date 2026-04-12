@@ -57,6 +57,7 @@ TARGET_UID=$(id -u "$TARGET_USER")
 # Ścieżki instalacji
 BIN_DIR="$TARGET_HOME/.local/bin"
 GLAVAMP_DIR="$TARGET_HOME/.local/bin/GlavaMP"
+GLAVAMP_CONF_DIR="$TARGET_HOME/.config/GlavaMP"
 SHARE_DIR="$TARGET_HOME/.local/share/bing-glava-suite"
 SYSTEMD_DIR="$TARGET_HOME/.config/systemd/user"
 LOG_DIR="$TARGET_HOME/.local/logs"
@@ -149,6 +150,7 @@ mkdir -p \
     "$LOG_DIR" \
     "$TARGET_HOME/Pictures/Bing" \
     "$BING_CONFIG_DIR" \
+    "$GLAVAMP_CONF_DIR" \
     "$GLAVA_CONFIG/graph" \
     "$GLAVA_CONFIG/util" \
     "/usr/share/backgrounds/linuxmint"
@@ -239,6 +241,18 @@ WRAPPER
 chmod 755 "$BIN_DIR/glava-gui"
 chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
 info "Zainstalowano GUI (GlavaMP)"
+
+# Domyślne profile kolorów i szaderów
+if [ ! -f "$GLAVAMP_CONF_DIR/presets.json" ]; then
+    cp "$SCRIPT_DIR/config/default_presets.json" "$GLAVAMP_CONF_DIR/presets.json"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVAMP_CONF_DIR/presets.json"
+    info "Zainstalowano domyślne profile kolorów."
+fi
+if [ ! -f "$GLAVAMP_CONF_DIR/profiles.json" ]; then
+    cp "$SCRIPT_DIR/config/default_profiles.json" "$GLAVAMP_CONF_DIR/profiles.json"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVAMP_CONF_DIR/profiles.json"
+    info "Zainstalowano domyślne profile szaderów."
+fi
 info "Uruchamianie: glava-gui"
 
 # =============================================================================

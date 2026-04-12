@@ -14,15 +14,16 @@ import re
 # ─────────────────────────────────────────────────────────────────────────────
 
 USER_HOME      = os.path.expanduser("~")
-CONFIG_DIR     = os.path.join(USER_HOME, ".config/glava")
+CONFIG_DIR     = os.path.join(USER_HOME, ".config/GlavaMP")
+GLAVA_DIR      = os.path.join(USER_HOME, ".config/glava")
 BINGCONF_DIR   = os.path.join(USER_HOME, ".config/bing-glava")
 BIN_DIR        = os.path.join(USER_HOME, ".local/bin")
 
-RC_GLSL        = os.path.join(CONFIG_DIR, "rc.glsl")
-FLAG_RED       = os.path.join(CONFIG_DIR, "red.shift")
-FLAG_MANUAL    = os.path.join(CONFIG_DIR, "manual.shift")
+RC_GLSL        = os.path.join(GLAVA_DIR, "rc.glsl")
+FLAG_RED       = os.path.join(GLAVA_DIR, "red.shift")
+FLAG_MANUAL    = os.path.join(GLAVA_DIR, "manual.shift")
 WALLPAPER_LOCK = os.path.join(BINGCONF_DIR, "wallpaper.lock")
-ACTIVE_MODULE_FILE = os.path.join(CONFIG_DIR, "active_module")
+ACTIVE_MODULE_FILE = os.path.join(GLAVA_DIR, "active_module")
 
 BINGCONF_FILE  = os.path.join(BINGCONF_DIR, "config")
 SETTINGS_FILE  = os.path.join(CONFIG_DIR, "gui_settings.json")
@@ -92,13 +93,13 @@ def write_active_module(module):
 def get_live_frag(module=None):
     if module is None:
         module = read_active_module()
-    return os.path.join(CONFIG_DIR, MODULE_LIVEFRAGS.get(module, "graph/1.frag"))
+    return os.path.join(GLAVA_DIR, MODULE_LIVEFRAGS.get(module, "graph/1.frag"))
 
 
 def get_template(module=None):
     if module is None:
         module = read_active_module()
-    return os.path.join(CONFIG_DIR, MODULE_TEMPLATES.get(module, "graph_colors.frag"))
+    return os.path.join(GLAVA_DIR, MODULE_TEMPLATES.get(module, "graph_colors.frag"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

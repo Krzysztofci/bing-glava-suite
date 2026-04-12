@@ -20,17 +20,17 @@ import os, re
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
 
-def _circle_glsl():  return os.path.join(CONFIG_DIR, "circle.glsl")
-def _smooth_glsl():  return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _circle_tmpl():  return os.path.join(CONFIG_DIR, "circle_colors.frag")
-def _circle_1frag(): return os.path.join(CONFIG_DIR, "circle", "1.frag")
+def _circle_glsl():  return os.path.join(GLAVA_DIR, "circle.glsl")
+def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+def _circle_tmpl():  return os.path.join(GLAVA_DIR, "circle_colors.frag")
+def _circle_1frag(): return os.path.join(GLAVA_DIR, "circle", "1.frag")
 
 SHAPE_PARAMS = [
     ("C_RADIUS", "Promień okręgu",  50, 400, 128, "px",

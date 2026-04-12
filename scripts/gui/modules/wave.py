@@ -14,17 +14,17 @@ import os, re
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
 
-def _wave_glsl():  return os.path.join(CONFIG_DIR, "wave.glsl")
-def _smooth_glsl(): return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _wave_tmpl():  return os.path.join(CONFIG_DIR, "wave_colors.frag")
-def _wave_1frag(): return os.path.join(CONFIG_DIR, "wave", "1.frag")
+def _wave_glsl():  return os.path.join(GLAVA_DIR, "wave.glsl")
+def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+def _wave_tmpl():  return os.path.join(GLAVA_DIR, "wave_colors.frag")
+def _wave_1frag(): return os.path.join(GLAVA_DIR, "wave", "1.frag")
 
 SHAPE_PARAMS = [
     ("MIN_THICKNESS", "Min. grubość linii",  1,  20,  1, "px",

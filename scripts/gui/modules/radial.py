@@ -23,7 +23,7 @@ import os, re, math
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -31,10 +31,10 @@ from ..core import (
 )
 from ..geometry import get_screen_info
 
-def _radial_glsl():  return os.path.join(CONFIG_DIR, "radial.glsl")
-def _smooth_glsl():  return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _radial_tmpl():  return os.path.join(CONFIG_DIR, "radial_colors.frag")
-def _radial_1frag(): return os.path.join(CONFIG_DIR, "radial", "1.frag")
+def _radial_glsl():  return os.path.join(GLAVA_DIR, "radial.glsl")
+def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+def _radial_tmpl():  return os.path.join(GLAVA_DIR, "radial_colors.frag")
+def _radial_1frag(): return os.path.join(GLAVA_DIR, "radial", "1.frag")
 
 # Obrót — mapowanie stopnie → wyrażenie GLSL
 ROTATE_OPTIONS = [

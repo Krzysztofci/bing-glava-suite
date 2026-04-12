@@ -13,7 +13,7 @@ import os, re
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -22,10 +22,10 @@ from ..core import (
 
 # ─── Ścieżki ─────────────────────────────────────────────────────────────────
 
-def _bars_glsl():   return os.path.join(CONFIG_DIR, "bars.glsl")
-def _smooth_glsl(): return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _bars_1frag():  return os.path.join(CONFIG_DIR, "bars", "1.frag")
-def _bars_tmpl():   return os.path.join(CONFIG_DIR, "bars_colors.frag")
+def _bars_glsl():   return os.path.join(GLAVA_DIR, "bars.glsl")
+def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+def _bars_1frag():  return os.path.join(GLAVA_DIR, "bars", "1.frag")
+def _bars_tmpl():   return os.path.join(GLAVA_DIR, "bars_colors.frag")
 
 # ─── Definicje parametrów ────────────────────────────────────────────────────
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)

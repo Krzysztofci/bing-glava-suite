@@ -1,0 +1,93 @@
+{
+    "bars": {
+        "Velvet Night Bars": {
+            "BAR_WIDTH": 12,
+            "BAR_GAP": 4,
+            "BAR_OUTLINE_WIDTH": 5,
+            "C_LINE": 5,
+            "AMPLIFY": 329,
+            "DIRECTION": 1,
+            "FLIP": 0,
+            "MIRROR_YX": 0,
+            "INVERT": 0,
+            "DISABLE_MONO": 0,
+            "setgravitystep": 5.2,
+            "setsmoothfactor": 0.039,
+            "setavgframes": 9,
+            "setfftscale": 15.2,
+            "setfftcutoff": 0.0,
+            "setbufsize": 4096,
+            "setsamplesize": 1024,
+            "setmirror": true,
+            "setinterpolate": true
+        }
+    },
+    "graph": {
+        "Noir & Blanc Graph": {
+            "VSCALE": 373,
+            "GRADIENT": 17,
+            "DIRECTION": 1,
+            "DRAW_OUTLINE": 1,
+            "DRAW_HIGHLIGHT": 1,
+            "ANTI_ALIAS": 1,
+            "JOIN_CHANNELS": 1,
+            "INVERT": 0,
+            "setgravitystep": 5.2,
+            "setsmoothfactor": 0.039,
+            "setavgframes": 9,
+            "setfftscale": 15.2,
+            "setfftcutoff": 0.0
+        }
+    },
+    "wave": {
+        "Vivid Punch Wave": {
+            "MIN_THICKNESS": 1,
+            "MAX_THICKNESS": 1,
+            "AMPLIFY": 50,
+            "setgravitystep": 5.2,
+            "setsmoothfactor": 0.039,
+            "setavgframes": 9,
+            "setfftscale": 15.2,
+            "setfftcutoff": 0.0
+        }
+    },
+    "radial": {
+        "Golden Hour Cyberpunk Radial": {
+            "C_RADIUS": 120,
+            "C_LINE": 0,
+            "NBARS": 160,
+            "AMPLIFY": 300,
+            "GRADIENT": 0,
+            "BAR_WIDTH": 4.5,
+            "BAR_ALIAS_FACTOR": 1.2,
+            "C_ALIAS_FACTOR": 1.8,
+            "ROTATE_DEG": 90,
+            "CENTER_OFFSET_X": 0,
+            "CENTER_OFFSET_Y": 0,
+            "INVERT": 0,
+            "setgravitystep": 5.2,
+            "setsmoothfactor": 0.039,
+            "setavgframes": 9,
+            "setfftscale": 15.2,
+            "setfftcutoff": 0.0
+        }
+    },
+    "circle": {
+        "Organic Sage Circle": {
+            "C_RADIUS": 148,
+            "C_LINE": 3,
+            "AMPLIFY": 150,
+            "C_FILL": 0,
+            "C_SMOOTH": 1,
+            "INVERT": 0,
+            "setgravitystep": 5.2,
+            "setsmoothfactor": 0.039,
+            "setavgframes": 9,
+            "setfftscale": 15.2,
+            "setfftcutoff": 0.0,
+            "ROTATE_DEG": 90,
+            "CENTER_OFFSET_X": 0,
+            "CENTER_OFFSET_Y": 0
+        }
+    }
+}
