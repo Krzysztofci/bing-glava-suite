@@ -28,7 +28,7 @@ ACTIVE_MODULE_FILE = os.path.join(GLAVA_DIR, "active_module")
 BINGCONF_FILE  = os.path.join(BINGCONF_DIR, "config")
 SETTINGS_FILE  = os.path.join(CONFIG_DIR, "gui_settings.json")
 PRESETS_FILE   = os.path.join(CONFIG_DIR, "presets.json")        # profile kolorów
-PROFILES_FILE  = os.path.join(BINGCONF_DIR, "profiles.json")     # profile szaderów
+PROFILES_FILE  = os.path.join(CONFIG_DIR, "profiles.json")     # profile szaderów
 
 WALLPAPER      = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
 
