@@ -29,7 +29,7 @@ from ..core import (
 
 def _graph_glsl():  return os.path.join(CONFIG_DIR, "graph.glsl")
 def _smooth_glsl(): return os.path.join(CONFIG_DIR, "smooth_parameters.glsl")
-def _graph_tmpl():  return os.path.join(CONFIG_DIR, "graph_red.frag")
+def _graph_tmpl():  return os.path.join(CONFIG_DIR, "graph_colors.frag")
 def _graph_1frag(): return os.path.join(CONFIG_DIR, "graph", "1.frag")
 
 SHAPE_PARAMS = [

@@ -49,7 +49,7 @@ LANG_DIR = next((p for p in _CANDIDATES if os.path.isdir(p)),
 GLAVA_MODULES = ["bars", "circle", "graph", "radial", "wave"]
 
 MODULE_TEMPLATES = {
-    "graph":  "graph_red.frag",
+    "graph":  "graph_colors.frag",
     "bars":   "bars_colors.frag",
     "circle": "circle_colors.frag",
     "wave":   "wave_colors.frag",
@@ -98,7 +98,7 @@ def get_live_frag(module=None):
 def get_template(module=None):
     if module is None:
         module = read_active_module()
-    return os.path.join(CONFIG_DIR, MODULE_TEMPLATES.get(module, "graph_red.frag"))
+    return os.path.join(CONFIG_DIR, MODULE_TEMPLATES.get(module, "graph_colors.frag"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
