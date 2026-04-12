@@ -53,13 +53,27 @@ Colors extracted automatically from the wallpaper:
 glava-gui
 ```
 
-- set GLava position and size (X / Y / W / H)
-- auto-detect geometry based on your screen and panels
-- pick colors manually, save as presets
-- switch modules: graph / bars / circle / wave / radial
+**Main tab**
+- switch modules: bars / circle / graph / radial / wave
+- pick colors manually (bottom / mid / top), save as presets
 - RGB or HSV gradient mode
 - fetch today's Bing wallpaper on demand
 - restore automatic color mode anytime
+- GLava geometry — auto-detect or manual X / Y / W / H
+
+**Per-module tab** (new in 0.3.0)  
+Each module has its own dedicated control panel:
+- shape parameters (radius, line thickness, amplify, etc.)
+- rotation slider 0–360°
+- position offsets X/Y
+- smoothing parameters (gravity, FFT scale, avg frames, etc.)
+- named shader profiles — save and restore complete module configurations
+- shader reset to defaults
+
+**Advanced tab**
+- audio buffer settings (sample size, buffer size, sample rate, frame rate)
+- expert mode for extended audio options
+- GLava startup flags
 
 Everything is optional. The suite runs fine without ever opening the panel.
 
