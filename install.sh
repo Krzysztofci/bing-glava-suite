@@ -329,81 +329,83 @@ fi
 # =============================================================================
 # KROK 10b: Dodatkowe moduły GLava
 # =============================================================================
-section "Instalacja dodatkowych modułów GLava"
+section "Konfiguracja GLava — dodatkowe moduły"
 
-echo -e "Zainstalować dodatkowe moduły wizualizatora? (bars, circle, wave, radial, graph)"
-echo -e "Umożliwia przełączanie między różnymi stylami wizualizacji. [T/n]"
-read -rp "" INSTALL_EXTRA
-INSTALL_EXTRA="${INSTALL_EXTRA:-T}"
-
-if [[ "$INSTALL_EXTRA" =~ ^[Tt]$ ]]; then
-
-    echo -e "Nadpisać istniejące pliki szaderów? [T]ak / [n]ie / [p]ytaj"
-    read -rp "" OVERWRITE_CHOICE
-    OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-T}"
-
-    EXTRA_MODULES=(bars circle wave radial graph)
-
-    for module in "${EXTRA_MODULES[@]}"; do
-
-        # .glsl parametry — kopiuj z /etc/xdg/glava jeśli nie istnieje
-        if [ ! -f "$GLAVA_CONFIG/$module.glsl" ]; then
-            if [ -f "/etc/xdg/glava/$module.glsl" ]; then
-                cp "/etc/xdg/glava/$module.glsl" "$GLAVA_CONFIG/$module.glsl"
-                chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module.glsl"
-                info "Skopiowano: $module.glsl"
-            fi
-        fi
-
-        # Katalog modułu z /etc/xdg/glava
-        if [ ! -d "$GLAVA_CONFIG/$module" ]; then
-            if [ -d "/etc/xdg/glava/$module" ]; then
-                cp -r "/etc/xdg/glava/$module" "$GLAVA_CONFIG/$module"
-                chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module"
-                info "Skopiowano katalog: $module/"
-            fi
-        fi
-
-        # Szablon kolorów z repozytorium
-        FRAG_SRC="$SCRIPT_DIR/config/${module}_colors.frag"
-        FRAG_DST="$GLAVA_CONFIG/${module}_colors.frag"
-
-        [ -f "$FRAG_SRC" ] || continue
-
-        COPY_FILE=true
-        if [ -f "$FRAG_DST" ]; then
-            case "$OVERWRITE_CHOICE" in
-                [Nn]) COPY_FILE=false ;;
-                [Pp])
-                    echo -e "${module}_colors.frag już istnieje. Nadpisać? [t/N]"
-                    read -rp "" ans
-                    [[ "$ans" =~ ^[Tt]$ ]] && COPY_FILE=true || COPY_FILE=false
-                    ;;
-            esac
-        fi
-
-        if [ "$COPY_FILE" = true ]; then
-            backup_file "$FRAG_DST"
-            cp "$FRAG_SRC" "$FRAG_DST"
-            chown "$TARGET_USER:$TARGET_USER" "$FRAG_DST"
-            info "Zainstalowano: ${module}_colors.frag"
-        else
-            warn "Pominięto: ${module}_colors.frag"
-        fi
-    done
-
-    # smooth_parameters.glsl — kopiuj z /etc/xdg/glava jeśli brak w repo
-    if [ ! -f "$GLAVA_CONFIG/smooth_parameters.glsl" ]; then
-        if [ -f "/etc/xdg/glava/smooth_parameters.glsl" ]; then
-            cp "/etc/xdg/glava/smooth_parameters.glsl" \
-               "$GLAVA_CONFIG/smooth_parameters.glsl"
-            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/smooth_parameters.glsl"
-            info "Skopiowano: smooth_parameters.glsl"
-        fi
+# Skopiuj brakujące pliki systemowe GLava (env_*.glsl itp.)
+for f in /etc/xdg/glava/*.glsl; do
+    [ -f "$f" ] || continue
+    fname="$(basename "$f")"
+    dst="$GLAVA_CONFIG/$fname"
+    if [ ! -f "$dst" ]; then
+        cp "$f" "$dst"
+        chown "$TARGET_USER:$TARGET_USER" "$dst"
+        info "Skopiowano: $fname"
     fi
+done
 
-else
-    warn "Pominięto dodatkowe moduły."
+echo -e "Czy nadpisać istniejące pliki kolorów (.frag)?"
+echo -e "[T]ak (zalecane) / [n]ie / [p]ytaj dla każdego"
+read -rp "Wybór: " OVERWRITE_CHOICE
+OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-T}"
+
+EXTRA_MODULES=(bars circle wave radial graph)
+for module in "${EXTRA_MODULES[@]}"; do
+    # Katalog modułu — kopiuj z /etc/xdg/glava jeśli nie istnieje
+    if [ ! -d "$GLAVA_CONFIG/$module" ]; then
+        if [ -d "/etc/xdg/glava/$module" ]; then
+            cp -r "/etc/xdg/glava/$module" "$GLAVA_CONFIG/$module"
+            chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module"
+            info "Skopiowano katalog modułu: $module"
+        else
+            warn "Brak /etc/xdg/glava/$module — pomijam kopiowanie modułu, ale instaluję .frag."
+        fi
+    else
+        info "Katalog $module/ już istnieje — pomijam kopiowanie."
+    fi
+    # Plik .glsl (parametry modułu) — kopiuj z /etc/xdg/glava jeśli nie istnieje
+    if [ ! -f "$GLAVA_CONFIG/$module.glsl" ]; then
+        if [ -f "/etc/xdg/glava/$module.glsl" ]; then
+            cp "/etc/xdg/glava/$module.glsl" "$GLAVA_CONFIG/$module.glsl"
+            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module.glsl"
+            info "Skopiowano: $module.glsl"
+        else
+            warn "Brak /etc/xdg/glava/$module.glsl — pomijam."
+        fi
+    else
+        info "$module.glsl już istnieje — pomijam."
+    fi
+    # Szablon shadera z kolorami
+    FRAG_SRC="$SCRIPT_DIR/config/${module}_colors.frag"
+    FRAG_DST="$GLAVA_CONFIG/${module}_colors.frag"
+    [ -f "$FRAG_SRC" ] || continue
+    COPY_FILE=true
+    if [ -f "$FRAG_DST" ]; then
+        case "$OVERWRITE_CHOICE" in
+            [Nn]) COPY_FILE=false ;;
+            [Pp])
+                echo -e "${module}_colors.frag już istnieje. Nadpisać? [t/N]"
+                read -rp "" ans
+                [[ "$ans" =~ ^[Tt]$ ]] && COPY_FILE=true || COPY_FILE=false
+                ;;
+        esac
+    fi
+    if [ "$COPY_FILE" = true ]; then
+        backup_file "$FRAG_DST"
+        cp "$FRAG_SRC" "$FRAG_DST"
+        chown "$TARGET_USER:$TARGET_USER" "$FRAG_DST"
+        info "Zainstalowano: ${module}_colors.frag"
+    else
+        warn "Pominięto: ${module}_colors.frag"
+    fi
+done
+
+# smooth_parameters.glsl
+if [ ! -f "$GLAVA_CONFIG/smooth_parameters.glsl" ]; then
+    if [ -f "/etc/xdg/glava/smooth_parameters.glsl" ]; then
+        cp "/etc/xdg/glava/smooth_parameters.glsl" "$GLAVA_CONFIG/smooth_parameters.glsl"
+        chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/smooth_parameters.glsl"
+        info "Skopiowano: smooth_parameters.glsl"
+    fi
 fi
 
 # =============================================================================
