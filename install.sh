@@ -276,7 +276,7 @@ mkdir -p "$BACKUP_DIR"
 chown "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 
 backup_file() {
-    [ -f "$1" ] && cp "$1" "$BACKUP_DIR/$(basename "$1").bak"
+    [ -f "$1" ] && cp "$1" "$BACKUP_DIR/$(basename "$1").bak" || true
 }
 
 # Pliki konfiguracyjne GLava
