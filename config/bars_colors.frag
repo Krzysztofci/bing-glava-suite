@@ -7,6 +7,12 @@ uniform ivec2 screen;
 uniform int audio_sz;
 
 #include "@bars.glsl"
+// Redefine parameters that may be overridden by user config.
+// GLava processes @bars.glsl (system) before :bars.glsl (user),
+// so #define from system wins. We #undef here to allow user values.
+#ifdef C_LINE
+#undef C_LINE
+#endif
 #include ":bars.glsl"
 
 #request uniform "audio_l" audio_l
@@ -36,11 +42,11 @@ out vec4 fragment;
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
-vec3 bottom = vec3(0.50, 0.00, 0.00);
-vec3 mid    = vec3(0.90, 0.10, 0.10);
-vec3 top    = vec3(0.80, 0.80, 0.80);
+vec3 bottom = vec3(0.00, 0.00, 1.00);
+vec3 mid = vec3(0.00, 1.00, 0.00);
+vec3 top = vec3(1.00, 0.00, 0.00);
 
-#define HSV_MODE 0  // 0 = RGB, 1 = HSV
+#define HSV_MODE 1  // 0 = RGB, 1 = HSV
 #define USE_OUTLINE 1   // 1 = outline włączony, 0 = wyłączony
 
 vec3 rgb2hsv(vec3 c) {
@@ -83,15 +89,15 @@ vec4 outline_color(vec4 base) {
 void main() {
 
     #if MIRROR_YX == 0
-    #define AREA_WIDTH screen.x
+    #define AREA_WIDTH  screen.x
     #define AREA_HEIGHT screen.y
-    #define AREA_X gl_FragCoord.x
-    #define AREA_Y gl_FragCoord.y
+    #define AREA_X      gl_FragCoord.x
+    #define AREA_Y      gl_FragCoord.y
     #else
-    #define AREA_WIDTH screen.y
+    #define AREA_WIDTH  screen.y
     #define AREA_HEIGHT screen.x
-    #define AREA_X gl_FragCoord.y
-    #define AREA_Y gl_FragCoord.x
+    #define AREA_X      gl_FragCoord.y
+    #define AREA_Y      gl_FragCoord.x
     #endif
 
     #if _CHANNELS == 2
@@ -160,6 +166,13 @@ void main() {
         #undef smooth_f
 
         v *= AMPLIFY;
+        #if C_LINE > 0
+        if (v > 0.0 && d > v * 0.1 && d < v * 0.9 && abs(md) <= float(C_LINE) * 0.5) {
+            float t_peak = clamp(v / float(AREA_HEIGHT), 0.0, 1.0);
+            fragment = outline_color(gradient_color(t_peak));
+            return;
+        }
+        #endif
 
         float t = clamp(d / v, 0.0, 1.0);
         vec4 base = gradient_color(t);

@@ -10,11 +10,7 @@ uniform int audio_sz;
 #include "@circle.glsl"
 #include ":circle.glsl"
 
-// Nadpisz grubość linii (domyślnie 1.5 w circle.glsl)
-#ifdef C_LINE
-#undef C_LINE
-#endif
-#define C_LINE 3
+// C_LINE pochodzi z circle.glsl — sterowany przez GUI
 
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
@@ -62,8 +58,8 @@ float apply_smooth(float theta) {
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
 vec3 bottom = vec3(0.50, 0.00, 0.00);
-vec3 mid    = vec3(0.90, 0.10, 0.10);
-vec3 top    = vec3(0.80, 0.80, 0.80);
+vec3 mid = vec3(0.90, 0.10, 0.10);
+vec3 top = vec3(0.80, 0.12, 0.80);
 
 #define HSV_MODE 1  // 0 = RGB, 1 = HSV
 
@@ -106,8 +102,8 @@ vec4 outline_color(vec4 base) {
 void main() {
     fragment = vec4(0, 0, 0, 0);
 
-    float dx = gl_FragCoord.x - (screen.x / 2);
-    float dy = gl_FragCoord.y - (screen.y / 2);
+    float dx = gl_FragCoord.x - (screen.x / 2) + CENTER_OFFSET_X;
+    float dy = gl_FragCoord.y - (screen.y / 2) + CENTER_OFFSET_Y;
 
     float theta = atan(dy, dx);
     float d = sqrt((dx * dx) + (dy * dy));

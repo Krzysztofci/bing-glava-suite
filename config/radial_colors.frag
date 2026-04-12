@@ -38,8 +38,8 @@ out vec4 fragment;
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
 vec3 bottom = vec3(0.50, 0.00, 0.00);
-vec3 mid    = vec3(0.90, 0.10, 0.10);
-vec3 top    = vec3(0.80, 0.80, 0.80);
+vec3 mid = vec3(0.90, 0.10, 0.10);
+vec3 top = vec3(0.80, 0.12, 0.80);
 
 #define HSV_MODE 1  // 0 = RGB, 1 = HSV
 
@@ -95,12 +95,26 @@ void main() {
     float d = sqrt(dx * dx + dy * dy);
 
     // ─────────────────────────────────────────────────────────────────────────
+    // WYPEŁNIENIE WNĘTRZA OKRĘGU (reaguje na dźwięk)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (d < C_RADIUS - (float(C_LINE) / 2.0F) && GRADIENT > 0) {
+        float fill_r = float(C_RADIUS) * float(GRADIENT) / 100.0;
+        float dist_from_edge = float(C_RADIUS) - d;
+        if (dist_from_edge < fill_r) {
+            float t = clamp(dist_from_edge / fill_r, 0.0, 1.0) * 0.5;
+            APPLY_FRAG(fragment, gradient_color(t));
+        #if _USE_ALPHA == 0
+            return;
+        #endif
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
     // WEWNĘTRZNY OKRĄG (OUTLINE)
     // ─────────────────────────────────────────────────────────────────────────
     if (d > C_RADIUS - (float(C_LINE) / 2.0F) &&
         d < C_RADIUS + (float(C_LINE) / 2.0F)) {
 
-        float t = clamp((d - (C_RADIUS - C_LINE)) / C_LINE, 0.0, 1.0);
+        float t = clamp(1.0 - (d - (C_RADIUS - float(C_LINE) / 2.0)) / (float(C_LINE) / 2.0), 0.0, 1.0) * 0.5;
         vec4 base = gradient_color(t);
 
     #if USE_OUTLINE
@@ -129,16 +143,15 @@ void main() {
 
         if (abs(ym) < BAR_WIDTH / 2) {
 
-            float idx = theta + ROTATE;
-            float dir = mod(abs(idx), TWOPI);
-            if (dir > PI)
-                idx = -sign(idx) * (TWOPI - dir);
+            float idx = mod(theta + ROTATE, TWOPI);
+            if (idx > PI)  idx -= TWOPI;
+            if (idx < -PI) idx += TWOPI;
 
             #if INVERT == 0
             idx = -idx;
             #endif
 
-            float pos = int(abs(idx) / section) / float(NBARS / 2);
+            float pos = clamp(int(abs(idx) / section) / float(NBARS / 2), 0.0, 1.0);
 
             #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)
             float v = (idx > 0) ? smooth_f(audio_l) : smooth_f(audio_r);

@@ -43,17 +43,17 @@
 
 /* Factor for how to scale higher frequencies. Used in a linear equation
    which is multiplied by the result of the fft transformation. */
-#request setfftscale 10.2
+#request setfftscale 15.2
 
 /* Cutoff for the bass end of the audio data when scaling frequencies.
    Higher values cause more of the bass frequencies to be skipped when
    scaling. */
-#request setfftcutoff 0.3
+#request setfftcutoff 0
 
 /* How many frames to queue and run through the average function.
    Increasing this value will create latency between the audio and the
    animation, but will make for much smoother results. */
-#request setavgframes 5
+#request setavgframes 9
 
 /* Whether to window frames ran through the average function (new & old
    frames are weighted less). This massively helps smoothing out
@@ -64,12 +64,12 @@
    in a rate independant method like so:
    
    val -= (gravitystep) * (seconds per update) */
-#request setgravitystep 4.2
+#request setgravitystep 5.2
 
 /* Smoothing factor. Larger values mean more smoothing in the output,
    however high values can be expensive to compute. Values are in
    normalized width: [0.0, 1.0) */
-#request setsmoothfactor 0.025
+#request setsmoothfactor 0.039
 
 /* Whether to use a separate pass for audio data while smoothing. On
    most hardware, this will improve performance, but involves doing a
