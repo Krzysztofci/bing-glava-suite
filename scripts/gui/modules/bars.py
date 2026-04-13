@@ -178,7 +178,7 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SHAPE_PARAMS:
@@ -187,7 +187,7 @@ class BarsParamWidget:
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Switches"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
         for key, label, tooltip in FLAG_PARAMS:
@@ -205,12 +205,12 @@ class BarsParamWidget:
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SMOOTH_PARAMS:
             self._float_slider_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
+        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     # ── Audio (lewa kolumna, pod przełącznikami) ─────────────────────────────
@@ -258,7 +258,7 @@ class BarsParamWidget:
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_bars", "Profile szadera bars"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(4, 0))
 
@@ -271,25 +271,25 @@ class BarsParamWidget:
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Kształt + dynamika (kolory bez zmian)"),
+        tk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
 
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=self.T.get("btn_apply", "Zastosuj"),
+        tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"),
                   command=self._apply_profile,
                   bg="#00695c", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_save_new", "Zapisz"),
+        tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"),
                   command=self._save_profile,
                   bg="#37474f", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_delete", "Usuń"),
+        tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"),
                   command=self._delete_profile,
                   bg="#b71c1c", fg="white", font=("Arial", 8)
                   ).pack(side="left")
 
-        tk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset szadera bars"),
+        tk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
                   command=self._reset_shader,
                   bg="#5d4037", fg="white", font=("Arial", 8)
                   ).pack(fill="x", pady=(4, 0))
@@ -446,7 +446,7 @@ class BarsParamWidget:
         glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Podaj nazwę:"))
+        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Enter profile name:"))
         if not name: return
         params = collect_params(self.app)
         save_shader_profile_for_module("bars", name, params)
@@ -456,7 +456,7 @@ class BarsParamWidget:
     def _delete_profile(self):
         name = self.profile_var.get()
         if not name: return
-        if messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
+        if messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Are you sure you want to delete profile") + f" '{name}'?"):
             delete_shader_profile_for_module("bars", name)
             self._refresh_profile_cb()
 
@@ -466,8 +466,8 @@ class BarsParamWidget:
         if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
-        if not messagebox.askyesno(self.T.get("btn_reset_shader", "Reset szadera"),
-                self.T.get("confirm_reset_bars", "Przywrócić domyślny shader bars?") +
+        if not messagebox.askyesno(self.T.get("btn_reset_shader", "Reset shader"),
+                self.T.get("confirm_reset_bars", "Restore default bars shader?") +
                 "\nWartości kształtu wrócą do domyślnych."):
             return
         reset_shader(self.app)

@@ -206,7 +206,7 @@ class RadialParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
 
@@ -222,7 +222,7 @@ class RadialParamWidget:
         rot_entry_var = tk.StringVar(value=str(cur_rot))
         rot_row = tk.Frame(lf)
         rot_row.pack(fill="x", pady=2)
-        tk.Label(rot_row, text=self.T.get("section_rotation", self.T.get("label_rotation", "Obrót")), font=("Arial", 9),
+        tk.Label(rot_row, text=self.T.get("section_rotation", self.T.get("label_rotation", "Rotation")), font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(rot_row, "?", "Obrót wizualizacji\n0° = domyślny\n90° = obrót w prawo")
         rot_slider = tk.Scale(rot_row, variable=self.rotate_var,
@@ -252,7 +252,7 @@ class RadialParamWidget:
     # ── Pozycja ───────────────────────────────────────────────────────────────
 
     def _build_position(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_position", "Pozycja na ekranie"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_position", "Screen position"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
 
@@ -260,8 +260,8 @@ class RadialParamWidget:
         max_y = self._sh // 2
 
         for key, label, default, max_val in [
-            ("CENTER_OFFSET_X", self.T.get("label_offset_x", "Przesunięcie X"), 0, max_x),
-            ("CENTER_OFFSET_Y", self.T.get("label_offset_y", "Przesunięcie Y"), 0, max_y),
+            ("CENTER_OFFSET_X", self.T.get("label_offset_x", "Offset X"), 0, max_x),
+            ("CENTER_OFFSET_Y", self.T.get("label_offset_y", "Offset Y"), 0, max_y),
         ]:
             cur = int(current.get(key, default))
             var = tk.IntVar(value=cur)
@@ -307,7 +307,7 @@ class RadialParamWidget:
     # ── Przełączniki ──────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Switches"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
         for key, label, tooltip in FLAG_PARAMS:
@@ -324,18 +324,18 @@ class RadialParamWidget:
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SMOOTH_PARAMS:
             self._smooth_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
+        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     # ── Profile ───────────────────────────────────────────────────────────────
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_radial", "Profile szadera radial"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_radial", "Shader profiles radial"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
 
@@ -347,24 +347,24 @@ class RadialParamWidget:
                                         font=("Arial", 9))
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
-        tk.Label(lf, text=self.T.get("label_profiles_hint_radial", "Kształt + wygładzanie (kolory bez zmian)"),
+        tk.Label(lf, text=self.T.get("label_profiles_hint_radial", "Shape & smoothing (colors unchanged)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=self.T.get("btn_apply", "Zastosuj"), command=self._apply_profile,
+        tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"), command=self._apply_profile,
                   bg="#00695c", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_save_new", "Zapisz"), command=self._save_profile,
+        tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"), command=self._save_profile,
                   bg="#37474f", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_delete", "Usuń"), command=self._delete_profile,
+        tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"), command=self._delete_profile,
                   bg="#b71c1c", fg="white", font=("Arial", 8)
                   ).pack(side="left")
 
         rf = tk.LabelFrame(parent, text=self.T.get("section_reset", "Reset"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         rf.pack(fill="x", pady=(4, 0))
-        tk.Button(rf, text=self.T.get("btn_reset_shader_radial", "Reset szadera radial"), command=self._reset_shader,
+        tk.Button(rf, text=self.T.get("btn_reset_shader_radial", "Reset radial shader"), command=self._reset_shader,
                   bg="#5d4037", fg="white", font=("Arial", 8)
                   ).pack(fill="x")
 
@@ -492,7 +492,7 @@ class RadialParamWidget:
         glava_restart("radial", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Podaj nazwę:"))
+        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Enter profile name:"))
         if not name: return
         save_shader_profile_for_module("radial", name, collect_params(self.app))
         self._refresh_cb()
@@ -500,7 +500,7 @@ class RadialParamWidget:
 
     def _delete_profile(self):
         name = self.profile_var.get()
-        if name and messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
+        if name and messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Are you sure you want to delete profile") + f" '{name}'?"):
             delete_shader_profile_for_module("radial", name)
             self._refresh_cb()
 
@@ -510,7 +510,7 @@ class RadialParamWidget:
         if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
-        if messagebox.askyesno(self.T.get("section_reset", "Reset"), self.T.get("confirm_reset_radial", "Przywrócić domyślny shader radial?")):
+        if messagebox.askyesno(self.T.get("section_reset", "Reset"), self.T.get("confirm_reset_radial", "Restore default radial shader?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
             from gui.glava import glava_restart

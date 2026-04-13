@@ -69,12 +69,12 @@ class TabMain:
         T = self.T
 
         # Motyw GLava
-        lf_mod = tk.LabelFrame(col, text=T.get("section_module", "Motyw GLava"),
+        lf_mod = tk.LabelFrame(col, text=T.get("section_module", "GLava theme"),
                                font=("Arial", 9, "bold"), padx=5, pady=5)
         lf_mod.pack(fill="x", pady=(0, 4))
         row = tk.Frame(lf_mod)
         row.pack(fill="x")
-        tk.Label(row, text=T.get("label_module", "Aktywny motyw") + ":",
+        tk.Label(row, text=T.get("label_module", "Active theme") + ":",
                  font=("Arial", 9)).pack(side="left")
         self.module_var = tk.StringVar(value=self.app.active_module)
         ttk.Combobox(row, textvariable=self.module_var,
@@ -82,7 +82,7 @@ class TabMain:
                      font=("Arial", 9)).pack(side="left", padx=(4, 8))
         row.children["!combobox"].bind("<<ComboboxSelected>>",
                                        lambda e: None)
-        tk.Button(row, text=T.get("btn_apply_module", "Zastosuj motyw"),
+        tk.Button(row, text=T.get("btn_apply_module", "Apply theme"),
                   command=self._apply_module,
                   bg="#1565c0", fg="white", font=("Arial", 9)
                   ).pack(side="left", fill="x", expand=True)
@@ -162,9 +162,9 @@ class TabMain:
         tk.Button(s_row, text=T.get("btn_save_settings", "Save settings"),
                   command=self._save_settings,
                   font=("Arial", 9)).pack(side="left")
-        lock_text = (T.get("btn_unlock_wallpaper", "Odblokuj tapetę")
+        lock_text = (T.get("btn_unlock_wallpaper", "Unlock wallpaper")
                      if os.path.exists(WALLPAPER_LOCK)
-                     else T.get("btn_lock_wallpaper", "Zablokuj tapetę"))
+                     else T.get("btn_lock_wallpaper", "Lock wallpaper"))
         self.lock_btn = tk.Button(lf_set, text=lock_text,
                                   command=self._toggle_lock,
                                   bg="#6a1b9a", fg="white", font=("Arial", 9))
@@ -218,7 +218,7 @@ class TabMain:
             tk.Entry(grid, textvariable=var, width=8, font=("Arial", 9)
                      ).grid(row=r, column=c+1, padx=(0, 10), pady=2)
         tk.Button(lf_geo,
-                  text=T.get("btn_auto_geometry", "Auto-konfiguracja geometrii"),
+                  text=T.get("btn_auto_geometry", "Auto-detect geometry"),
                   command=self._auto_geometry,
                   bg="#37474f", fg="white", font=("Arial", 9)
                   ).pack(fill="x", pady=(0, 3))

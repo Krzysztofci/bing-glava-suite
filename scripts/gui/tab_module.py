@@ -63,8 +63,8 @@ class TabModule:
 
     def _save_profile(self):
         name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil szadera"),
-            self.T.get("dialog_profile_name",  "Podaj nazwę:"))
+            self.T.get("dialog_profile_title", "New profile"),
+            self.T.get("dialog_profile_name",  "Enter profile name:"))
         if not name:
             return
         try:
@@ -76,7 +76,7 @@ class TabModule:
         except ImportError:
             messagebox.showwarning(
                 "", self.T.get("warn_no_plugin",
-                               "Brak wtyczki parametrów dla tego modułu."))
+                               "Plugin unavailable"))
 
     def _delete_profile(self):
         name = self.profile_var.get()
@@ -97,9 +97,9 @@ class TabModule:
         T = self.T
         module = self.module
         if not messagebox.askyesno(
-                T.get("btn_reset_shader", "Reset szadera"),
+                T.get("btn_reset_shader", "Reset shader"),
                 T.get("confirm_reset_shader",
-                      "Przywrócić domyślny shader?\nWszystkie zmiany zostaną utracone.")):
+                      "Restore default shader?")):
             return
         try:
             mod = _load_module_plugin(module)
@@ -122,7 +122,7 @@ class TabModule:
                 shutil.copy2(tmpl, live)
         # Przebuduj zakładkę żeby suwaki pokazały nowe wartości
         self.app.rebuild_module_tab()
-        messagebox.showinfo("", T.get("reset_done", "Shader przywrócony."))
+        messagebox.showinfo("", T.get("reset_done", "Shader restored."))
         glava_restart(module, after_fn=self.app.update_status)
 
 
@@ -145,7 +145,7 @@ def _load_module_plugin(module_name):
 def _build_placeholder(parent, module, T):
     """Pokazywany gdy moduł nie ma jeszcze wtyczki parametrów."""
     lf = tk.LabelFrame(parent,
-                        text=T.get("section_shape", "Kształt i dynamika"),
+                        text=T.get("section_shape", "Shape & dynamics"),
                         font=("Arial", 8, "bold"), padx=4, pady=4)
     lf.pack(fill="x")
     tk.Label(lf,
