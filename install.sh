@@ -161,6 +161,7 @@ chown -R "$TARGET_USER:$TARGET_USER" \
     "$LOG_DIR" \
     "$TARGET_HOME/Pictures/Bing" \
     "$BING_CONFIG_DIR" \
+    "$GLAVAMP_CONF_DIR" \
     "$GLAVA_CONFIG"
 
 info "Katalogi gotowe."
