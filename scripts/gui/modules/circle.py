@@ -145,21 +145,21 @@ class CircleParamWidget:
         self._build_profiles(right)
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=T.get("section_shape", "Kształt"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SHAPE_PARAMS:
             self._slider_row(lf, p, current)
 
     def _build_position(self, parent, current):
-        lf = tk.LabelFrame(parent, text=T.get("section_position", "Pozycja na ekranie"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_position", "Pozycja na ekranie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         max_x = self._sw // 2
         max_y = self._sh // 2
         for key, label, default, max_val in [
-            ("CENTER_OFFSET_X", T.get("label_offset_x", "Przesunięcie X"), 0, max_x),
-            ("CENTER_OFFSET_Y", T.get("label_offset_y", "Przesunięcie Y"), 0, max_y),
+            ("CENTER_OFFSET_X", self.T.get("label_offset_x", "Przesunięcie X"), 0, max_x),
+            ("CENTER_OFFSET_Y", self.T.get("label_offset_y", "Przesunięcie Y"), 0, max_y),
         ]:
             cur = int(current.get(key, default))
             var = tk.IntVar(value=cur)
@@ -205,7 +205,7 @@ class CircleParamWidget:
         self._schedule_restart()
 
     def _build_rotate(self, parent, current):
-        lf = tk.LabelFrame(parent, text=T.get("section_rotation", T.get("label_rotation", "Obrót")),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_rotation", self.T.get("label_rotation", "Obrót")),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         cur = int(current.get("ROTATE_DEG", 90))
@@ -213,7 +213,7 @@ class CircleParamWidget:
         entry_var = tk.StringVar(value=str(cur))
         row = tk.Frame(lf)
         row.pack(fill="x", pady=2)
-        tk.Label(row, text=T.get("section_rotation", T.get("label_rotation", "Obrót")), font=("Arial", 9),
+        tk.Label(row, text=self.T.get("section_rotation", self.T.get("label_rotation", "Obrót")), font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         slider = tk.Scale(row, variable=self.rotate_var,
                           from_=0, to=360, orient="horizontal",
@@ -240,16 +240,16 @@ class CircleParamWidget:
         entry.bind("<FocusOut>", on_entry)
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=T.get("section_smoothing", "Wygładzanie"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SMOOTH_PARAMS:
             self._float_slider_row(lf, p, current)
-        tk.Label(lf, text=T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
+        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=T.get("section_switches", "Przełączniki"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
         for key, label, tooltip in FLAG_PARAMS:
@@ -265,7 +265,7 @@ class CircleParamWidget:
             _tip(row, "?", tooltip)
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text=T.get("section_profiles_circle", "Profile szadera circle"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_circle", "Profile szadera circle"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
 
@@ -278,25 +278,25 @@ class CircleParamWidget:
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text=T.get("label_profiles_hint_shape", "Kształt + opcje (kolory bez zmian)"),
+        tk.Label(lf, text=self.T.get("label_profiles_hint_shape", "Kształt + opcje (kolory bez zmian)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
 
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=T.get("btn_apply", "Zastosuj"), command=self._apply_profile,
+        tk.Button(btn_row, text=self.T.get("btn_apply", "Zastosuj"), command=self._apply_profile,
                   bg="#00695c", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=T.get("btn_save_new", "Zapisz"), command=self._save_profile,
+        tk.Button(btn_row, text=self.T.get("btn_save_new", "Zapisz"), command=self._save_profile,
                   bg="#37474f", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=T.get("btn_delete", "Usuń"), command=self._delete_profile,
+        tk.Button(btn_row, text=self.T.get("btn_delete", "Usuń"), command=self._delete_profile,
                   bg="#b71c1c", fg="white", font=("Arial", 8)
                   ).pack(side="left")
 
-        rf = tk.LabelFrame(parent, text=T.get("section_reset", "Reset"),
+        rf = tk.LabelFrame(parent, text=self.T.get("section_reset", "Reset"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         rf.pack(fill="x", pady=(4, 0))
-        tk.Button(rf, text=T.get("btn_reset_shader_circle", "Reset szadera circle"), command=self._reset_shader,
+        tk.Button(rf, text=self.T.get("btn_reset_shader_circle", "Reset szadera circle"), command=self._reset_shader,
                   bg="#5d4037", fg="white", font=("Arial", 8)
                   ).pack(fill="x")
 
@@ -413,7 +413,7 @@ class CircleParamWidget:
         glava_restart("circle", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil", T.get("dialog_profile_name", "Podaj nazwę:"))
+        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Podaj nazwę:"))
         if not name: return
         save_shader_profile_for_module("circle", name, collect_params(self.app))
         self._refresh_cb()
@@ -421,7 +421,7 @@ class CircleParamWidget:
 
     def _delete_profile(self):
         name = self.profile_var.get()
-        if name and messagebox.askyesno("", T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
+        if name and messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
             delete_shader_profile_for_module("circle", name)
             self._refresh_cb()
 
@@ -431,7 +431,7 @@ class CircleParamWidget:
         if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
-        if messagebox.askyesno(T.get("section_reset", "Reset"), T.get("confirm_reset_circle", "Przywrócić domyślny shader circle?")):
+        if messagebox.askyesno(self.T.get("section_reset", "Reset"), self.T.get("confirm_reset_circle", "Przywrócić domyślny shader circle?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
             from gui.glava import glava_restart
