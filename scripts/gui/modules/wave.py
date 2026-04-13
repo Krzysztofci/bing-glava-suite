@@ -27,24 +27,24 @@ def _wave_tmpl():  return os.path.join(GLAVA_DIR, "wave_colors.frag")
 def _wave_1frag(): return os.path.join(GLAVA_DIR, "wave", "1.frag")
 
 SHAPE_PARAMS = [
-    ("MIN_THICKNESS", "Min. grubość linii",  1,  20,  1, "px",
+    ("MIN_THICKNESS", T.get("label_line_min", "Min. grubość linii"),  1,  20,  1, "px",
      "Minimalna grubość linii fali w pikselach\n(przy niskiej amplitudzie)"),
-    ("MAX_THICKNESS", "Maks. grubość linii", 1,  40, 6, "px",
+    ("MAX_THICKNESS", T.get("label_line_max", "Maks. grubość linii"), 1,  40, 6, "px",
      "Maksymalna grubość linii fali w pikselach\n(przy wysokiej amplitudzie)"),
-    ("AMPLIFY",       "Wzmocnienie",        50, 800, 500, "",
+    ("AMPLIFY",       T.get("label_gain", "Wzmocnienie"),        50, 800, 500, "",
      "Wzmocnienie amplitudy sygnału audio\nWiększe = wyższe fale"),
 ]
 
 SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania po szczycie"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
+    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
@@ -102,7 +102,7 @@ class WaveParamWidget:
         self._build_profiles(right)
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Kształt",
+        lf = tk.LabelFrame(parent, text=T.get("section_shape", "Kształt"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SHAPE_PARAMS:
@@ -114,12 +114,12 @@ class WaveParamWidget:
                  ).pack(anchor="w", pady=(8, 0))
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Wygładzanie",
+        lf = tk.LabelFrame(parent, text=T.get("section_smoothing", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SMOOTH_PARAMS:
             self._float_slider_row(lf, p, current)
-        tk.Label(lf, text="⚠ Wpływa na wszystkie moduły",
+        tk.Label(lf, text=T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     def _debounce_smooth(self, key, value):
@@ -163,7 +163,7 @@ class WaveParamWidget:
         entry.bind("<FocusOut>", on_entry)
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text="Profile szadera wave",
+        lf = tk.LabelFrame(parent, text=T.get("section_profiles_wave", "Profile szadera wave"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
 
@@ -176,25 +176,25 @@ class WaveParamWidget:
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text="Ksztalt (kolory bez zmian)",
+        tk.Label(lf, text=T.get("label_profiles_hint_wave", "Kształt (kolory bez zmian)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
 
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text="Zastosuj", command=self._apply_profile,
+        tk.Button(btn_row, text=T.get("btn_apply", "Zastosuj"), command=self._apply_profile,
                   bg="#00695c", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text="Zapisz", command=self._save_profile,
+        tk.Button(btn_row, text=T.get("btn_save_new", "Zapisz"), command=self._save_profile,
                   bg="#37474f", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text="Usun", command=self._delete_profile,
+        tk.Button(btn_row, text=T.get("btn_delete", "Usuń"), command=self._delete_profile,
                   bg="#b71c1c", fg="white", font=("Arial", 8)
                   ).pack(side="left")
 
-        rf = tk.LabelFrame(parent, text="Reset",
+        rf = tk.LabelFrame(parent, text=T.get("section_reset", "Reset"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         rf.pack(fill="x", pady=(4, 0))
-        tk.Button(rf, text="Reset szadera wave", command=self._reset_shader,
+        tk.Button(rf, text=T.get("btn_reset_shader_wave", "Reset szadera wave"), command=self._reset_shader,
                   bg="#5d4037", fg="white", font=("Arial", 8)
                   ).pack(fill="x")
 
@@ -265,7 +265,7 @@ class WaveParamWidget:
             except Exception: pass
         from gui.glava import glava_restart
         self._rjob = self.app.root.after(
-            300, lambda: glava_restart("wave", after_fn=self.app.update_status))
+            300, lambda: glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status))
 
     def _apply_profile(self):
         name = self.profile_var.get()
@@ -275,10 +275,10 @@ class WaveParamWidget:
         apply_params(profiles[name], self.app)
         self.app.rebuild_module_tab()
         from gui.glava import glava_restart
-        glava_restart("wave", after_fn=self.app.update_status)
+        glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil", "Podaj nazwę:")
+        name = simpledialog.askstring("Nowy profil", T.get("dialog_profile_name", "Podaj nazwę:"))
         if not name: return
         save_shader_profile_for_module("wave", name, collect_params(self.app))
         self._refresh_cb()
@@ -286,7 +286,7 @@ class WaveParamWidget:
 
     def _delete_profile(self):
         name = self.profile_var.get()
-        if name and messagebox.askyesno("", f"Usunac '{name}'?"):
+        if name and messagebox.askyesno("", T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
             delete_shader_profile_for_module("wave", name)
             self._refresh_cb()
 
@@ -296,11 +296,11 @@ class WaveParamWidget:
         if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
-        if messagebox.askyesno("Reset", "Przywrocic domyslny shader wave?"):
+        if messagebox.askyesno(T.get("section_reset", "Reset"), T.get("confirm_reset_wave", "Przywrócić domyślny shader wave?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
             from gui.glava import glava_restart
-            glava_restart("wave", after_fn=self.app.update_status)
+            glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
 
 # ─── I/O ─────────────────────────────────────────────────────────────────────

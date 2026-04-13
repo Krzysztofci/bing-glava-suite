@@ -37,18 +37,25 @@ out vec4 fragment;
 // ─────────────────────────────────────────────────────────────────────────────
 
 float apply_smooth(float theta) {
-    float idx = theta + ROTATE;
-    float dir = mod(abs(idx), TWOPI);
-    if (dir > PI)
-        idx = -sign(idx) * (TWOPI - dir);
+    // 1. Obliczamy kąt z obrotem i sprowadzamy do zakresu [0, TWOPI]
+    float idx = mod(theta + ROTATE, TWOPI);
+    
+    // 2. Normalizacja do zakresu [-PI, PI] - to rozwiązuje błąd 178-360*
+    if (idx > PI)  idx -= TWOPI;
+    if (idx < -PI) idx += TWOPI;
+
+    // 3. Obsługa inwersji (jeśli potrzebna)
     if (INVERT > 0)
         idx = -idx;
-    
-    float pos = abs(idx) / (PI + 0.001F);
+
+    // 4. Mapowanie na pozycję w samplerze audio (0.0 do 1.0)
+    float pos = clamp(abs(idx) / PI, 0.0, 1.0);
+
     #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)
     float v;
     if (idx > 0) v = smooth_f(audio_l);
     else         v = smooth_f(audio_r);
+    
     v *= AMPLIFY;      
     #undef smooth_f
     return v;

@@ -31,47 +31,47 @@ def _bars_tmpl():   return os.path.join(GLAVA_DIR, "bars_colors.frag")
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 
 SHAPE_PARAMS = [
-    ("BAR_WIDTH",        "Szerokość słupka",   1,  40,   5, "px",
+    ("BAR_WIDTH",        T.get("label_bar_width", "Szerokość słupka"),   1,  40,   5, "px",
      "Szerokość pojedynczego słupka w pikselach"),
-    ("BAR_GAP",          "Odstęp",             0,  20,   1, "px",
+    ("BAR_GAP",          T.get("label_bar_gap", "Odstęp"),             0,  20,   1, "px",
      "Odstęp między słupkami w pikselach\n0 = słupki stykają się"),
-    ("BAR_OUTLINE_WIDTH","Obramowanie",         0,  10,   1, "px",
+    ("BAR_OUTLINE_WIDTH",T.get("label_border", "Obramowanie"),         0,  10,   1, "px",
      "Grubość obramowania słupka\n0 = brak obramowania"),
-    ("C_LINE",           "Linia środkowa",      0,  10,   1, "px",
+    ("C_LINE",           T.get("label_center_line", "Linia środkowa"),      0,  10,   1, "px",
      "Grubość poziomej linii bazowej w pikselach\n"
      "Rysowana przy podstawie słupków\n0 = wyłączona"),
-    ("AMPLIFY",          "Wzmocnienie",        50, 800, 300, "",
+    ("AMPLIFY",          T.get("label_gain", "Wzmocnienie"),        50, 800, 300, "",
      "Mnożnik amplitudy sygnału audio\nWiększe = wyższe słupki"),
 ]
 
 # (klucz, etykieta, tooltip)
 FLAG_PARAMS = [
-    ("DIRECTION",  "Odwróć spektrum",
+    ("DIRECTION",  T.get("label_invert_spectrum", "Odwróć spektrum"),
      "Odwraca kolejność częstotliwości\nBas po prawej, treble po lewej"),
-    ("FLIP",       "Odbicie pionowe",
+    ("FLIP",       T.get("label_flip_v", "Odbicie pionowe"),
      "Słupki rosną z góry okna zamiast z dołu"),
-    ("MIRROR_YX",  "Pionowy pasek (Y=X)",
+    ("MIRROR_YX",  T.get("label_vertical_bar", "Pionowy pasek (Y=X)"),
      "Obraca wizualizację o 90°\nRysuje pionowy pasek po lewej stronie okna\n"
      "Z 'Odbicie pionowe' = po prawej stronie"),
-    ("INVERT",     "Zamień kanały L/R",
+    ("INVERT",     T.get("label_swap_lr", "Zamień kanały L/R"),
      "Zamienia lewy i prawy kanał audio\nDziała tylko przy Lustro L/R = wyłączone"),
-    ("DISABLE_MONO", "Wyłącz tryb mono",
+    ("DISABLE_MONO", T.get("label_disable_mono", "Wyłącz tryb mono"),
      "Wymusza wyświetlanie dwóch kanałów\nnawet gdy Lustro L/R jest włączone"),
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
 SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania słupków po szczycie\nWiększe = szybszy zanik"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne\n"
      "Większe = płynniejsze ale wolniejsze"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
+    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania\nWiększe = płynniejsze ale z opóźnieniem\n"
      "Na T420/Intel HD3000 max ~10 bez spadku FPS"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT\nNiższe = więcej miejsca na niskie częstotliwości"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT\n"
      "Efekt widoczny przy niskim wygładzaniu\n"
      "0 = brak odcięcia, 1 = odcięcie wszystkiego"),
@@ -84,9 +84,9 @@ SAMPLE_NORMAL = [256, 512, 1024, 2048]
 SAMPLE_EXPERT = [256, 512, 1024, 2048, 4096]
 
 RC_BOOL_PARAMS = [
-    ("setmirror",      "Lustro L/R (mono)",
+    ("setmirror",      T.get("label_mirror", "Lustro L/R (mono)"),
      "Uśrednia lewy i prawy kanał\nPrzy włączonym INVERT nie działa"),
-    ("setinterpolate", "Interpolacja ramek",
+    ("setinterpolate", T.get("label_interpolate", "Interpolacja ramek"),
      "Wygładza animację między klatkami audio\n"
      "Poprawia płynność ale dodaje minimalne opóźnienie"),
 ]
@@ -178,7 +178,7 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Kształt",
+        lf = tk.LabelFrame(parent, text=T.get("section_shape", "Kształt"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SHAPE_PARAMS:
@@ -187,7 +187,7 @@ class BarsParamWidget:
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Przełączniki",
+        lf = tk.LabelFrame(parent, text=T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
         for key, label, tooltip in FLAG_PARAMS:
@@ -205,18 +205,18 @@ class BarsParamWidget:
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Wygładzanie",
+        lf = tk.LabelFrame(parent, text=T.get("section_smoothing", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
         for p in SMOOTH_PARAMS:
             self._float_slider_row(lf, p, current)
-        tk.Label(lf, text="⚠ Wpływa na wszystkie moduły",
+        tk.Label(lf, text=T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     # ── Audio (lewa kolumna, pod przełącznikami) ─────────────────────────────
 
     def _build_audio(self, parent, current):
-        lf = tk.LabelFrame(parent, text="Audio",
+        lf = tk.LabelFrame(parent, text=T.get("section_audio", "Audio"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(4, 0))
 
@@ -258,7 +258,7 @@ class BarsParamWidget:
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text="Profile szadera bars",
+        lf = tk.LabelFrame(parent, text=T.get("section_profiles_bars", "Profile szadera bars"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(4, 0))
 
@@ -271,25 +271,25 @@ class BarsParamWidget:
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text="Ksztalt + dynamika (kolory bez zmian)",
+        tk.Label(lf, text=T.get("label_profiles_hint_bars", "Kształt + dynamika (kolory bez zmian)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
 
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text="Zastosuj",
+        tk.Button(btn_row, text=T.get("btn_apply", "Zastosuj"),
                   command=self._apply_profile,
                   bg="#00695c", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text="Zapisz",
+        tk.Button(btn_row, text=T.get("btn_save_new", "Zapisz"),
                   command=self._save_profile,
                   bg="#37474f", fg="white", font=("Arial", 8)
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text="Usun",
+        tk.Button(btn_row, text=T.get("btn_delete", "Usuń"),
                   command=self._delete_profile,
                   bg="#b71c1c", fg="white", font=("Arial", 8)
                   ).pack(side="left")
 
-        tk.Button(lf, text="Reset szadera bars",
+        tk.Button(lf, text=T.get("btn_reset_shader_bars", "Reset szadera bars"),
                   command=self._reset_shader,
                   bg="#5d4037", fg="white", font=("Arial", 8)
                   ).pack(fill="x", pady=(4, 0))
@@ -443,10 +443,10 @@ class BarsParamWidget:
         # Odśwież widgety
         self.app.rebuild_module_tab()
         from gui.glava import glava_restart
-        glava_restart("bars", after_fn=self.app.update_status)
+        glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil szadera", "Podaj nazwę:")
+        name = simpledialog.askstring("Nowy profil szadera", T.get("dialog_profile_name", "Podaj nazwę:"))
         if not name: return
         params = collect_params(self.app)
         save_shader_profile_for_module("bars", name, params)
@@ -456,7 +456,7 @@ class BarsParamWidget:
     def _delete_profile(self):
         name = self.profile_var.get()
         if not name: return
-        if messagebox.askyesno("", f"Usuń profil '{name}'?"):
+        if messagebox.askyesno("", T.get("dialog_delete_confirm", "Czy na pewno usunąć profil") + f" '{name}'?"):
             delete_shader_profile_for_module("bars", name)
             self._refresh_profile_cb()
 
@@ -466,14 +466,14 @@ class BarsParamWidget:
         if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
-        if not messagebox.askyesno("Reset szadera",
-                "Przywrócić domyślny shader bars?\n"
+        if not messagebox.askyesno(T.get("btn_reset_shader", "Reset szadera"),
+                T.get("confirm_reset_bars", "Przywrócić domyślny shader bars?")
                 "Wartości kształtu wrócą do domyślnych."):
             return
         reset_shader(self.app)
         self.app.rebuild_module_tab()
         from gui.glava import glava_restart
-        glava_restart("bars", after_fn=self.app.update_status)
+        glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
@@ -501,7 +501,7 @@ class BarsParamWidget:
             except Exception: pass
         from gui.glava import glava_restart
         self._rjob = self.app.root.after(
-            300, lambda: glava_restart("bars", after_fn=self.app.update_status))
+            300, lambda: glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status))
 
 
 # ─── Tooltip helper ──────────────────────────────────────────────────────────
