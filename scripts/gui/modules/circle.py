@@ -33,34 +33,34 @@ def _circle_tmpl():  return os.path.join(GLAVA_DIR, "circle_colors.frag")
 def _circle_1frag(): return os.path.join(GLAVA_DIR, "circle", "1.frag")
 
 SHAPE_PARAMS = [
-    ("C_RADIUS", T.get("label_radius", "Promień okręgu"),  50, 400, 128, "px",
+    ("C_RADIUS", "Promień okręgu",  50, 400, 128, "px",
      "Promień bazowego okręgu w pikselach"),
-    ("C_LINE",   T.get("label_line_thickness", "Grubość linii"),    0,  20,   2, "px",
+    ("C_LINE",   "Grubość linii",    0,  20,   2, "px",
      "Grubość linii wizualizacji\n"
      "Steruje też szerokością obszaru rysowania"),
-    ("AMPLIFY",  T.get("label_gain", "Wzmocnienie"),     50, 800, 150, "",
+    ("AMPLIFY",  "Wzmocnienie",     50, 800, 150, "",
      "Wzmocnienie amplitudy sygnału audio"),
 ]
 
 SMOOTH_PARAMS = [
-    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania po szczycie"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
+    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania"),
-    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT"),
-    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
 FLAG_PARAMS = [
-    ("C_FILL",   T.get("label_fill_inner", "Wypełnij wnętrze"),
+    ("C_FILL",   "Wypełnij wnętrze",
      "Wypełnia przestrzeń między linią a wewnętrznym okręgiem"),
-    ("C_SMOOTH", T.get("label_smooth_post", "Wygładzanie (post-proc)"),
+    ("C_SMOOTH", "Wygładzanie (post-proc)",
      "Wygładzanie obrazu post-processing\nDziała tylko z opacity: xroot"),
-    ("INVERT",   T.get("label_swap_lr", "Zamień kanały L/R"),
+    ("INVERT",   "Zamień kanały L/R",
      "Zamienia lewy i prawy kanał audio"),
 ]
 

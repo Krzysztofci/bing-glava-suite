@@ -27,24 +27,24 @@ def _wave_tmpl():  return os.path.join(GLAVA_DIR, "wave_colors.frag")
 def _wave_1frag(): return os.path.join(GLAVA_DIR, "wave", "1.frag")
 
 SHAPE_PARAMS = [
-    ("MIN_THICKNESS", T.get("label_line_min", "Min. grubość linii"),  1,  20,  1, "px",
+    ("MIN_THICKNESS", "Min. grubość linii",  1,  20,  1, "px",
      "Minimalna grubość linii fali w pikselach\n(przy niskiej amplitudzie)"),
-    ("MAX_THICKNESS", T.get("label_line_max", "Maks. grubość linii"), 1,  40, 6, "px",
+    ("MAX_THICKNESS", "Maks. grubość linii", 1,  40, 6, "px",
      "Maksymalna grubość linii fali w pikselach\n(przy wysokiej amplitudzie)"),
-    ("AMPLIFY",       T.get("label_gain", "Wzmocnienie"),        50, 800, 500, "",
+    ("AMPLIFY",       "Wzmocnienie",        50, 800, 500, "",
      "Wzmocnienie amplitudy sygnału audio\nWiększe = wyższe fale"),
 ]
 
 SMOOTH_PARAMS = [
-    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania po szczycie"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
+    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania"),
-    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT"),
-    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 

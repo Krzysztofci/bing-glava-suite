@@ -33,38 +33,38 @@ def _graph_tmpl():  return os.path.join(GLAVA_DIR, "graph_colors.frag")
 def _graph_1frag(): return os.path.join(GLAVA_DIR, "graph", "1.frag")
 
 SHAPE_PARAMS = [
-    ("VSCALE",   T.get("label_gain", "Wzmocnienie"),   50, 800, 350, "",
+    ("VSCALE",   "Wzmocnienie",   50, 800, 350, "",
      "Skala pionowa sygnału audio\nWiększe = wyższy wykres"),
-    ("GRADIENT", T.get("label_bloom", "Rozświetlenie"),  0, 100,   0, "%",
+    ("GRADIENT", "Rozświetlenie",  0, 100,   0, "%",
      "Rozświetlenie środka wykresu\n0 = brak, 100 = maksymalne"),
 ]
 
 SMOOTH_PARAMS = [
-    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania po szczycie"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
+    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania"),
-    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT"),
-    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
 FLAG_PARAMS = [
-    ("DIRECTION",      T.get("label_inward", "Kierunek do środka"),
+    ("DIRECTION",      "Kierunek do środka",
      "1 = fale rosną do środka okna\n-1 = fale rosną na zewnątrz\n"
      "Uwaga: wartości to 1 lub -1, nie 0/1"),
-    ("DRAW_OUTLINE",   T.get("label_draw_border", "Rysuj obramowanie"),
+    ("DRAW_OUTLINE",   "Rysuj obramowanie",
      "Rysuje kontur wzdłuż krawędzi wykresu"),
-    ("DRAW_HIGHLIGHT", T.get("label_edge_glow", "Podświetlenie krawędzi"),
+    ("DRAW_HIGHLIGHT", "Podświetlenie krawędzi",
      "Jasna linia na górnej krawędzi wykresu"),
-    ("ANTI_ALIAS",     T.get("label_edge_smooth", "Wygładzanie krawędzi"),
+    ("ANTI_ALIAS",     "Wygładzanie krawędzi",
      "Wygładza krawędź wykresu\nWymaga opacity: xroot lub none"),
-    ("JOIN_CHANNELS",  T.get("label_join_center", "Łącz kanały w środku"),
+    ("JOIN_CHANNELS",  "Łącz kanały w środku",
      "Łączy lewy i prawy kanał\nw centrum okna"),
-    ("INVERT",         T.get("label_flip_v", "Odbicie pionowe"),
+    ("INVERT",         "Odbicie pionowe",
      "Wykres rośnie z góry zamiast z dołu"),
 ]
 

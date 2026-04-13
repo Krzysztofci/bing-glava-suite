@@ -31,47 +31,47 @@ def _bars_tmpl():   return os.path.join(GLAVA_DIR, "bars_colors.frag")
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 
 SHAPE_PARAMS = [
-    ("BAR_WIDTH",        T.get("label_bar_width", "Szerokość słupka"),   1,  40,   5, "px",
+    ("BAR_WIDTH",        "Szerokość słupka",   1,  40,   5, "px",
      "Szerokość pojedynczego słupka w pikselach"),
-    ("BAR_GAP",          T.get("label_bar_gap", "Odstęp"),             0,  20,   1, "px",
+    ("BAR_GAP",          "Odstęp",             0,  20,   1, "px",
      "Odstęp między słupkami w pikselach\n0 = słupki stykają się"),
-    ("BAR_OUTLINE_WIDTH",T.get("label_border", "Obramowanie"),         0,  10,   1, "px",
+    ("BAR_OUTLINE_WIDTH","Obramowanie",         0,  10,   1, "px",
      "Grubość obramowania słupka\n0 = brak obramowania"),
-    ("C_LINE",           T.get("label_center_line", "Linia środkowa"),      0,  10,   1, "px",
+    ("C_LINE",           "Linia środkowa",      0,  10,   1, "px",
      "Grubość poziomej linii bazowej w pikselach\n"
      "Rysowana przy podstawie słupków\n0 = wyłączona"),
-    ("AMPLIFY",          T.get("label_gain", "Wzmocnienie"),        50, 800, 300, "",
+    ("AMPLIFY",          "Wzmocnienie",        50, 800, 300, "",
      "Mnożnik amplitudy sygnału audio\nWiększe = wyższe słupki"),
 ]
 
 # (klucz, etykieta, tooltip)
 FLAG_PARAMS = [
-    ("DIRECTION",  T.get("label_invert_spectrum", "Odwróć spektrum"),
+    ("DIRECTION",  "Odwróć spektrum",
      "Odwraca kolejność częstotliwości\nBas po prawej, treble po lewej"),
-    ("FLIP",       T.get("label_flip_v", "Odbicie pionowe"),
+    ("FLIP",       "Odbicie pionowe",
      "Słupki rosną z góry okna zamiast z dołu"),
-    ("MIRROR_YX",  T.get("label_vertical_bar", "Pionowy pasek (Y=X)"),
+    ("MIRROR_YX",  "Pionowy pasek (Y=X)",
      "Obraca wizualizację o 90°\nRysuje pionowy pasek po lewej stronie okna\n"
      "Z 'Odbicie pionowe' = po prawej stronie"),
-    ("INVERT",     T.get("label_swap_lr", "Zamień kanały L/R"),
+    ("INVERT",     "Zamień kanały L/R",
      "Zamienia lewy i prawy kanał audio\nDziała tylko przy Lustro L/R = wyłączone"),
-    ("DISABLE_MONO", T.get("label_disable_mono", "Wyłącz tryb mono"),
+    ("DISABLE_MONO", "Wyłącz tryb mono",
      "Wymusza wyświetlanie dwóch kanałów\nnawet gdy Lustro L/R jest włączone"),
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
 SMOOTH_PARAMS = [
-    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),      0.1, 20.0,  4.2, "",   0.1,
+    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania słupków po szczycie\nWiększe = szybszy zanik"),
     ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne\n"
      "Większe = płynniejsze ale wolniejsze"),
-    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),        1,   16,     5, "",     1,
+    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
      "Liczba klatek do uśredniania\nWiększe = płynniejsze ale z opóźnieniem\n"
      "Na T420/Intel HD3000 max ~10 bez spadku FPS"),
-    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),       1.0, 30.0,  10.2, "",   0.1,
+    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
      "Skala częstotliwości FFT\nNiższe = więcej miejsca na niskie częstotliwości"),
-    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"),  0.0,  1.0,   0.3, "",  0.01,
+    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT\n"
      "Efekt widoczny przy niskim wygładzaniu\n"
      "0 = brak odcięcia, 1 = odcięcie wszystkiego"),
@@ -84,9 +84,9 @@ SAMPLE_NORMAL = [256, 512, 1024, 2048]
 SAMPLE_EXPERT = [256, 512, 1024, 2048, 4096]
 
 RC_BOOL_PARAMS = [
-    ("setmirror",      T.get("label_mirror", "Lustro L/R (mono)"),
+    ("setmirror",      "Lustro L/R (mono)",
      "Uśrednia lewy i prawy kanał\nPrzy włączonym INVERT nie działa"),
-    ("setinterpolate", T.get("label_interpolate", "Interpolacja ramek"),
+    ("setinterpolate", "Interpolacja ramek",
      "Wygładza animację między klatkami audio\n"
      "Poprawia płynność ale dodaje minimalne opóźnienie"),
 ]
@@ -467,8 +467,8 @@ class BarsParamWidget:
 
     def _reset_shader(self):
         if not messagebox.askyesno(T.get("btn_reset_shader", "Reset szadera"),
-                T.get("confirm_reset_bars", "Przywrócić domyślny shader bars?")
-                "Wartości kształtu wrócą do domyślnych."):
+                T.get("confirm_reset_bars", "Przywrócić domyślny shader bars?") +
+                "\nWartości kształtu wrócą do domyślnych."):
             return
         reset_shader(self.app)
         self.app.rebuild_module_tab()

@@ -46,45 +46,45 @@ ROTATE_OPTIONS = [
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_INT_PARAMS = [
-    ("C_RADIUS",  T.get("label_radius", "Promień okręgu"),   20,  600, 128, "px",
+    ("C_RADIUS",  "Promień okręgu",   20,  600, 128, "px",
      "Promień bazowego okręgu wizualizacji w pikselach"),
-    ("C_LINE",    T.get("label_circle_line", "Linia okręgu"),      0,   50,   2, "px",
+    ("C_LINE",    "Linia okręgu",      0,   50,   2, "px",
      "Grubość linii rysującej środkowy okrąg\n0 = wyłączona"),
-    ("NBARS",     T.get("label_bar_count", "Liczba słupków"),   10,  400, 160, "",
+    ("NBARS",     "Liczba słupków",   10,  400, 160, "",
      "Liczba słupków radialnych\nParzyste wartości dają najlepszy efekt"),
-    ("AMPLIFY",   T.get("label_gain", "Wzmocnienie"),       50, 800, 300, "",
+    ("AMPLIFY",   "Wzmocnienie",       50, 800, 300, "",
      "Wzmocnienie amplitudy sygnału audio"),
-    ("GRADIENT",  T.get("label_circle_fill", "Wypełnienie koła"),   0, 100,   0, "%",
+    ("GRADIENT",  "Wypełnienie koła",   0, 100,   0, "%",
      "Szybkość przejścia gradientu kolorów w pikselach"),
 ]
 
 # Float params — (klucz, etykieta, min, max, domyślna, krok, tooltip)
 SHAPE_FLOAT_PARAMS = [
-    ("BAR_WIDTH",        T.get("label_bar_width", "Szerokość słupka"),  1.0, 20.0, 4.5, 0.5,
+    ("BAR_WIDTH",        "Szerokość słupka",  1.0, 20.0, 4.5, 0.5,
      "Szerokość pojedynczego słupka w pikselach"),
-    ("BAR_ALIAS_FACTOR", T.get("label_bar_sharp", "Ostrość słupków"),   0.5,  5.0, 1.2, 0.1,
+    ("BAR_ALIAS_FACTOR", "Ostrość słupków",   0.5,  5.0, 1.2, 0.1,
      "Ostrość krawędzi słupków\nWymaga opacity: xroot\nWiększe = bardziej zdefiniowane krawędzie"),
-    ("C_ALIAS_FACTOR",   T.get("label_circle_sharp", "Ostrość okręgu"),    0.5,  5.0, 1.8, 0.1,
+    ("C_ALIAS_FACTOR",   "Ostrość okręgu",    0.5,  5.0, 1.8, 0.1,
      "Ostrość krawędzi środkowego okręgu\nWymaga opacity: xroot"),
 ]
 
 # Parametry wygładzania — smooth_parameters.glsl
 # (klucz, etykieta, min, max, domyślna, krok, tooltip)
 SMOOTH_PARAMS = [
-    ("setgravitystep",  T.get("label_gravity", "Grawitacja"),     0.1, 20.0,  4.2, 0.1,
+    ("setgravitystep",  "Grawitacja",     0.1, 20.0,  4.2, 0.1,
      "Szybkość opadania słupków po szczycie"),
     ("setsmoothfactor", "Wygładzanie",  0.001,  0.1, 0.025, 0.001,
      "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    T.get("label_avg_frames", "Klatek avg"),      1,   16,     5, 1,
+    ("setavgframes",    "Klatek avg",      1,   16,     5, 1,
      "Liczba klatek do uśredniania"),
-    ("setfftscale",     T.get("label_fft_scale", "Skala FFT"),     1.0, 30.0,  10.2, 0.1,
+    ("setfftscale",     "Skala FFT",     1.0, 30.0,  10.2, 0.1,
      "Skala częstotliwości FFT"),
-    ("setfftcutoff",    T.get("label_bass_cutoff", "Odcięcie basów"), 0.0,  1.0,   0.3, 0.01,
+    ("setfftcutoff",    "Odcięcie basów", 0.0,  1.0,   0.3, 0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
 FLAG_PARAMS = [
-    ("INVERT", T.get("label_swap_lr", "Zamień kanały L/R"),
+    ("INVERT", "Zamień kanały L/R",
      "Zamienia lewy i prawy kanał audio"),
 ]
 
