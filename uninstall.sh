@@ -173,7 +173,7 @@ fi
 if [ "$REMOVE_GLAVA" = true ]; then
     section "Usuwanie konfiguracji GLava"
 
-    rm -rf "$GLAVA_CONFIG/graph_red.frag"
+    rm -rf "$GLAVA_CONFIG/graph_colors.frag"
     rm -rf "$GLAVA_CONFIG/graph.glsl"
     rm -rf "$GLAVA_CONFIG/graph/1.frag"
     rm -rf "$GLAVA_CONFIG/util"
