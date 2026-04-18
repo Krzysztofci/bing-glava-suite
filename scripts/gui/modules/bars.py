@@ -77,20 +77,6 @@ SMOOTH_PARAMS = [
      "0 = brak odcięcia, 1 = odcięcie wszystkiego"),
 ]
 
-# Audio — potęgi 2
-BUF_NORMAL    = [512, 1024, 2048, 4096]
-BUF_EXPERT    = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-SAMPLE_NORMAL = [256, 512, 1024, 2048]
-SAMPLE_EXPERT = [256, 512, 1024, 2048, 4096]
-
-RC_BOOL_PARAMS = [
-    ("setmirror",      "Lustro L/R (mono)",
-     "Uśrednia lewy i prawy kanał\nPrzy włączonym INVERT nie działa"),
-    ("setinterpolate", "Interpolacja ramek",
-     "Wygładza animację między klatkami audio\n"
-     "Poprawia płynność ale dodaje minimalne opóźnienie"),
-]
-
 ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {p[0] for p in FLAG_PARAMS}
 ALL_SMOOTH_KEYS = {p[0] for p in SMOOTH_PARAMS}
 
@@ -106,24 +92,14 @@ def collect_params(app):
     p.update(_read_defines(_bars_glsl(), SHAPE_PARAMS))
     p.update(_read_flag_defines(_bars_glsl()))
     p.update(_read_smooth(_smooth_glsl()))
-    p.update(_read_int_req(RC_GLSL, "setbufsize",    4096))
-    p.update(_read_int_req(RC_GLSL, "setsamplesize", 1024))
-    for key, _, _ in RC_BOOL_PARAMS:
-        p.update(_read_bool_req(RC_GLSL, key))
+    # Usunięto odczyt bufsize, samplesize, setmirror i setinterpolate
     return p
-
 
 def apply_params(params, app):
     _write_defines(_bars_glsl(), params, SHAPE_PARAMS)
     _write_flag_defines(_bars_glsl(), params)
     _write_smooth(_smooth_glsl(), params)
-    for key in ("setbufsize", "setsamplesize"):
-        if key in params:
-            _write_int_req(RC_GLSL, key, int(params[key]))
-    for key, _, _ in RC_BOOL_PARAMS:
-        if key in params:
-            _write_bool_req(RC_GLSL, key, params[key])
-
+    # Usunięto zapisywanie parametrów do RC_GLSL
 
 def reset_shader(app):
     import shutil
@@ -169,8 +145,7 @@ class BarsParamWidget:
         # Lewa: Kształt + Przełączniki + Audio
         self._build_shape(left, current)
         self._build_flags(left, current)
-        self._build_audio(left, current)
-
+        
         # Prawa: Wygładzanie + Profile szadera
         self._build_smooth(right, current)
         self._build_profiles(right)
@@ -178,82 +153,100 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"))
+        lf.pack(fill="x", pady=(0, 5), ipady=5)
+
+        # MAPA: Co ma zostać podmienione
+        mapping = {
+            "BAR_WIDTH": "label_bar_width",
+            "BAR_GAP": "label_bar_gap",
+            "BAR_OUTLINE_WIDTH": "label_border",
+            "C_LINE": "label_center_line",
+            "AMPLIFY": "label_gain"
+        }
+
         for p in SHAPE_PARAMS:
-            self._slider_row(lf, p[:6], current, "bars_glsl", p[6])
+            p_list = list(p)
+            json_key = mapping.get(p[0])
+            
+            if json_key:
+                # Etykieta
+                p_list[1] = self.T.get(json_key, p[1])
+                # Tooltip - klucz w JSON musi istnieć jako np. "tooltip_bar_width"
+                tk_key = json_key.replace("label_", "tooltip_")
+                p_list[6] = self.T.get(tk_key, p[6])
+            
+            self._slider_row(lf, tuple(p_list), current, "bars_glsl")
 
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Switches"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
+
+        # To musi być wewnątrz funkcji!
+        mapping_flags = {
+            "DIRECTION":    "label_invert_spectrum",
+            "FLIP":         "label_flip_v",
+            "MIRROR_YX":    "label_vertical_bar",
+            "INVERT":       "label_swap_lr",
+            "DISABLE_MONO": "label_disable_mono"
+        }
+
         for key, label, tooltip in FLAG_PARAMS:
+            # Teraz 'current' będzie widoczne, bo jest argumentem funkcji powyżej
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
+            
+            json_key = mapping_flags.get(key)
+            if json_key:
+                translated_label = self.T.get(json_key, label)
+                tip_key = json_key.replace("label_", "tooltip_")
+                translated_tip = self.T.get(tip_key, tooltip)
+            else:
+                translated_label = label
+                translated_tip = tooltip
+
+            if not translated_tip:
+                translated_tip = tooltip
+
             row = tk.Frame(lf)
             row.pack(fill="x", pady=1)
-            tk.Checkbutton(row, text=label, variable=var,
+            
+            tk.Checkbutton(row, text=translated_label, variable=var,
                            font=("Arial", 9),
                            command=lambda k=key, v=var: self._write_flag(k, v)
                            ).pack(side="left")
-            _tip(row, "?", tooltip)
+            
+            _tip(row, "?", translated_tip)
 
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), font=("Arial", 9, "bold"))
+        lf.pack(fill="x", pady=(0, 5), ipady=5)
+
+        mapping = {
+            "setgravitystep": "label_gravity",
+            "setsmoothfactor": "label_smooth_factor",
+            "setavgframes": "label_avg_frames",
+            "setfftscale": "label_fft_scale",
+            "setfftcutoff": "label_bass_cutoff"
+        }
+
         for p in SMOOTH_PARAMS:
-            self._float_slider_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
-                 font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
-
-    # ── Audio (lewa kolumna, pod przełącznikami) ─────────────────────────────
-
-    def _build_audio(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_audio", "Audio"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(4, 0))
-
-        buf_cur = int(current.get("setbufsize", 4096))
-        self.vars["setbufsize"] = tk.StringVar(value=str(buf_cur))
-        vals = BUF_EXPERT if self._expert() else BUF_NORMAL
-        if buf_cur not in vals:
-            buf_cur = min(vals, key=lambda x: abs(x - buf_cur))
-            self.vars["setbufsize"].set(str(buf_cur))
-        self._buf_cb = self._combo_row(
-            lf, "Bufor audio", "setbufsize", vals, buf_cur,
-            "Rozmiar bufora FFT — potega 2\n"
-            "Wiekszy = wiecej 'grawitacji'\n"
-            "512 = szybki, 4096 = ciezki")
-
-        smp_cur = int(current.get("setsamplesize", 1024))
-        self.vars["setsamplesize"] = tk.StringVar(value=str(smp_cur))
-        svals = SAMPLE_EXPERT if self._expert() else SAMPLE_NORMAL
-        if smp_cur not in svals:
-            smp_cur = min(svals, key=lambda x: abs(x - smp_cur))
-            self.vars["setsamplesize"].set(str(smp_cur))
-        self._sample_cb = self._combo_row(
-            lf, "Rozmiar probki", "setsamplesize", svals, smp_cur,
-            "256=172UPS 512=86UPS 1024=43UPS 2048=21UPS\nZawsze <= bufor audio")
-
-        for key, label, tooltip in RC_BOOL_PARAMS:
-            raw = current.get(key, False)
-            val = raw if isinstance(raw, bool) else (str(raw) == "true")
-            var = tk.BooleanVar(value=val)
-            self.vars[key] = var
-            brow = tk.Frame(lf)
-            brow.pack(fill="x", pady=1)
-            tk.Checkbutton(brow, text=label, variable=var,
-                           font=("Arial", 9),
-                           command=lambda k=key, v=var: self._write_bool_rc(k, v)
-                           ).pack(side="left")
-            _tip(brow, "?", tooltip)
+            p_list = list(p)
+            json_key = mapping.get(p[0])
+            
+            if json_key:
+                p_list[1] = self.T.get(json_key, p[1])
+                # Używamy indeksu 7, bo SMOOTH_PARAMS ma 8 elementów (przez dodany 'step')
+                p_list[7] = self.T.get(json_key.replace("label_", "tooltip_"), p[7])
+            
+            # Ważne: zmienione na _float_slider_row, żeby obsłużyć 8 parametrów
+            self._float_slider_row(lf, tuple(p_list), current)
 
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
@@ -334,8 +327,11 @@ class BarsParamWidget:
 
     # ── Wiersz suwaka int — etykieta(stała) + ? + suwak + wartość + jednostka ─
 
-    def _slider_row(self, parent, param_def, current, target, tooltip=""):
-        key, label, vmin, vmax, default, unit = param_def
+    def _slider_row(self, parent, param_def, current, target):
+        # Rozpakowujemy dokładnie 7 elementów (zgodnie z SHAPE_PARAMS)
+        # key(0), label(1), vmin(2), vmax(3), default(4), unit(5), tooltip(6)
+        key, label, vmin, vmax, default, unit, tooltip = param_def
+        
         cur = int(current.get(key, default))
         var = tk.IntVar(value=cur)
         self.vars[key] = var
@@ -344,13 +340,14 @@ class BarsParamWidget:
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
 
-        # Etykieta stałej szerokości
+        # Etykieta - używa 'label' (podmienimy go w pętli na angielski)
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
+        
         if tooltip:
             _tip(row, "?", tooltip)
 
-        # Suwak — zajmuje całe dostępne miejsce
+        # Suwak
         slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
                           orient="horizontal", showvalue=False,
                           sliderlength=12, font=("Arial", 7))
@@ -361,7 +358,7 @@ class BarsParamWidget:
                          width=5, font=("Arial", 9), justify="right")
         entry.pack(side="left", padx=(3, 0))
 
-        # Jednostka (lub spacja dla wyrównania)
+        # Jednostka
         tk.Label(row, text=unit if unit else "  ",
                  font=("Arial", 9), fg="gray50", width=3
                  ).pack(side="left")
@@ -386,11 +383,14 @@ class BarsParamWidget:
     # ── Wiersz suwaka float ───────────────────────────────────────────────────
 
     def _float_slider_row(self, parent, param_def, current):
+        # Tutaj musi być 8 elementów, bo SMOOTH_PARAMS ma 'step' na 6. pozycji
         key, label, vmin, vmax, default, unit, step, tooltip = param_def
+        
         try:
             cur = float(current.get(key, default))
         except (ValueError, TypeError):
             cur = float(default)
+            
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = _decimals(step)
@@ -400,9 +400,12 @@ class BarsParamWidget:
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
 
+        # Używamy 'label', który podmienimy w pętli
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
-        _tip(row, "?", tooltip)
+        
+        if tooltip:
+            _tip(row, "?", tooltip)
 
         slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
                           resolution=step, orient="horizontal",
@@ -412,7 +415,7 @@ class BarsParamWidget:
         entry = tk.Entry(row, textvariable=entry_var,
                          width=6, font=("Arial", 9), justify="right")
         entry.pack(side="left", padx=(3, 0))
-        # spacja dla wyrównania (brak jednostki)
+        
         tk.Label(row, text="  ", font=("Arial", 9), width=2).pack(side="left")
 
         def on_slide(val, ev=entry_var, k=key, f=fmt):
@@ -506,26 +509,26 @@ class BarsParamWidget:
 
 # ─── Tooltip helper ──────────────────────────────────────────────────────────
 
-def _tip(parent, label, text):
-    """Dodaje znak ? z tooltipem do wiersza."""
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
-    lbl.pack(side="left", padx=(2, 0))
-    tip = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tip[0] = tk.Toplevel(lbl)
-        tip[0].wm_overrideredirect(True)
-        tip[0].wm_geometry(f"+{x}+{y}")
-        tk.Label(tip[0], text=text, justify="left",
-                 bg="#ffffcc", relief="solid", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
-    def hide(e):
-        if tip[0]: tip[0].destroy(); tip[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
+#def _tip(parent, label, text):
+#    """Dodaje znak ? z tooltipem do wiersza."""
+#    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+#                   fg="#1565c0", cursor="question_arrow",
+#                   relief="groove", padx=2)
+#    lbl.pack(side="left", padx=(2, 0))
+#    tip = [None]
+#    def show(e):
+#        x = lbl.winfo_rootx() + 20
+#        y = lbl.winfo_rooty() + 20
+#        tip[0] = tk.Toplevel(lbl)
+#        tip[0].wm_overrideredirect(True)
+#        tip[0].wm_geometry(f"+{x}+{y}")
+#        tk.Label(tip[0], text=text, justify="left",
+#                 bg="#ffffcc", relief="solid", bd=1,
+#                 font=("Arial", 8), padx=4, pady=2).pack()
+#    def hide(e):
+#        if tip[0]: tip[0].destroy(); tip[0] = None
+#    lbl.bind("<Enter>", show)
+#    lbl.bind("<Leave>", hide)
 
 def _decimals(step):
     s = str(step)
@@ -658,3 +661,25 @@ def _write_bool_req(path, key, val):
     content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
                      content, flags=re.MULTILINE)
     with open(path, "w") as f: f.write(content)
+
+def _tip(parent, label, text):
+    import tkinter as tk
+    if not text: return
+    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+                   fg="#1565c0", cursor="question_arrow",
+                   relief="groove", padx=2)
+    lbl.pack(side="left", padx=(2, 0))
+    tip_window = [None]
+    def show(e):
+        x = lbl.winfo_rootx() + 20
+        y = lbl.winfo_rooty() + 20
+        tw = tk.Toplevel(lbl)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
+                 font=("Arial", 8), padx=4, pady=2).pack()
+        tip_window[0] = tw
+    def hide(e):
+        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
+    lbl.bind("<Enter>", show)
+    lbl.bind("<Leave>", hide)

@@ -102,24 +102,68 @@ class WaveParamWidget:
         self._build_profiles(right)
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt i dynamika"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+        
         for p in SHAPE_PARAMS:
-            self._slider_row(lf, p, current)
+            # Twoje poprawne mapowanie kluczy technicznych na etykiety w JSON
+            mapping = {
+                "MIN_THICKNESS": "label_line_min",
+                "MAX_THICKNESS": "label_line_max",
+                "AMPLIFY": "label_gain"
+            }
+            
+            param_list = list(p)
+            lang_key = mapping.get(p[0])
+            
+            if lang_key:
+                # 1. Podmienia nazwę (etykietę) - to już miałeś
+                param_list[1] = self.T.get(lang_key, p[1])
+                
+                # 2. Podmienia tooltip (indeks 6 w SHAPE_PARAMS)
+                # Zamieniamy 'label_' na 'tooltip_' w locie (np. label_line_min -> tooltip_line_min)
+                tip_key = lang_key.replace("label_", "tooltip_")
+                param_list[6] = self.T.get(tip_key, p[6])
+            
+            # Przekazujemy zmodyfikowaną krotkę do generatora rzędu
+            self._slider_row(lf, tuple(param_list), current)
 
         tk.Label(parent,
-                 text="Wave nie ma przełączników.\nKolory ustawiane na zakładce Główna.",
-                 font=("Arial", 8), fg="gray50", justify="left"
-                 ).pack(anchor="w", pady=(8, 0))
+                text=self.T.get("label_no_switches", "Wave nie ma przełączników.\nKolory ustawiane na zakładce Główna."),
+                font=("Arial", 8), fg="gray50", justify="left"
+                ).pack(anchor="w", pady=(8, 0))
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+        
         for p in SMOOTH_PARAMS:
-            self._float_slider_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
+            # Poprawione mapowanie - celujemy w etykiety, które mają swoje tooltipy
+            mapping = {
+                "setgravitystep": "label_gravity",
+                "setsmoothfactor": "label_smooth_factor", # Poprawione z section_smoothing
+                "setavgframes": "label_avg_frames",
+                "setfftscale": "label_fft_scale",
+                "setfftcutoff": "label_bass_cutoff"
+            }
+            
+            param_list = list(p)
+            lang_key = mapping.get(p[0])
+            
+            if lang_key:
+                # 1. Podmienia nazwę suwaka z JSON
+                param_list[1] = self.T.get(lang_key, p[1])
+                
+                # 2. Podmienia tooltip (indeks 7 w SMOOTH_PARAMS)
+                # Automatyczna zamiana label_ na tooltip_
+                tip_key = lang_key.replace("label_", "tooltip_")
+                param_list[7] = self.T.get(tip_key, p[7])
+            
+            self._float_slider_row(lf, tuple(param_list), current)
+            
+        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
                  font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
 
     def _debounce_smooth(self, key, value):
@@ -278,7 +322,8 @@ class WaveParamWidget:
         glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Enter profile name:"))
+        name = simpledialog.askstring(self.T.get("dialog_profile_title", "Nowy profil"), 
+                              self.T.get("dialog_profile_name", "Podaj nazwę profilu:"))
         if not name: return
         save_shader_profile_for_module("wave", name, collect_params(self.app))
         self._refresh_cb()
@@ -327,25 +372,25 @@ def _write_defines(path, params, param_defs):
         content = new if new != content else content + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
-def _tip(parent, label, text):
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
-    lbl.pack(side="left", padx=(2, 0))
-    tip = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tip[0] = tk.Toplevel(lbl)
-        tip[0].wm_overrideredirect(True)
-        tip[0].wm_geometry(f"+{x}+{y}")
-        tk.Label(tip[0], text=text, justify="left",
-                 bg="#ffffcc", relief="solid", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
-    def hide(e):
-        if tip[0]: tip[0].destroy(); tip[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
+#def _tip(parent, label, text):
+#    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+#                   fg="#1565c0", cursor="question_arrow",
+#                   relief="groove", padx=2)
+#    lbl.pack(side="left", padx=(2, 0))
+#    tip = [None]
+#    def show(e):
+#        x = lbl.winfo_rootx() + 20
+#        y = lbl.winfo_rooty() + 20
+#        tip[0] = tk.Toplevel(lbl)
+#        tip[0].wm_overrideredirect(True)
+#        tip[0].wm_geometry(f"+{x}+{y}")
+#        tk.Label(tip[0], text=text, justify="left",
+#                 bg="#ffffcc", relief="solid", bd=1,
+#                 font=("Arial", 8), padx=4, pady=2).pack()
+#    def hide(e):
+#        if tip[0]: tip[0].destroy(); tip[0] = None
+#    lbl.bind("<Enter>", show)
+#    lbl.bind("<Leave>", hide)
 
 def _read_smooth(path):
     result = {p[0]: p[4] for p in SMOOTH_PARAMS}
@@ -372,3 +417,25 @@ def _write_smooth(path, params):
                      content, flags=re.MULTILINE)
         content = new if new != content else content + f"\n#request {key} {sv}\n"
     with open(path, "w") as f: f.write(content)
+
+def _tip(parent, label, text):
+    import tkinter as tk
+    if not text: return
+    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+                   fg="#1565c0", cursor="question_arrow",
+                   relief="groove", padx=2)
+    lbl.pack(side="left", padx=(2, 0))
+    tip_window = [None]
+    def show(e):
+        x = lbl.winfo_rootx() + 20
+        y = lbl.winfo_rooty() + 20
+        tw = tk.Toplevel(lbl)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
+                 font=("Arial", 8), padx=4, pady=2).pack()
+        tip_window[0] = tw
+    def hide(e):
+        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
+    lbl.bind("<Enter>", show)
+    lbl.bind("<Leave>", hide)

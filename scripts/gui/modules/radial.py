@@ -209,12 +209,35 @@ class RadialParamWidget:
         lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+        
+        # Poprawione mapowanie kluczy pod Twój pl.json
+        mapping_shape = {
+            "C_RADIUS": "label_radius",
+            "C_LINE": "label_circle_line",     # W pl.json masz label_circle_line
+            "NBARS": "label_bar_count",        # W pl.json masz label_bar_count
+            "AMPLIFY": "label_gain",
+            "GRADIENT": "label_radial_fill",   # Zmienione na label_radial_fill
+            "BAR_WIDTH": "label_bar_width",
+            "C_ALIAS_FACTOR": "label_circle_sharp",
+            "BAR_ALIAS_FACTOR": "label_bar_sharp" # W pl.json masz label_bar_sharp
+        }
 
         for p in SHAPE_INT_PARAMS:
-            self._int_row(lf, p, current)
+            p_list = list(p)
+            json_key = mapping_shape.get(p[0])
+            if json_key:
+                p_list[1] = self.T.get(json_key, p[1])
+                # Mechanizm zamiany label_ na tooltip_
+                p_list[6] = self.T.get(json_key.replace("label_", "tooltip_"), p[6])
+            self._int_row(lf, tuple(p_list), current)
 
         for p in SHAPE_FLOAT_PARAMS:
-            self._float_row(lf, p, current)
+            p_list = list(p)
+            json_key = mapping_shape.get(p[0])
+            if json_key:
+                p_list[1] = self.T.get(json_key, p[1])
+                p_list[6] = self.T.get(json_key.replace("label_", "tooltip_"), p[6])
+            self._float_row(lf, tuple(p_list), current)
 
         # ROTATE — suwak 0-360°
         cur_rot = int(current.get('ROTATE_DEG', 90))
@@ -222,9 +245,9 @@ class RadialParamWidget:
         rot_entry_var = tk.StringVar(value=str(cur_rot))
         rot_row = tk.Frame(lf)
         rot_row.pack(fill="x", pady=2)
-        tk.Label(rot_row, text=self.T.get("section_rotation", self.T.get("label_rotation", "Rotation")), font=("Arial", 9),
+        tk.Label(rot_row, text=self.T.get("label_rotation", "Rotation"), font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
-        _tip(rot_row, "?", "Obrót wizualizacji\n0° = domyślny\n90° = obrót w prawo")
+        _tip(rot_row, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
         rot_slider = tk.Scale(rot_row, variable=self.rotate_var,
                               from_=0, to=360, orient="horizontal",
                               showvalue=False, sliderlength=12)
@@ -259,9 +282,10 @@ class RadialParamWidget:
         max_x = self._sw // 2
         max_y = self._sh // 2
 
-        for key, label, default, max_val in [
-            ("CENTER_OFFSET_X", self.T.get("label_offset_x", "Offset X"), 0, max_x),
-            ("CENTER_OFFSET_Y", self.T.get("label_offset_y", "Offset Y"), 0, max_y),
+        # Przekazujemy klucz techniczny i klucz językowy (lang_key)
+        for key, lang_key, default, max_val in [
+            ("CENTER_OFFSET_X", "label_offset_x", 0, max_x),
+            ("CENTER_OFFSET_Y", "label_offset_y", 0, max_y),
         ]:
             cur = int(current.get(key, default))
             var = tk.IntVar(value=cur)
@@ -270,20 +294,27 @@ class RadialParamWidget:
 
             row = tk.Frame(lf)
             row.pack(fill="x", pady=2)
-            tk.Label(row, text=label, font=("Arial", 9),
+            
+            # Pobieramy etykietę i tooltip bezpośrednio z JSON-a po kluczu
+            label_text = self.T.get(lang_key, lang_key)
+            tooltip_text = self.T.get(lang_key.replace("label_", "tooltip_"), "Przesunięcie")
+
+            tk.Label(row, text=label_text, font=("Arial", 9),
                      width=16, anchor="w").pack(side="left")
-            _tip(row, "?",
-                 f"Przesuwa środek wizualizacji\n"
-                 f"Zakres: ±{max_val}px (połowa {'szerokości' if 'X' in key else 'wysokości'} ekranu)\n"
-                 f"0 = środek ekranu")
+            
+            # Wyświetlamy tooltip z pl.json
+            _tip(row, "?", tooltip_text)
+
             slider = tk.Scale(row, variable=var,
                               from_=-max_val, to=max_val,
                               orient="horizontal", showvalue=False,
                               sliderlength=12)
             slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
+            
             entry = tk.Entry(row, textvariable=entry_var,
                              width=6, font=("Arial", 9), justify="right")
             entry.pack(side="left", padx=(3, 0))
+            
             tk.Label(row, text="px", font=("Arial", 9),
                      fg="gray50", width=3).pack(side="left")
 
@@ -307,19 +338,42 @@ class RadialParamWidget:
     # ── Przełączniki ──────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Switches"),
+        # Pobieramy tytuł sekcji z JSON
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
-        for key, label, tooltip in FLAG_PARAMS:
-            var = tk.BooleanVar(value=bool(int(current.get(key, 0))))
-            self.vars[key] = var
-            row = tk.Frame(lf)
-            row.pack(fill="x", pady=1)
-            tk.Checkbutton(row, text=label, variable=var,
-                           font=("Arial", 9),
-                           command=lambda k=key, v=var: self._write_flag(k, v)
-                           ).pack(side="left")
-            _tip(row, "?", tooltip)
+        lf.pack(fill="x", pady=(0, 4))
+
+        # Mapa kluczy technicznych na klucze w pliku JSON - tylko INVERT
+        mapping_flags = {
+            "INVERT": "label_swap_lr"
+        }
+
+        # FLAG_PARAMS w Twoim radial.py ma 3 elementy: key, label, default
+        for p in FLAG_PARAMS:
+            key, label, default = p
+            
+            # Interesuje nas tylko INVERT
+            if key == "INVERT":
+                lang_key = mapping_flags.get(key)
+                
+                # Pobieramy etykietę i tooltip symetrycznie (label -> tooltip)
+                translated_label = self.T.get(lang_key, label)
+                tooltip_text = self.T.get(lang_key.replace("label_", "tooltip_"), "")
+
+                var = tk.BooleanVar(value=bool(int(current.get(key, default))))
+                self.vars[key] = var
+                
+                row = tk.Frame(lf)
+                row.pack(fill="x")
+                
+                cb = tk.Checkbutton(row, text=translated_label, variable=var,
+                                    font=("Arial", 9),
+                                    command=lambda k=key, v=var: self._write_flag(k, v))
+                cb.pack(side="left")
+                
+                # Wyświetlamy tooltip z pl.json
+                if tooltip_text:
+                    _tip(row, "?", tooltip_text)
 
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
@@ -327,10 +381,28 @@ class RadialParamWidget:
         lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+        mapping_smooth = {
+            "setgravitystep": "label_gravity",
+            "setsmoothfactor": "label_smooth_factor",
+            "setavgframes": "label_avg_frames",
+            "setfftscale": "label_fft_scale",
+            "setfftcutoff": "label_bass_cutoff"
+        }
         for p in SMOOTH_PARAMS:
-            self._smooth_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
-                 font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
+            p_list = list(p)
+            lang_key = mapping_smooth.get(p[0])
+            
+            if lang_key:
+                # 1. Podmieniamy etykietę (indeks 1)
+                p_list[1] = self.T.get(lang_key, p[1])
+                
+                # 2. Podmieniamy tooltip (indeks 6) - "po staremu"
+                # Zamieniamy label_ na tooltip_ (lub section_ na tooltip_ dla smoothfactor)
+                json_tip_key = lang_key.replace("label_", "tooltip_").replace("section_", "tooltip_")
+                p_list[6] = self.T.get(json_tip_key, p[6])
+            
+            # Wysyłamy zmodyfikowaną krotkę - funkcja _smooth_row użyje p[6] jako tooltipa
+            self._smooth_row(lf, tuple(p_list), current)
 
     # ── Profile ───────────────────────────────────────────────────────────────
 
@@ -636,22 +708,43 @@ def _write_request(path, key, val_str):
     with open(path, "w") as f: f.write(content)
 
 
+#def _tip(parent, label, text):
+#    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+#                   fg="#1565c0", cursor="question_arrow",
+#                   relief="groove", padx=2)
+#    lbl.pack(side="left", padx=(2, 0))
+#    tip = [None]
+#    def show(e):
+#        x = lbl.winfo_rootx() + 20
+#        y = lbl.winfo_rooty() + 20
+#        tip[0] = tk.Toplevel(lbl)
+#        tip[0].wm_overrideredirect(True)
+#        tip[0].wm_geometry(f"+{x}+{y}")
+#        tk.Label(tip[0], text=text, justify="left",
+#                 bg="#ffffcc", relief="solid", bd=1,
+#                 font=("Arial", 8), padx=4, pady=2).pack()
+#    def hide(e):
+#        if tip[0]: tip[0].destroy(); tip[0] = None
+#    lbl.bind("<Enter>", show)
+#    lbl.bind("<Leave>", hide)
 def _tip(parent, label, text):
+    import tkinter as tk
+    if not text: return
     lbl = tk.Label(parent, text=label, font=("Arial", 8),
                    fg="#1565c0", cursor="question_arrow",
                    relief="groove", padx=2)
     lbl.pack(side="left", padx=(2, 0))
-    tip = [None]
+    tip_window = [None]
     def show(e):
         x = lbl.winfo_rootx() + 20
         y = lbl.winfo_rooty() + 20
-        tip[0] = tk.Toplevel(lbl)
-        tip[0].wm_overrideredirect(True)
-        tip[0].wm_geometry(f"+{x}+{y}")
-        tk.Label(tip[0], text=text, justify="left",
-                 bg="#ffffcc", relief="solid", bd=1,
+        tw = tk.Toplevel(lbl)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
                  font=("Arial", 8), padx=4, pady=2).pack()
+        tip_window[0] = tw
     def hide(e):
-        if tip[0]: tip[0].destroy(); tip[0] = None
+        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
     lbl.bind("<Enter>", show)
     lbl.bind("<Leave>", hide)

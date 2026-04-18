@@ -53,19 +53,12 @@ SMOOTH_PARAMS = [
 ]
 
 FLAG_PARAMS = [
-    ("DIRECTION",      "Kierunek do środka",
-     "1 = fale rosną do środka okna\n-1 = fale rosną na zewnątrz\n"
-     "Uwaga: wartości to 1 lub -1, nie 0/1"),
-    ("DRAW_OUTLINE",   "Rysuj obramowanie",
-     "Rysuje kontur wzdłuż krawędzi wykresu"),
-    ("DRAW_HIGHLIGHT", "Podświetlenie krawędzi",
-     "Jasna linia na górnej krawędzi wykresu"),
-    ("ANTI_ALIAS",     "Wygładzanie krawędzi",
-     "Wygładza krawędź wykresu\nWymaga opacity: xroot lub none"),
-    ("JOIN_CHANNELS",  "Łącz kanały w środku",
-     "Łączy lewy i prawy kanał\nw centrum okna"),
-    ("INVERT",         "Odbicie pionowe",
-     "Wykres rośnie z góry zamiast z dołu"),
+    ("DIRECTION",     "Kierunek: do środka", 1, "Zmienia kierunek rysowania wykresu (do wewnątrz lub na zewnątrz)"),
+    ("DRAW_OUTLINE",   "Rysuj obramowanie",   0, "Dodaje linię obramowania wokół wykresu"),
+    ("DRAW_HIGHLIGHT", "Podświetlenie krawędzi", 0, "Dodaje efekt blasku na górnej krawędzi"),
+    ("ANTI_ALIAS",    "Wygładzanie krawędzi", 1, "Wymaga ustawienia przezroczystości xroot lub none"),
+    ("JOIN_CHANNELS", "Łącz kanały w środku", 1, "Łączy lewy i prawy kanał w jedną spójną formę"),
+    ("INVERT",        "Odbicie pionowe",      0, "Odwraca wykres do góry nogami"),
 ]
 
 ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {p[0] for p in FLAG_PARAMS}
@@ -128,41 +121,112 @@ class GraphParamWidget:
         self._build_profiles(right)
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
+        # Definiujemy 'lf' na samym początku funkcji
+        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+
+        # Twoje SHAPE_PARAMS (zgodnie z plikiem mają 7 elementów)
+        # Indeks 1 to label, Indeks 6 to tooltip
+        mapping_shape = {
+            "VSCALE":    "label_gain",
+            "GRADIENT":  "label_gradient"
+        }
+
         for p in SHAPE_PARAMS:
-            self._slider_row(lf, p, current)
+            p_list = list(p)
+            json_key = mapping_shape.get(p[0])
+            
+            if json_key:
+                # Tłumaczenie nazwy (Wzmocnienie / Gradient)
+                p_list[1] = self.T.get(json_key, p[1])
+                
+                # Tłumaczenie tooltipa (indeks 6)
+                # json_key.replace zamieni "label_gain" na "tooltip_gain"
+                tip_key = json_key.replace("label_", "tooltip_")
+                p_list[6] = self.T.get(tip_key, p[6])
+            
+            # Teraz 'lf' jest na pewno zdefiniowane i dostępne tutaj
+            self._slider_row(lf, tuple(p_list), current)
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Switches"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
-        for key, label, tooltip in FLAG_PARAMS:
-            # DIRECTION ma wartości 1/-1, nie 0/1
-            if key == "DIRECTION":
-                raw = int(current.get(key, 1))
-                var = tk.BooleanVar(value=(raw == 1))
-            else:
-                raw = int(current.get(key, 0))
-                var = tk.BooleanVar(value=bool(raw))
-            self.vars[key] = var
-            row = tk.Frame(lf)
-            row.pack(fill="x", pady=1)
-            tk.Checkbutton(row, text=label, variable=var,
-                           font=("Arial", 9),
-                           command=lambda k=key, v=var: self._write_flag(k, v)
-                           ).pack(side="left")
-            _tip(row, "?", tooltip)
-
-    def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
+        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x", pady=(0, 4))
+
+        # Mapowanie technicznych nazw z FLAG_PARAMS na Twoje klucze label_ w pl.json
+        mapping_flags = {
+            "DIRECTION":      "label_inward",
+            "DRAW_OUTLINE":   "label_draw_border",
+            "DRAW_HIGHLIGHT": "label_edge_glow",
+            "ANTI_ALIAS":     "label_edge_smooth",
+            "JOIN_CHANNELS":  "label_join_center",
+            "INVERT":         "label_invert_spectrum"
+        }
+
+        for i, p in enumerate(FLAG_PARAMS):
+            key, label_def, default, tip_def = p
+            
+            # 1. Pobieramy etykietę z JSON
+            json_key = mapping_flags.get(key)
+            display_label = self.T.get(json_key, label_def)
+            
+            # 2. URUCHOMIENIE TOOLTIPÓW:
+            # Jeśli mamy json_key (np. "label_inward"), zamieniamy go na "tooltip_inward"
+            json_tip_key = json_key.replace("label_", "tooltip_") if json_key else None
+            
+            # Pobieramy opis z JSON, a jeśli go tam nie ma, bierzemy tip_def (angielski z kodu)
+            display_tip = self.T.get(json_tip_key, tip_def)
+            
+            var = tk.BooleanVar(value=bool(int(current.get(key, default))))
+            self.vars[key] = var
+            
+            row = tk.Frame(lf)
+            row.pack(fill="x", anchor="w")
+            
+            cb = tk.Checkbutton(row, text=display_label, variable=var,
+                                font=("Arial", 9),
+                                command=lambda k=key, v=var: self._write_flag(k, v))
+            cb.pack(side="left")
+            
+            # Wywołanie Twojej funkcji rysującej pytajnik (linia 255 w graph.py)
+            if display_tip:
+                _tip(row, "?", display_tip)
+
+    def _build_smooth(self, parent, current):
+        lf = tk.LabelFrame(parent, text=self.T.get("section_smooth", "Wygładzanie"),
+                           font=("Arial", 9, "bold"), padx=5, pady=4)
+        lf.pack(fill="x")
+
+        # Wypełniamy mapowanie zgodnie z Twoim pl.json
+        mapping = {
+            "setgravitystep":  "label_gravity",
+            "setsmoothfactor": "label_smooth_factor",
+            "setavgframes":    "label_avg_frames",
+            "setfftscale":     "label_fft_scale",
+            "setfftcutoff":    "label_bass_cutoff"
+        }
+
         for p in SMOOTH_PARAMS:
-            self._float_slider_row(lf, p, current)
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Affects all modules"),
-                 font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
+            p_list = list(p)
+            
+            # Twoja logika: jeśli lista ma 7 elementów, wstawiamy 'step' (0.0001) na indeks 6.
+            # To sprawia, że oryginalny element z indeksu 6 (tooltip) ląduje na indeksie 7.
+            if len(p_list) == 7:
+                p_list.insert(6, 0.0001)
+
+            json_key = mapping.get(p_list[0])
+            if json_key:
+                # 1. Tłumaczenie etykiety suwaka
+                p_list[1] = self.T.get(json_key, p_list[1])
+                
+                # 2. Tłumaczenie tooltipa (SZUKAMY W JSON: label_ -> tooltip_)
+                # Celujemy w indeks 7, bo tam teraz jest opis po wykonaniu .insert()
+                tip_key = json_key.replace("label_", "tooltip_")
+                p_list[7] = self.T.get(tip_key, p_list[7])
+            
+            # Wywołanie istniejącej metody dla liczb zmiennoprzecinkowych
+            self._float_slider_row(lf, tuple(p_list), current)
 
     def _build_profiles(self, parent):
         lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_graph", "Shader profiles graph"),
@@ -379,25 +443,25 @@ def _write_flag_defines(path, params):
         content = new if new != content else content + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
-def _tip(parent, label, text):
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
-    lbl.pack(side="left", padx=(2, 0))
-    tip = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tip[0] = tk.Toplevel(lbl)
-        tip[0].wm_overrideredirect(True)
-        tip[0].wm_geometry(f"+{x}+{y}")
-        tk.Label(tip[0], text=text, justify="left",
-                 bg="#ffffcc", relief="solid", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
-    def hide(e):
-        if tip[0]: tip[0].destroy(); tip[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
+#def _tip(parent, label, text):
+#    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+#                   fg="#1565c0", cursor="question_arrow",
+#                   relief="groove", padx=2)
+#    lbl.pack(side="left", padx=(2, 0))
+#    tip = [None]
+#    def show(e):
+#        x = lbl.winfo_rootx() + 20
+#        y = lbl.winfo_rooty() + 20
+#        tip[0] = tk.Toplevel(lbl)
+#        tip[0].wm_overrideredirect(True)
+#        tip[0].wm_geometry(f"+{x}+{y}")
+#        tk.Label(tip[0], text=text, justify="left",
+#                 bg="#ffffcc", relief="solid", bd=1,
+#                 font=("Arial", 8), padx=4, pady=2).pack()
+#    def hide(e):
+#        if tip[0]: tip[0].destroy(); tip[0] = None
+#    lbl.bind("<Enter>", show)
+#    lbl.bind("<Leave>", hide)
 
 def _read_smooth(path):
     result = {p[0]: p[4] for p in SMOOTH_PARAMS}
@@ -424,3 +488,25 @@ def _write_smooth(path, params):
                      content, flags=re.MULTILINE)
         content = new if new != content else content + f"\n#request {key} {sv}\n"
     with open(path, "w") as f: f.write(content)
+
+def _tip(parent, label, text):
+    import tkinter as tk
+    if not text: return
+    lbl = tk.Label(parent, text=label, font=("Arial", 8),
+                   fg="#1565c0", cursor="question_arrow",
+                   relief="groove", padx=2)
+    lbl.pack(side="left", padx=(2, 0))
+    tip_window = [None]
+    def show(e):
+        x = lbl.winfo_rootx() + 20
+        y = lbl.winfo_rooty() + 20
+        tw = tk.Toplevel(lbl)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
+                 font=("Arial", 8), padx=4, pady=2).pack()
+        tip_window[0] = tw
+    def hide(e):
+        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
+    lbl.bind("<Enter>", show)
+    lbl.bind("<Leave>", hide)
