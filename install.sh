@@ -420,17 +420,17 @@ if command -v xprop &>/dev/null; then
     XPROP_OUT=$(sudo -u "$TARGET_USER" \
         DISPLAY=:0 \
         XAUTHORITY="$TARGET_HOME/.Xauthority" \
-        xprop -root _NET_CLIENT_LIST 2>/dev/null || true)
+        xprop -root _NET_CLIENT_LIST 2>/dev/null || echo "")
 
     # Skanuj STRUT_PARTIAL dla wszystkich okien
     MAX_BOTTOM=0
-    WIN_IDS=$(echo "$XPROP_OUT" | grep -o '0x[0-9a-fA-F]*')
+    WIN_IDS=$(echo "$XPROP_OUT" | grep -o '0x[0-9a-fA-F]*' || echo "")
     for wid in $WIN_IDS; do
         STRUT=$(sudo -u "$TARGET_USER" \
             DISPLAY=:0 \
             XAUTHORITY="$TARGET_HOME/.Xauthority" \
-            xprop -id "$wid" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
-        BOT=$(echo "$STRUT" | grep -o '[0-9]*' | sed -n '4p')
+            xprop -id "$wid" _NET_WM_STRUT_PARTIAL 2>/dev/null || echo "")
+        BOT=$(echo "$STRUT" | grep -o '[0-9]*' | sed -n '4p' || echo "")
         if [ -n "$BOT" ] && [ "$BOT" -gt "$MAX_BOTTOM" ]; then
             MAX_BOTTOM=$BOT
         fi
@@ -440,7 +440,7 @@ if command -v xprop &>/dev/null; then
     XRANDR_OUT=$(sudo -u "$TARGET_USER" \
         DISPLAY=:0 \
         XAUTHORITY="$TARGET_HOME/.Xauthority" \
-        xrandr --current 2>/dev/null || true)
+        xrandr --current 2>/dev/null || echo "")
     RES=$(echo "$XRANDR_OUT" | grep -o 'current [0-9]* x [0-9]*' | head -1)
     if [ -n "$RES" ]; then
         SCREEN_W=$(echo "$RES" | awk '{print $2}')
@@ -573,7 +573,7 @@ section "Installation complete"
 echo ""
 echo -e "  GUI panel:           ${BLD}glava-gui${RST}"
 echo -e "  GUI modules:          ${BLD}$GLAVAMP_DIR/${RST}"
-echo -e "  Bing configuration:   ${BLD}$BING_CONF${RST}"
+echo -e "  Bing configuration:   ${BLD}$BING_CONFIG_DIR${RST}"
 echo -e "  Wallpapers:              ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Logs:                ${BLD}$LOG_DIR/${RST}"
 echo ""
