@@ -414,52 +414,37 @@ fi
 # =============================================================================
 section "Auto-configuring GLava geometry"
 
-SCREEN_W=1600; SCREEN_H=900; PANEL_H=40  # fallback
-
-if command -v xprop &>/dev/null; then
-    XPROP_OUT=$(sudo -u "$TARGET_USER" \
-        DISPLAY=:0 \
-        XAUTHORITY="$TARGET_HOME/.Xauthority" \
-        xprop -root _NET_CLIENT_LIST 2>/dev/null || echo "")
-
-    # Skanuj STRUT_PARTIAL dla wszystkich okien
-    MAX_BOTTOM=0
-    WIN_IDS=$(echo "$XPROP_OUT" | grep -o '0x[0-9a-fA-F]*' || echo "")
-    for wid in $WIN_IDS; do
-        STRUT=$(sudo -u "$TARGET_USER" \
-            DISPLAY=:0 \
-            XAUTHORITY="$TARGET_HOME/.Xauthority" \
-            xprop -id "$wid" _NET_WM_STRUT_PARTIAL 2>/dev/null || echo "")
-        BOT=$(echo "$STRUT" | grep -o '[0-9]*' | sed -n '4p' || echo "")
-        if [ -n "$BOT" ] && [ "$BOT" -gt "$MAX_BOTTOM" ]; then
-            MAX_BOTTOM=$BOT
-        fi
-    done
-
-    # Rozmiar ekranu z xrandr
-    XRANDR_OUT=$(sudo -u "$TARGET_USER" \
-        DISPLAY=:0 \
-        XAUTHORITY="$TARGET_HOME/.Xauthority" \
-        xrandr --current 2>/dev/null || echo "")
-    RES=$(echo "$XRANDR_OUT" | grep -o 'current [0-9]* x [0-9]*' | head -1)
-    if [ -n "$RES" ]; then
-        SCREEN_W=$(echo "$RES" | awk '{print $2}')
-        SCREEN_H=$(echo "$RES" | awk '{print $4}')
-    fi
-
-    [ "$MAX_BOTTOM" -gt 0 ] && PANEL_H=$MAX_BOTTOM
-    info "Detected: ${SCREEN_W}×${SCREEN_H}, panel height: ${PANEL_H}px"
-else
-    warn "xprop unavailable — using default values ${SCREEN_W}×${SCREEN_H}."
-fi
-
 RC_FILE="$GLAVA_CONFIG/rc.glsl"
+ACTIVE_MOD="bars"
+[ -f "$ACTIVE_MODULE_FILE" ] && ACTIVE_MOD=$(cat "$ACTIVE_MODULE_FILE")
+
 if [ -f "$RC_FILE" ]; then
-    ACTIVE_MOD="bars"
-    [ -f "$ACTIVE_MODULE_FILE" ] && ACTIVE_MOD=$(cat "$ACTIVE_MODULE_FILE")
-    GEO="0 -$PANEL_H $SCREEN_W $SCREEN_H"
-    sed -i "s/#request setgeometry [0-9-]* [0-9-]* [0-9-]* [0-9-]*/#request setgeometry $GEO/" "$RC_FILE"
-    info "GLava geometry: $GEO"
+    GEO_RESULT=$(sudo -u "$TARGET_USER" \
+        DISPLAY=:0 \
+        XAUTHORITY="$TARGET_HOME/.Xauthority" \
+        python3 - "$RC_FILE" "$ACTIVE_MOD" "$GLAVAMP_DIR/gui" << 'PYEOF'
+import sys
+sys.path.insert(0, sys.argv[3])
+from geometry import get_screen_info, calc_geometry, write_geometry
+
+rc_path = sys.argv[1]
+module  = sys.argv[2]
+
+screen_w, screen_h, work_h, top_reserved, bottom_reserved = get_screen_info()
+x, y, w, h = calc_geometry(module, screen_w, screen_h, bottom_reserved, top_reserved)
+write_geometry(rc_path, x, y, w, h)
+print(f"{screen_w}x{screen_h} panel={bottom_reserved}px geo={x} {y} {w} {h}")
+PYEOF
+    2>/dev/null || true)
+
+    if [ -n "$GEO_RESULT" ]; then
+        info "GLava geometry: $GEO_RESULT"
+    else
+        warn "Nie udało się wykryć geometrii — ustawiam fallback 0 -40 1600 900."
+        sed -i "s/#request setgeometry [0-9-]* [0-9-]* [0-9-]* [0-9-]*/#request setgeometry 0 -40 1600 900/" "$RC_FILE"
+    fi
+else
+    warn "Brak rc.glsl — pomijam konfigurację geometrii."
 fi
 
 # =============================================================================
@@ -573,7 +558,7 @@ section "Installation complete"
 echo ""
 echo -e "  GUI panel:           ${BLD}glava-gui${RST}"
 echo -e "  GUI modules:          ${BLD}$GLAVAMP_DIR/${RST}"
-echo -e "  Bing configuration:   ${BLD}$BING_CONFIG_DIR${RST}"
+echo -e "  Bing configuration:   ${BLD}$BING_CONF${RST}"
 echo -e "  Wallpapers:              ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Logs:                ${BLD}$LOG_DIR/${RST}"
 echo ""
