@@ -391,9 +391,13 @@ section "Auto-configuring GLava geometry"
 SCREEN_W=1600; SCREEN_H=900; WORK_H=860  # fallback
 
 if command -v xprop &>/dev/null; then
+    XAUTH_FILE="${XAUTHORITY:-}"
+    if [ -z "$XAUTH_FILE" ] || [ ! -f "$XAUTH_FILE" ]; then
+        XAUTH_FILE="$(getent passwd "$SUDO_USER" | cut -d: -f6)/.Xauthority"
+    fi
     XPROP_OUT=$(sudo -u "$TARGET_USER" \
-        DISPLAY=:0 \
-        XAUTHORITY="$TARGET_HOME/.Xauthority" \
+        DISPLAY="${DISPLAY:-:0}" \
+        XAUTHORITY="$XAUTH_FILE" \
         xprop -root _NET_WORKAREA _NET_DESKTOP_GEOMETRY 2>/dev/null || true)
 
     DG=$(echo "$XPROP_OUT" | grep "_NET_DESKTOP_GEOMETRY" | grep -o '[0-9]*' | tr '\n' ' ')
