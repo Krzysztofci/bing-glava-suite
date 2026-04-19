@@ -12,8 +12,20 @@ import re
 # ─────────────────────────────────────────────────────────────────────────────
 # Klasyfikacja modułów
 # ─────────────────────────────────────────────────────────────────────────────
-
+# NOTE:
+# Historyczne grupowanie modułów według sposobu pozycjonowania.
+# Obecnie NIEWYKORZYSTYWANE — wszystkie moduły używają pełnoekranowego okna
+# z korekcją Y, a korekcja centrowania modułów centered odbywa się w shaderach
+# (CENTER_OFFSET_X/Y).
+# Pozostawione na przyszłość, jeśli wrócimy do precyzyjnego centrowania.
 # Moduły rysowane od dołu okna (graph, bars)
+# TODO (future):
+# Rozbudować geometrię o:
+# - centrowanie względem obszaru roboczego (top/bottom_reserved)
+# - pozycjonowanie modułów od góry, dołu, lewo/prawo
+# - obsługę obrotów (90/180/270°)
+# - dynamiczne XYWH zależne od orientacji modułu
+# Obecnie uproszczona wersja dla stabilności.
 MODULES_BOTTOM   = {"graph", "bars"}
 # Moduły centrowane w obszarze roboczym (circle, radial, wave)
 MODULES_CENTERED = {"circle", "radial", "wave"}
