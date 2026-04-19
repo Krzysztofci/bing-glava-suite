@@ -24,8 +24,8 @@ if [ "$EUID" -ne 0 ]; then
     echo -e "${YEL}"
     echo "  This installer requires administrator privileges (sudo)."
     echo "  They are needed only for:"
-    echo "    • setting the LightDM login screen wallpaper"
     echo "    • installing the system wallpaper downloader script"
+    echo "    • enabling the systemd linger for the target user"
     echo ""
     echo "  Run again as:"
     echo -e "  ${BLD}sudo ./install.sh${RST}"
@@ -63,6 +63,8 @@ SYSTEMD_DIR="$TARGET_HOME/.config/systemd/user"
 LOG_DIR="$TARGET_HOME/.local/logs"
 GLAVA_CONFIG="$TARGET_HOME/.config/glava"
 BING_CONFIG_DIR="$TARGET_HOME/.config/bing-glava"
+BING_CONF="$BING_CONFIG_DIR/config"
+ACTIVE_MODULE_FILE="$GLAVA_CONFIG/active_module"
 
 info "Installing for user: $TARGET_USER ($TARGET_HOME)"
 
@@ -145,14 +147,16 @@ mkdir -p \
     "$BIN_DIR" \
     "$GLAVAMP_DIR/gui/modules" \
     "$GLAVAMP_DIR/icon" \
+    "$GLAVAMP_CONF_DIR" \
     "$SHARE_DIR/lang" \
     "$SYSTEMD_DIR" \
     "$LOG_DIR" \
     "$TARGET_HOME/Pictures/Bing" \
     "$BING_CONFIG_DIR" \
-    "$GLAVAMP_CONF_DIR" \
-    "$GLAVA_CONFIG/graph" \
     "$GLAVA_CONFIG/util" \
+    "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps" \
+    "$TARGET_HOME/.local/share/applications" \
+    "$TARGET_HOME/.config/autostart" \
     "/usr/share/backgrounds/linuxmint"
 
 chown -R "$TARGET_USER:$TARGET_USER" \
@@ -162,7 +166,10 @@ chown -R "$TARGET_USER:$TARGET_USER" \
     "$TARGET_HOME/Pictures/Bing" \
     "$BING_CONFIG_DIR" \
     "$GLAVAMP_CONF_DIR" \
-    "$GLAVA_CONFIG"
+    "$GLAVA_CONFIG" \
+    "$TARGET_HOME/.local/share/icons" \
+    "$TARGET_HOME/.local/share/applications" \
+    "$TARGET_HOME/.config/autostart"
 
 info "Directories ready."
 
@@ -202,17 +209,13 @@ cp "$SCRIPT_DIR/scripts/glava-gui.py" "$GLAVAMP_DIR/glava-gui.py"
 chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 
 # Moduły gui/
-cp "$SCRIPT_DIR/scripts/gui/core.py"         "$GLAVAMP_DIR/gui/core.py"
-cp "$SCRIPT_DIR/scripts/gui/colors.py"       "$GLAVAMP_DIR/gui/colors.py"
-cp "$SCRIPT_DIR/scripts/gui/geometry.py"     "$GLAVAMP_DIR/gui/geometry.py"
-cp "$SCRIPT_DIR/scripts/gui/glava.py"        "$GLAVAMP_DIR/gui/glava.py"
-cp "$SCRIPT_DIR/scripts/gui/tab_main.py"     "$GLAVAMP_DIR/gui/tab_main.py"
-cp "$SCRIPT_DIR/scripts/gui/tab_module.py"   "$GLAVAMP_DIR/gui/tab_module.py"
-cp "$SCRIPT_DIR/scripts/gui/tab_advanced.py" "$GLAVAMP_DIR/gui/tab_advanced.py"
-
-# Pliki __init__.py
+for pyfile in core.py colors.py geometry.py glava.py \
+              tab_main.py tab_module.py tab_advanced.py; do
+    src="$SCRIPT_DIR/scripts/gui/$pyfile"
+    [ -f "$src" ] || error "Missing file: $src"
+    cp "$src" "$GLAVAMP_DIR/gui/$pyfile"
+done
 touch "$GLAVAMP_DIR/gui/__init__.py"
-touch "$GLAVAMP_DIR/gui/modules/__init__.py"
 
 # Pluginy modułów
 for mod_plugin in "$SCRIPT_DIR/scripts/gui/modules/"*.py; do
@@ -221,12 +224,10 @@ for mod_plugin in "$SCRIPT_DIR/scripts/gui/modules/"*.py; do
     cp "$mod_plugin" "$GLAVAMP_DIR/gui/modules/$fname"
     info "Module plugin: $fname"
 done
+touch "$GLAVAMP_DIR/gui/modules/__init__.py"
 
 # Ikona
 cp -r "$SCRIPT_DIR/scripts/icon/"* "$GLAVAMP_DIR/icon/"
-
-# Ikona systemowa
-mkdir -p "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps"
 cp "$SCRIPT_DIR/scripts/icon/glava-gui.png" \
     "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
 
@@ -241,42 +242,41 @@ exec python3 "$GLAVAMP_DIR/glava-gui.py" "\$@"
 WRAPPER
 chmod 755 "$BIN_DIR/glava-gui"
 chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
-info "Installed GUI (GlavaMP)"
+info "Installed: GUI (GlavaMP)"
 
-# Domyślne profile kolorów i szaderów
+# =============================================================================
+# KROK 8: Profile i pliki językowe
+# =============================================================================
+section "Installing presets and language files"
+
 if [ ! -f "$GLAVAMP_CONF_DIR/presets.json" ]; then
     cp "$SCRIPT_DIR/config/default_presets.json" "$GLAVAMP_CONF_DIR/presets.json"
     chown "$TARGET_USER:$TARGET_USER" "$GLAVAMP_CONF_DIR/presets.json"
-    info "Installed default color presets."
+    info "Installed: default_presets.json"
+else
+    info "presets.json already exists — skipping."
 fi
 if [ ! -f "$GLAVAMP_CONF_DIR/profiles.json" ]; then
     cp "$SCRIPT_DIR/config/default_profiles.json" "$GLAVAMP_CONF_DIR/profiles.json"
     chown "$TARGET_USER:$TARGET_USER" "$GLAVAMP_CONF_DIR/profiles.json"
-    info "Installed default shader presets."
+    info "Installed: default_profiles.json"
+else
+    info "profiles.json already exists — skipping."
 fi
-info "Launching: glava-gui"
 
-# =============================================================================
-# KROK 8: Pliki językowe
-# =============================================================================
-section "Installing language files"
-
-if [ -d "$SCRIPT_DIR/lang" ]; then
-    cp "$SCRIPT_DIR/lang/"*.json "$SHARE_DIR/lang/"
-    chown -R "$TARGET_USER:$TARGET_USER" "$SHARE_DIR/lang"
-    info "Language files installed."
-fi
+cp "$SCRIPT_DIR/lang/"*.json "$SHARE_DIR/lang/"
+chown -R "$TARGET_USER:$TARGET_USER" "$SHARE_DIR/lang"
+info "Installed: language files"
 
 # =============================================================================
 # KROK 9: Konfiguracja Bing
 # =============================================================================
 section "Bing configuration"
 
-BING_CONF="$BING_CONFIG_DIR/config"
 if [ ! -f "$BING_CONF" ]; then
     cp "$SCRIPT_DIR/config/bing-glava.conf" "$BING_CONF"
     chown "$TARGET_USER:$TARGET_USER" "$BING_CONF"
-    info "Created configuration: $BING_CONF"
+    info "Created: $BING_CONF"
 else
     warn "Configuration already exists — keeping current settings."
 fi
@@ -294,45 +294,26 @@ backup_file() {
     [ -f "$1" ] && cp "$1" "$BACKUP_DIR/$(basename "$1").bak" || true
 }
 
-# Pliki konfiguracyjne GLava
-for f in rc.glsl smooth_parameters.glsl bars.glsl circle.glsl wave.glsl radial.glsl; do
-    if [ -f "$SCRIPT_DIR/glava-config/$f" ]; then
-        backup_file "$GLAVA_CONFIG/$f"
-        cp "$SCRIPT_DIR/glava-config/$f" "$GLAVA_CONFIG/$f"
-        chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$f"
+# Pliki z repozytorium — zawsze instaluj (z backupem)
+for f in rc.glsl smooth_parameters.glsl \
+         bars.glsl circle.glsl wave.glsl radial.glsl graph.glsl; do
+    src="$SCRIPT_DIR/glava-config/$f"
+    dst="$GLAVA_CONFIG/$f"
+    if [ -f "$src" ]; then
+        backup_file "$dst"
+        cp "$src" "$dst"
+        chown "$TARGET_USER:$TARGET_USER" "$dst"
         info "Installed: $f"
     fi
 done
 
-# util/
-if [ -d "$SCRIPT_DIR/glava-config/util" ]; then
-    rm -rf "$GLAVA_CONFIG/util"
-    cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/util"
-    chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
-    info "Installed: util/"
-fi
+# util/ — zawsze instaluj z repozytorium
+rm -rf "$GLAVA_CONFIG/util"
+cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/util"
+chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
+info "Installed: util/"
 
-# Plik konfiguracyjny graph.glsl
-if [ -f "$SCRIPT_DIR/glava-config/graph.glsl" ]; then
-    backup_file "$GLAVA_CONFIG/graph.glsl"
-    cp "$SCRIPT_DIR/glava-config/graph.glsl" "$GLAVA_CONFIG/graph.glsl"
-    chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/graph.glsl"
-    info "Installed: graph.glsl"
-fi
-# Domyślny aktywny moduł
-ACTIVE_MODULE_FILE="$GLAVA_CONFIG/active_module"
-if [ ! -f "$ACTIVE_MODULE_FILE" ]; then
-    echo "bars" > "$ACTIVE_MODULE_FILE"
-    chown "$TARGET_USER:$TARGET_USER" "$ACTIVE_MODULE_FILE"
-    info "Default module: bars"
-fi
-
-# =============================================================================
-# KROK 10b: Dodatkowe moduły GLava
-# =============================================================================
-section "GLava configuration — extra modules"
-
-# Skopiuj brakujące pliki systemowe GLava (env_*.glsl itp.)
+# Brakujące pliki systemowe GLava — dociągnij z /etc/xdg/glava
 for f in /etc/xdg/glava/*.glsl; do
     [ -f "$f" ] || continue
     fname="$(basename "$f")"
@@ -340,47 +321,39 @@ for f in /etc/xdg/glava/*.glsl; do
     if [ ! -f "$dst" ]; then
         cp "$f" "$dst"
         chown "$TARGET_USER:$TARGET_USER" "$dst"
-        info "Copied: $fname"
+        info "Pulled from system: $fname"
     fi
 done
 
-echo -e "Overwrite existing color files (.frag)?"
-echo -e "[Y]es (recommended) / [n]o / [a]sk for each"
-read -rp "Choice: " OVERWRITE_CHOICE
-OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-Y}"
-
-EXTRA_MODULES=(bars circle wave radial graph)
-for module in "${EXTRA_MODULES[@]}"; do
-    # Katalog modułu — kopiuj z /etc/xdg/glava jeśli nie istnieje
-    if [ ! -d "$GLAVA_CONFIG/$module" ]; then
+# Katalogi modułów — dociągnij z /etc/xdg/glava jeśli nie istnieją
+for module in bars circle wave radial graph; do
+    dst_dir="$GLAVA_CONFIG/$module"
+    if [ ! -d "$dst_dir" ]; then
         if [ -d "/etc/xdg/glava/$module" ]; then
-            cp -r "/etc/xdg/glava/$module" "$GLAVA_CONFIG/$module"
-            chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module"
-            info "Copied module directory: $module"
+            cp -r "/etc/xdg/glava/$module" "$dst_dir"
+            chown -R "$TARGET_USER:$TARGET_USER" "$dst_dir"
+            info "Pulled from system: $module/"
         else
-            warn "Missing /etc/xdg/glava/$module — skipping directory, installing .frag only."
+            warn "Missing /etc/xdg/glava/$module — skipping."
         fi
     else
         info "Directory $module/ already exists — skipping."
     fi
-    # Plik .glsl (parametry modułu) — kopiuj z /etc/xdg/glava jeśli nie istnieje
-    if [ ! -f "$GLAVA_CONFIG/$module.glsl" ]; then
-        if [ -f "/etc/xdg/glava/$module.glsl" ]; then
-            cp "/etc/xdg/glava/$module.glsl" "$GLAVA_CONFIG/$module.glsl"
-            chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/$module.glsl"
-            info "Copied: $module.glsl"
-        else
-            warn "Missing /etc/xdg/glava/$module.glsl — skipping."
-        fi
-    else
-        info "$module.glsl already exists — skipping."
-    fi
-    # Szablon shadera z kolorami
-    FRAG_SRC="$SCRIPT_DIR/config/${module}_colors.frag"
-    FRAG_DST="$GLAVA_CONFIG/${module}_colors.frag"
-    [ -f "$FRAG_SRC" ] || continue
+done
+
+# Szablony kolorów (*_colors.frag) — zapytaj o nadpisanie
+echo -e "\nOverwrite existing color shader files (*_colors.frag)?"
+echo -e "[Y]es (recommended) / [n]o / [a]sk for each"
+read -rp "Choice: " OVERWRITE_CHOICE
+OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-Y}"
+
+for module in bars circle wave radial graph; do
+    src="$SCRIPT_DIR/config/${module}_colors.frag"
+    dst="$GLAVA_CONFIG/${module}_colors.frag"
+    [ -f "$src" ] || { warn "Missing in repo: ${module}_colors.frag — skipping."; continue; }
+
     COPY_FILE=true
-    if [ -f "$FRAG_DST" ]; then
+    if [ -f "$dst" ]; then
         case "$OVERWRITE_CHOICE" in
             [Nn]) COPY_FILE=false ;;
             [Aa])
@@ -390,23 +363,24 @@ for module in "${EXTRA_MODULES[@]}"; do
                 ;;
         esac
     fi
+
     if [ "$COPY_FILE" = true ]; then
-        backup_file "$FRAG_DST"
-        cp "$FRAG_SRC" "$FRAG_DST"
-        chown "$TARGET_USER:$TARGET_USER" "$FRAG_DST"
+        backup_file "$dst"
+        cp "$src" "$dst"
+        chown "$TARGET_USER:$TARGET_USER" "$dst"
         info "Installed: ${module}_colors.frag"
     else
         warn "Skipped: ${module}_colors.frag"
     fi
 done
 
-# smooth_parameters.glsl
-if [ ! -f "$GLAVA_CONFIG/smooth_parameters.glsl" ]; then
-    if [ -f "/etc/xdg/glava/smooth_parameters.glsl" ]; then
-        cp "/etc/xdg/glava/smooth_parameters.glsl" "$GLAVA_CONFIG/smooth_parameters.glsl"
-        chown "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/smooth_parameters.glsl"
-        info "Copied: smooth_parameters.glsl"
-    fi
+chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
+
+# Domyślny aktywny moduł
+if [ ! -f "$ACTIVE_MODULE_FILE" ]; then
+    echo "bars" > "$ACTIVE_MODULE_FILE"
+    chown "$TARGET_USER:$TARGET_USER" "$ACTIVE_MODULE_FILE"
+    info "Default module set: bars"
 fi
 
 # =============================================================================
@@ -414,67 +388,81 @@ fi
 # =============================================================================
 section "Auto-configuring GLava geometry"
 
-RC_FILE="$GLAVA_CONFIG/rc.glsl"
+SCREEN_W=1600; SCREEN_H=900; WORK_H=860  # fallback
+
+if command -v xprop &>/dev/null; then
+    XPROP_OUT=$(sudo -u "$TARGET_USER" \
+        DISPLAY=:0 \
+        XAUTHORITY="$TARGET_HOME/.Xauthority" \
+        xprop -root _NET_WORKAREA _NET_DESKTOP_GEOMETRY 2>/dev/null || true)
+
+    DG=$(echo "$XPROP_OUT" | grep "_NET_DESKTOP_GEOMETRY" | grep -o '[0-9]*' | tr '\n' ' ')
+    WA=$(echo "$XPROP_OUT" | grep "_NET_WORKAREA"         | grep -o '[0-9]*' | tr '\n' ' ')
+
+    DG_W=$(echo "$DG" | awk '{print $1}')
+    DG_H=$(echo "$DG" | awk '{print $2}')
+    WA_H=$(echo "$WA" | awk '{print $4}')
+
+    if [ -n "$DG_W" ] && [ -n "$DG_H" ] && [ -n "$WA_H" ]; then
+        SCREEN_W=$DG_W
+        SCREEN_H=$DG_H
+        WORK_H=$WA_H
+        info "Detected: ${SCREEN_W}×${SCREEN_H}, work area: ${WORK_H}px"
+    else
+        warn "Could not detect geometry via xprop — using fallback ${SCREEN_W}×${SCREEN_H}."
+    fi
+else
+    warn "xprop unavailable — using fallback ${SCREEN_W}×${SCREEN_H}."
+fi
+
+PANEL_H=$((SCREEN_H - WORK_H))
+info "Detected panel height: ${PANEL_H}px"
+
+set_glava_geometry() {
+    local x=$1 y=$2 w=$3 h=$4
+    local rc="$GLAVA_CONFIG/rc.glsl"
+    if [ -f "$rc" ]; then
+        sed -i "s/#request setgeometry [0-9-]* [0-9-]* [0-9-]* [0-9-]*/#request setgeometry $x $y $w $h/" "$rc"
+        info "GLava geometry: X=$x Y=$y W=$w H=$h"
+    fi
+}
+
 ACTIVE_MOD="bars"
 [ -f "$ACTIVE_MODULE_FILE" ] && ACTIVE_MOD=$(cat "$ACTIVE_MODULE_FILE")
 
-if [ -f "$RC_FILE" ]; then
-    GEO_RESULT=$(sudo -u "$TARGET_USER" \
-        DISPLAY=:0 \
-        XAUTHORITY="$TARGET_HOME/.Xauthority" \
-        python3 - "$RC_FILE" "$ACTIVE_MOD" "$GLAVAMP_DIR/gui" << 'PYEOF'
-import sys
-sys.path.insert(0, sys.argv[3])
-from geometry import get_screen_info, calc_geometry, write_geometry
-
-rc_path = sys.argv[1]
-module  = sys.argv[2]
-
-screen_w, screen_h, work_h, top_reserved, bottom_reserved = get_screen_info()
-x, y, w, h = calc_geometry(module, screen_w, screen_h, bottom_reserved, top_reserved)
-write_geometry(rc_path, x, y, w, h)
-print(f"{screen_w}x{screen_h} panel={bottom_reserved}px geo={x} {y} {w} {h}")
-PYEOF
-    2>/dev/null || true)
-
-    if [ -n "$GEO_RESULT" ]; then
-        info "GLava geometry: $GEO_RESULT"
-    else
-        warn "Nie udało się wykryć geometrii — ustawiam fallback 0 -40 1600 900."
-        sed -i "s/#request setgeometry [0-9-]* [0-9-]* [0-9-]* [0-9-]*/#request setgeometry 0 -40 1600 900/" "$RC_FILE"
-    fi
-else
-    warn "Brak rc.glsl — pomijam konfigurację geometrii."
-fi
+case "$ACTIVE_MOD" in
+    graph|bars)
+        set_glava_geometry 0 "-$PANEL_H" "$SCREEN_W" "$SCREEN_H"
+        ;;
+    circle|radial|wave)
+        set_glava_geometry 0 0 "$SCREEN_W" "$SCREEN_H"
+        ;;
+    *)
+        set_glava_geometry 0 "-$PANEL_H" "$SCREEN_W" "$SCREEN_H"
+        ;;
+esac
 
 # =============================================================================
-# KROK 12: Pliki .desktop
+# KROK 12: Skróty w menu aplikacji
 # =============================================================================
 section "Application menu shortcuts"
 
 DESKTOP_DST="$TARGET_HOME/.local/share/applications"
-mkdir -p "$DESKTOP_DST"
-if [ -d "$SCRIPT_DIR/desktop" ]; then
-    for f in "$SCRIPT_DIR/desktop"/*.desktop; do
-        [ -f "$f" ] || continue
-        cp "$f" "$DESKTOP_DST/"
-        chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DST/$(basename "$f")"
-        info "Installed: $(basename "$f")"
-    done
-    sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || true
-fi
+for f in "$SCRIPT_DIR/desktop"/*.desktop; do
+    [ -f "$f" ] || continue
+    cp "$f" "$DESKTOP_DST/"
+    chown "$TARGET_USER:$TARGET_USER" "$DESKTOP_DST/$(basename "$f")"
+    info "Installed: $(basename "$f")"
+done
+sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || true
 
 # =============================================================================
 # KROK 13: Autostart GLava
 # =============================================================================
 section "GLava autostart"
 
-AUTOSTART_DIR="$TARGET_HOME/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
-chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_DIR"
-
 if [ "$GLAVA_INSTALLED" = true ]; then
-    cat > "$AUTOSTART_DIR/glava.desktop" << AUTOSTART
+    cat > "$TARGET_HOME/.config/autostart/glava.desktop" << AUTOSTART
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -487,8 +475,10 @@ Categories=AudioVideo;
 X-GNOME-Autostart-enabled=true
 StartupNotify=false
 AUTOSTART
-    chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_DIR/glava.desktop"
+    chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/autostart/glava.desktop"
     info "Added GLava autostart."
+else
+    warn "GLava not installed — skipping autostart."
 fi
 
 # =============================================================================
@@ -496,8 +486,7 @@ fi
 # =============================================================================
 section "Color daemon (systemd service)"
 
-SERVICE_DST="$SYSTEMD_DIR/glava-color-daemon.service"
-cp "$SCRIPT_DIR/systemd/glava-color-daemon.service" "$SERVICE_DST"
+cp "$SCRIPT_DIR/systemd/glava-color-daemon.service" "$SYSTEMD_DIR/glava-color-daemon.service"
 chown -R "$TARGET_USER:$TARGET_USER" "$SYSTEMD_DIR"
 
 loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes" || \
@@ -556,10 +545,10 @@ fi
 # =============================================================================
 section "Installation complete"
 echo ""
-echo -e "  GUI panel:           ${BLD}glava-gui${RST}"
-echo -e "  GUI modules:          ${BLD}$GLAVAMP_DIR/${RST}"
-echo -e "  Bing configuration:   ${BLD}$BING_CONF${RST}"
-echo -e "  Wallpapers:              ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
+echo -e "  GUI:                 ${BLD}glava-gui${RST}"
+echo -e "  GUI modules:         ${BLD}$GLAVAMP_DIR/${RST}"
+echo -e "  Bing configuration:  ${BLD}$BING_CONF${RST}"
+echo -e "  Wallpapers:          ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Logs:                ${BLD}$LOG_DIR/${RST}"
 echo ""
 warn "To start the service without logging out:"
