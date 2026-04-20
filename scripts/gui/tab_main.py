@@ -295,11 +295,21 @@ class TabMain:
             self._apply_colors()
 
     def _save_preset(self):
-        name = simpledialog.askstring("Nowy profil kolorów", "Podaj nazwę:")
-        if name:
-            self.presets[name] = self.current_colors.copy()
-            save_color_presets(self.presets)
-            self._refresh_preset_cb()
+        name = simpledialog.askstring(
+            self.T.get("dialog_profile_title", "Nowy profil kolorów"),
+            self.T.get("dialog_profile_name",  "Podaj nazwę:"))
+        if not name:
+            return
+        if name in self.presets and name != "LAST_SESSION":
+            if not messagebox.askyesno(
+                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
+                    self.T.get("dialog_overwrite_msg",
+                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
+                return
+        self.presets[name] = self.current_colors.copy()
+        save_color_presets(self.presets)
+        self._refresh_preset_cb()
+        self.preset_var.set(name)
 
     def _delete_preset(self):
         name = self.preset_var.get()

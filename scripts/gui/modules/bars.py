@@ -449,10 +449,19 @@ class BarsParamWidget:
         glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
-        params = collect_params(self.app)
-        save_shader_profile_for_module("bars", name, params)
+        name = simpledialog.askstring(
+            self.T.get("dialog_profile_title", "Nowy profil szadera"),
+            self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name:
+            return
+        existing = get_shader_profiles_for_module("bars")
+        if name in existing:
+            if not messagebox.askyesno(
+                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
+                    self.T.get("dialog_overwrite_msg",
+                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
+                return
+        save_shader_profile_for_module("bars", name, collect_params(self.app))
         self._refresh_profile_cb()
         self.profile_var.set(name)
 

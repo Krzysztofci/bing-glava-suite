@@ -495,8 +495,18 @@ class CircleParamWidget:
         glava_restart("circle", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
+        name = simpledialog.askstring(
+            self.T.get("dialog_profile_title", "Nowy profil"),
+            self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name:
+            return
+        existing = get_shader_profiles_for_module("circle")
+        if name in existing:
+            if not messagebox.askyesno(
+                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
+                    self.T.get("dialog_overwrite_msg",
+                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
+                return
         save_shader_profile_for_module("circle", name, collect_params(self.app))
         self._refresh_cb()
         self.profile_var.set(name)

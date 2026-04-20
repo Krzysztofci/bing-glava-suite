@@ -102,7 +102,7 @@ class TabAdvanced:
         # ... reszta kodu (samplerate, fps) pozostaje bez zmian ...
 
         # 4. Limit FPS (klucz: label_fps_limit)
-        fps_cur = self._read_request_int("setframerate", 0)
+        fps_cur = self._read_request_int("setframerate", 60)
         self._fps_var = tk.IntVar(value=fps_cur)
         fps_entry = tk.StringVar(value=str(fps_cur))
         fps_row = tk.Frame(lf)
