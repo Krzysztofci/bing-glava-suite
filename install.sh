@@ -384,6 +384,33 @@ if [ ! -f "$ACTIVE_MODULE_FILE" ]; then
 fi
 
 # =============================================================================
+# SYNCHRONIZACJA PLIKÓW ROBOCZYCH
+# =============================================================================
+info "Synchronizing live shaders with templates..."
+
+for module in bars circle wave radial graph; do
+    template="$GLAVA_CONFIG/${module}_colors.frag"
+    live_file="$GLAVA_CONFIG/$module/1.frag"
+    
+    # Kopiujemy szablon, jako plik roboczy GLava (Fix na RGB Only)
+    if [ -f "$template" ]; then
+        # Zrób backup oryginalnego pliku 1.frag (jeśli istnieje)
+        if [ -f "$live_file" ]; then
+            backup_file "$live_file"
+        else
+            # Upewnij się, że katalog modułu istnieje (na wypadek błędu w poprzednich krokach)
+            mkdir -p "$GLAVA_CONFIG/$module"
+        fi
+        
+        # Kopiuj szablon jako aktywny shader
+        cp "$template" "$live_file"
+        chown "$TARGET_USER:$TARGET_USER" "$live_file"
+        
+        success "Live shader for '$module' is now HSV-ready."
+    fi
+done
+
+# =============================================================================
 # KROK 11: Auto-konfiguracja geometrii GLava
 # =============================================================================
 section "Auto-configuring GLava geometry"
