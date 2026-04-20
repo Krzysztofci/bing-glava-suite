@@ -406,7 +406,7 @@ for module in bars circle wave radial graph; do
         cp "$template" "$live_file"
         chown "$TARGET_USER:$TARGET_USER" "$live_file"
         
-        success "Live shader for '$module' is now HSV-ready."
+        info "Live shader for '$module' is now HSV-ready."
     fi
 done
 
