@@ -52,6 +52,10 @@ SMOOTH_PARAMS = [
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
+# Parametry zdefiniowane w graph.glsl ale niezaimplementowane
+# w shaderze 1.frag — ukryte w GUI do czasu wdrożenia
+_UNIMPLEMENTED = {"DRAW_OUTLINE", "DRAW_HIGHLIGHT", "ANTI_ALIAS"}
+
 FLAG_PARAMS = [
     ("DIRECTION",     "Kierunek: do środka", 1, "Zmienia kierunek rysowania wykresu (do wewnątrz lub na zewnątrz)"),
     ("DRAW_OUTLINE",   "Rysuj obramowanie",   0, "Dodaje linię obramowania wokół wykresu"),
@@ -166,7 +170,8 @@ class GraphParamWidget:
 
         for i, p in enumerate(FLAG_PARAMS):
             key, label_def, default, tip_def = p
-            
+            if key in _UNIMPLEMENTED:
+                continue  # ukryte — logika I/O zachowana
             # 1. Pobieramy etykietę z JSON
             json_key = mapping_flags.get(key)
             display_label = self.T.get(json_key, label_def)

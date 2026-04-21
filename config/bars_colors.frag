@@ -35,7 +35,7 @@ out vec4 fragment;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 
-#if 1
+#if DISABLE_MONO == 1
 #define _CHANNELS 2
 #endif
 
