@@ -449,10 +449,19 @@ class BarsParamWidget:
         glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
-        params = collect_params(self.app)
-        save_shader_profile_for_module("bars", name, params)
+        name = simpledialog.askstring(
+            self.T.get("dialog_profile_title", "Nowy profil szadera"),
+            self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name:
+            return
+        existing = get_shader_profiles_for_module("bars")
+        if name in existing:
+            if not messagebox.askyesno(
+                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
+                    self.T.get("dialog_overwrite_msg",
+                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
+                return
+        save_shader_profile_for_module("bars", name, collect_params(self.app))
         self._refresh_profile_cb()
         self.profile_var.set(name)
 
@@ -483,29 +492,7 @@ class BarsParamWidget:
     def _write_flag(self, key, var):
         val = 1 if var.get() else 0
         _write_flag_defines(_bars_glsl(), {key: val})
-        if key in ("FLIP", "MIRROR_YX"):
-            self._update_geometry()
         self._schedule_restart()
-
-    def _update_geometry(self):
-        """Koryguje geometrię rc.glsl na podstawie aktualnych flag FLIP i MIRROR_YX."""
-        try:
-            from ..geometry import get_screen_info, calc_geometry, write_geometry
-            from ..core import RC_GLSL
-            # Odczytaj aktualne wartości flag z pliku
-            current = _read_flag_defines(_bars_glsl())
-            flipped   = bool(current.get("FLIP", 0))
-            mirror_yx = bool(current.get("MIRROR_YX", 0))
-            si = get_screen_info()
-            # si: (screen_w, screen_h, work_h, top, bottom, left, right)
-            x, y, w, h = calc_geometry(
-                "bars", si[0], si[1], si[4], si[3],
-                flipped=flipped, mirror_yx=mirror_yx,
-                left_reserved=si[5], right_reserved=si[6]
-            )
-            write_geometry(RC_GLSL, x, y, w, h)
-        except Exception:
-            pass
 
     def _write_bool_rc(self, key, var):
         _write_bool_req(RC_GLSL, key, var.get())

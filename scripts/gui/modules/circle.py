@@ -55,9 +55,6 @@ SMOOTH_PARAMS = [
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
-# C_SMOOTH niezaimplementowane w shaderze circle/1.frag — ukryte do czasu wdrożenia
-_UNIMPLEMENTED = {"C_SMOOTH"}
-
 FLAG_PARAMS = [
     ("C_FILL",   "Wypełnij wnętrze",
      "Wypełnia przestrzeń między linią a wewnętrznym okręgiem"),
@@ -326,8 +323,6 @@ class CircleParamWidget:
         }
 
         for key, label, tooltip in FLAG_PARAMS:
-            if key in _UNIMPLEMENTED:
-                continue
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var

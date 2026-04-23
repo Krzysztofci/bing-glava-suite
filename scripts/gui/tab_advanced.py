@@ -102,7 +102,7 @@ class TabAdvanced:
         # ... reszta kodu (samplerate, fps) pozostaje bez zmian ...
 
         # 4. Limit FPS (klucz: label_fps_limit)
-        fps_cur = self._read_request_int("setframerate", 0)
+        fps_cur = self._read_request_int("setframerate", 60)
         self._fps_var = tk.IntVar(value=fps_cur)
         fps_entry = tk.StringVar(value=str(fps_cur))
         fps_row = tk.Frame(lf)
@@ -359,7 +359,7 @@ class TabAdvanced:
 
     def _test_strut(self):
         T = self.T
-        screen_w, screen_h, work_h, top_res, bot_res, left_res, right_res = get_screen_info()
+        screen_w, screen_h, work_h, top_res, bot_res = get_screen_info()
         
         # Pobieramy etykiety z JSONa, a wartości doklejamy dynamicznie
         lines = [
@@ -367,8 +367,6 @@ class TabAdvanced:
             f"{T.get('label_work_area', 'Obszar roboczy:')} {screen_w} × {work_h} px",
             f"{T.get('label_top_bar', 'Pasek górny:')}    {top_res} px",
             f"{T.get('label_bottom_bar', 'Pasek dolny:')}    {bot_res} px",
-            f"{T.get('label_left_bar', 'Pasek lewy:')}     {left_res} px",
-            f"{T.get('label_right_bar', 'Pasek prawy:')}    {right_res} px",
             "",
             f"{T.get('label_source', 'Źródło:')} _NET_WM_STRUT_PARTIAL (EWMH)",
         ]
