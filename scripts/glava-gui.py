@@ -253,6 +253,8 @@ class GlavaGUI:
         self._active_tab = key
         self.frames[key].lift()
         self._update_tab_styles()
+        if key == "main" and hasattr(self, "_tab_main_ref"):
+            self._tab_main_ref.refresh_geometry()
 
     def _update_tab_styles(self):
         for key, btn in self._tab_buttons.items():

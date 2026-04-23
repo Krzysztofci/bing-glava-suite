@@ -52,10 +52,6 @@ SMOOTH_PARAMS = [
      "Odcięcie najniższych częstotliwości FFT"),
 ]
 
-# Parametry zdefiniowane w graph.glsl ale niezaimplementowane
-# w shaderze 1.frag — ukryte w GUI do czasu wdrożenia
-_UNIMPLEMENTED = {"DRAW_OUTLINE", "DRAW_HIGHLIGHT", "ANTI_ALIAS"}
-
 FLAG_PARAMS = [
     ("DIRECTION",     "Kierunek: do środka", 1, "Zmienia kierunek rysowania wykresu (do wewnątrz lub na zewnątrz)"),
     ("DRAW_OUTLINE",   "Rysuj obramowanie",   0, "Dodaje linię obramowania wokół wykresu"),
@@ -170,8 +166,7 @@ class GraphParamWidget:
 
         for i, p in enumerate(FLAG_PARAMS):
             key, label_def, default, tip_def = p
-            if key in _UNIMPLEMENTED:
-                continue  # ukryte — logika I/O zachowana
+            
             # 1. Pobieramy etykietę z JSON
             json_key = mapping_flags.get(key)
             display_label = self.T.get(json_key, label_def)
@@ -352,7 +347,21 @@ class GraphParamWidget:
         else:
             val = 1 if var.get() else 0
         _write_flag_defines(_graph_glsl(), {key: val})
+        if key == "INVERT":
+            self._update_geometry_for_flip(bool(val))
         self._schedule_restart()
+
+    def _update_geometry_for_flip(self, flipped):
+        """Koryguje geometrię rc.glsl przy włączeniu/wyłączeniu Invert spectrum."""
+        try:
+            from ..geometry import get_screen_info, calc_geometry, write_geometry
+            from ..core import RC_GLSL
+            si = get_screen_info()
+            x, y, w, h = calc_geometry("graph", si[0], si[1], si[4], si[3],
+                                        flipped=flipped)
+            write_geometry(RC_GLSL, x, y, w, h)
+        except Exception:
+            pass
 
     def _debounce(self, key, value):
         _write_defines(_graph_glsl(), {key: value}, SHAPE_PARAMS)
@@ -377,18 +386,8 @@ class GraphParamWidget:
         glava_restart("graph", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil"),
-            self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name:
-            return
-        existing = get_shader_profiles_for_module("graph")
-        if name in existing:
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
+        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name: return
         save_shader_profile_for_module("graph", name, collect_params(self.app))
         self._refresh_cb()
         self.profile_var.set(name)

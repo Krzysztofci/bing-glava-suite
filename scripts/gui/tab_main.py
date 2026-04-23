@@ -27,7 +27,9 @@ from . import core
 
 
 def build_tab_main(parent, app):
-    TabMain(parent, app).build()
+    tab = TabMain(parent, app)
+    tab.build()
+    app._tab_main_ref = tab
 
 
 class TabMain:
@@ -230,6 +232,13 @@ class TabMain:
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
 
+    def refresh_geometry(self):
+        """Odświeża pola X/Y/W/H aktualną wartością z rc.glsl."""
+        geo = read_geometry(core.RC_GLSL)
+        if geo and hasattr(self, "geo_vars"):
+            for k, v in zip(("x", "y", "w", "h"), geo):
+                self.geo_vars[k].set(str(v))
+
     def _apply_module(self):
         module = self.module_var.get()
         self.app.active_module = module
@@ -295,21 +304,11 @@ class TabMain:
             self._apply_colors()
 
     def _save_preset(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil kolorów"),
-            self.T.get("dialog_profile_name",  "Podaj nazwę:"))
-        if not name:
-            return
-        if name in self.presets and name != "LAST_SESSION":
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
-        self.presets[name] = self.current_colors.copy()
-        save_color_presets(self.presets)
-        self._refresh_preset_cb()
-        self.preset_var.set(name)
+        name = simpledialog.askstring("Nowy profil kolorów", "Podaj nazwę:")
+        if name:
+            self.presets[name] = self.current_colors.copy()
+            save_color_presets(self.presets)
+            self._refresh_preset_cb()
 
     def _delete_preset(self):
         name = self.preset_var.get()
