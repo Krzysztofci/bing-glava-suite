@@ -16,6 +16,7 @@ import subprocess
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, _SCRIPT_DIR)
 
+from gui.theme import apply_theme, COLORS, TFrame, TLabel, TSeparator
 from gui.core import (
     load_settings, save_settings, load_lang, available_langs,
     read_active_module, write_active_module,
@@ -169,24 +170,28 @@ class GlavaGUI:
     # Pasek tytułu (tytuł + wybór języka)
     # ─────────────────────────────────────────────────────────────────────────
 
+    # Linia 173 to definicja:
     def _build_titlebar(self):
-        bar = tk.Frame(self.root, pady=4)
+        # Ta linia (175) MUSI mieć wcięcie (4 spacje):
+        bar = TFrame(self.root, level=0, pady=4)
         bar.pack(fill="x", padx=8)
-        tk.Label(bar, text=self.T.get("title", "GLava Control Center"),
-                 font=("Arial", 10, "bold")).pack(side="left")
+        
+        TLabel(bar, text=self.T.get("title", "GLava Control Center"),
+               font=("Arial", 10, "bold")).pack(side="left")
 
-        lang_frame = tk.Frame(bar)
+        lang_frame = TFrame(bar, level=0)
         lang_frame.pack(side="right")
-        tk.Label(lang_frame,
-                 text=self.T.get("section_language", "Język") + ":",
-                 font=("Arial", 9)).pack(side="left", padx=(0, 4))
+        
+        TLabel(lang_frame, 
+               text=self.T.get("section_language", "Język") + ":",
+               font=("Arial", 9)).pack(side="left", padx=(0, 4))
+        
         self.lang_var = tk.StringVar(value=self.settings.get("lang", "pl"))
         lang_cb = ttk.Combobox(lang_frame, textvariable=self.lang_var,
                                values=list(self.langs.keys()),
                                width=5, state="readonly")
         lang_cb.pack(side="left")
         lang_cb.bind("<<ComboboxSelected>>", self._on_lang_change)
-
     # ─────────────────────────────────────────────────────────────────────────
     # Zakładki
     # ─────────────────────────────────────────────────────────────────────────
@@ -194,45 +199,58 @@ class GlavaGUI:
     def _build_tabs(self):
         T = self.T
 
-        tab_bar = tk.Frame(self.root, bd=0, relief="flat")
+        # Pasek pod przyciski zakładek (ciemne tło bg0)
+        tab_bar = TFrame(self.root, level=0)
         tab_bar.pack(fill="x", padx=0)
 
         self.expert_mode = tk.BooleanVar(value=False)
-        expert_frame = tk.Frame(tab_bar)
+        expert_frame = TFrame(tab_bar, level=0)
         expert_frame.pack(side="right", padx=(0, 8))
+        
         tk.Checkbutton(
             expert_frame,
             text=T.get("label_expert_mode", "Tryb expert"),
             variable=self.expert_mode,
             font=("Arial", 8), fg="#bf360c",
+            bg=COLORS["bg0"],
+            activebackground=COLORS["bg0"],
+            selectcolor=COLORS["bg0"],
             command=self._on_expert_toggle,
         ).pack(side="left")
-        _bind_tooltip(expert_frame,
-            T.get("tooltip_expert",
-                  "Odblokowuje niestandardowe wartosci Audio\n"
-                  "(bufor do 16384, probka do 4096)\n"
-                  "Uwaga: bledne wartosci moga zawiesic GLava"))
 
-        sep = tk.Frame(self.root, height=1, bg="#cccccc")
-        sep.pack(fill="x")
+        TSeparator(self.root).pack(fill="x")
 
-        self.tab_content = tk.Frame(self.root)
+        self.tab_content = TFrame(self.root, level=1)
         self.tab_content.pack(fill="both", expand=True, padx=0, pady=0)
 
         self.frames = {}
         self._tab_buttons = {}
+
+        # --- TUTAJ BYŁ BRAKUJĄCY ELEMENT ---
         tab_defs = [
             ("main",     T.get("tab_main",     "Główna")),
             ("module",   self._module_tab_label()),
             ("advanced", T.get("tab_advanced", "Zaawansowane")),
         ]
+        # ------------------------------------
         for key, label in tab_defs:
-            frame = tk.Frame(self.tab_content)
+            # Tworzymy ciemną bazę dla każdej zakładki
+            # highlightthickness=0 usuwa białe obwódki focusa
+            frame = tk.Frame(self.tab_content, 
+                             bg=COLORS["bg1"], 
+                             highlightthickness=0, 
+                             bd=0)
             frame.place(relwidth=1, relheight=1)
             self.frames[key] = frame
+            
+            # Przycisk na pasku zakładek
             btn = tk.Button(
                 tab_bar, text=label,
                 font=("Arial", 9),
+                bg=COLORS["bg0"],
+                fg=COLORS["text2"],
+                activebackground=COLORS["bg1"],
+                activeforeground=COLORS["text"],
                 relief="flat", bd=0,
                 padx=12, pady=5,
                 cursor="hand2",
@@ -241,7 +259,9 @@ class GlavaGUI:
             btn.pack(side="left")
             self._tab_buttons[key] = btn
 
-        self._populate_tabs()
+        # KLUCZOWE: Najpierw stworzyliśmy puste ciemne ramki, 
+        # teraz wypełniamy je treścią (suwakami itd.)
+        self._populate_tabs() 
         self._show_tab("main")
 
     def _module_tab_label(self):
@@ -257,27 +277,19 @@ class GlavaGUI:
             self._tab_main_ref.refresh_geometry()
 
     def _update_tab_styles(self):
+        from gui.theme import COLORS
         for key, btn in self._tab_buttons.items():
             if key == self._active_tab:
                 btn.config(
-                    bg=self.root.cget("bg"),
-                    fg="#1565c0",
-                    font=("Arial", 9, "bold"),
-                    relief="flat",
-                )
-            elif key == "module":
-                btn.config(
-                    bg=self.root.cget("bg"),
-                    fg="#1565c0",
-                    font=("Arial", 9),
-                    relief="flat",
+                    bg=COLORS["red_dim"], # Aktywna zakładka na czerwono
+                    fg=COLORS["text"],
+                    font=("Arial", 9, "bold")
                 )
             else:
                 btn.config(
-                    bg=self.root.cget("bg"),
-                    fg="gray40",
-                    font=("Arial", 9),
-                    relief="flat",
+                    bg=COLORS["bg1"],
+                    fg=COLORS["text2"],
+                    font=("Arial", 9)
                 )
 
     def _refresh_module_tab_label(self):
@@ -309,12 +321,14 @@ class GlavaGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _build_statusbar(self):
-        sep = tk.Frame(self.root, height=1, bg="#cccccc")
-        sep.pack(fill="x", side="bottom")
+        from gui.theme import COLORS, TSeparator
+        TSeparator(self.root).pack(fill="x", side="bottom")
+        
         self.status_label = tk.Label(
             self.root,
             text="...",
             font=("Arial", 8, "italic"),
+            bg=COLORS["bg0"], # Tło statusu
             anchor="w",
             pady=3,
         )
@@ -405,6 +419,7 @@ def _bind_tooltip(widget, text):
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    GlavaGUI(root)
+    root = tk.Tk(className='glavamasterpanel')
+    apply_theme(root)
+    app = GlavaGUI(root)
     root.mainloop()

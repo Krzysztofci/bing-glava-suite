@@ -21,6 +21,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..widgets import AccelSlider
+from ..theme import BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -248,20 +250,20 @@ class GraphParamWidget:
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
         tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"), command=self._apply_profile,
-                  bg="#00695c", fg="white", font=("Arial", 8)
+                  **BTN_APPLY
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"), command=self._save_profile,
-                  bg="#37474f", fg="white", font=("Arial", 8)
+                  **BTN_SAVE
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"), command=self._delete_profile,
-                  bg="#b71c1c", fg="white", font=("Arial", 8)
+                  **BTN_DELETE
                   ).pack(side="left")
 
         rf = tk.LabelFrame(parent, text=self.T.get("section_reset", "Reset"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         rf.pack(fill="x", pady=(4, 0))
         tk.Button(rf, text=self.T.get("btn_reset_shader_graph", "Reset graph shader"), command=self._reset_shader,
-                  bg="#5d4037", fg="white", font=("Arial", 8)
+                  **BTN_RESET
                   ).pack(fill="x")
 
     def _slider_row(self, parent, param_def, current):
@@ -269,37 +271,22 @@ class GraphParamWidget:
         cur = int(current.get(key, default))
         var = tk.IntVar(value=cur)
         self.vars[key] = var
-        entry_var = tk.StringVar(value=str(cur))
 
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          orient="horizontal", showvalue=False, sliderlength=12)
+
+        def on_change(v, k=key, sv=var):
+            sv.set(int(round(v)))
+            self._debounce(k, int(round(v)))
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=1, on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=5, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
         tk.Label(row, text=unit if unit else "  ",
                  font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-
-        def on_slide(val, ev=entry_var, k=key):
-            ev.set(str(int(float(val))))
-            self._debounce(k, int(float(val)))
-
-        def on_entry(event, sv=var, ev=entry_var, lo=vmin, hi=vmax, k=key):
-            try:
-                v = max(lo, min(hi, int(ev.get())))
-                sv.set(v); ev.set(str(v))
-                self._debounce(k, v)
-            except ValueError:
-                ev.set(str(sv.get()))
-
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
 
     def _debounce_smooth(self, key, value):
         _write_smooth(_smooth_glsl(), {key: value})
@@ -311,35 +298,23 @@ class GraphParamWidget:
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
-        fmt = f"{{:.{dec}f}}"
-        entry_var = tk.StringVar(value=fmt.format(cur))
+
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          resolution=step, orient="horizontal",
-                          showvalue=False, sliderlength=12)
+
+        def on_change(v, k=key, sv=var):
+            sv.set(v)
+            self._debounce_smooth(k, v)
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=step, is_float=True, decimals=dec,
+                             on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=6, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
         tk.Label(row, text=unit if unit else "  ",
                  font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        def on_slide(val, ev=entry_var, k=key):
-            ev.set(fmt.format(float(val)))
-            self._debounce_smooth(k, float(val))
-        def on_entry(event, sv=var, ev=entry_var, lo=vmin, hi=vmax, k=key):
-            try:
-                v = max(float(lo), min(float(hi), float(ev.get())))
-                sv.set(v); ev.set(fmt.format(v))
-                self._debounce_smooth(k, v)
-            except ValueError:
-                ev.set(fmt.format(sv.get()))
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
 
     def _write_flag(self, key, var):
         if key == "DIRECTION":
@@ -347,7 +322,21 @@ class GraphParamWidget:
         else:
             val = 1 if var.get() else 0
         _write_flag_defines(_graph_glsl(), {key: val})
+        if key == "INVERT":
+            self._update_geometry_for_flip(bool(val))
         self._schedule_restart()
+
+    def _update_geometry_for_flip(self, flipped):
+        """Koryguje geometrię rc.glsl przy włączeniu/wyłączeniu Invert spectrum."""
+        try:
+            from ..geometry import get_screen_info, calc_geometry, write_geometry
+            from ..core import RC_GLSL
+            si = get_screen_info()
+            x, y, w, h = calc_geometry("graph", si[0], si[1], si[4], si[3],
+                                        flipped=flipped)
+            write_geometry(RC_GLSL, x, y, w, h)
+        except Exception:
+            pass
 
     def _debounce(self, key, value):
         _write_defines(_graph_glsl(), {key: value}, SHAPE_PARAMS)
@@ -372,18 +361,8 @@ class GraphParamWidget:
         glava_restart("graph", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil"),
-            self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name:
-            return
-        existing = get_shader_profiles_for_module("graph")
-        if name in existing:
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
+        name = simpledialog.askstring("Nowy profil", self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name: return
         save_shader_profile_for_module("graph", name, collect_params(self.app))
         self._refresh_cb()
         self.profile_var.set(name)
@@ -504,7 +483,7 @@ def _tip(parent, label, text):
     if not text: return
     lbl = tk.Label(parent, text=label, font=("Arial", 8),
                    fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
+                   relief="flat", padx=2)
     lbl.pack(side="left", padx=(2, 0))
     tip_window = [None]
     def show(e):
@@ -513,7 +492,7 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
                  font=("Arial", 8), padx=4, pady=2).pack()
         tip_window[0] = tw
     def hide(e):

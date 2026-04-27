@@ -14,6 +14,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..widgets import AccelSlider
+from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
+                     COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -134,8 +137,8 @@ class BarsParamWidget:
     def build(self):
         current = collect_params(self.app)
 
-        left  = tk.Frame(self.parent)
-        right = tk.Frame(self.parent)
+        left  = TFrame(self.parent, level=0)
+        right = TFrame(self.parent, level=0)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         self.parent.columnconfigure(0, weight=1, uniform="bc")
@@ -153,8 +156,8 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"))
-        lf.pack(fill="x", pady=(0, 5), ipady=5)
+        lf = TLabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"))
+        lf.pack(fill="x", pady=(0, 5))
 
         # MAPA: Co ma zostać podmienione
         mapping = {
@@ -181,7 +184,7 @@ class BarsParamWidget:
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
+        lf = TLabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         lf.pack(fill="x")
 
@@ -212,11 +215,15 @@ class BarsParamWidget:
             if not translated_tip:
                 translated_tip = tooltip
 
-            row = tk.Frame(lf)
+            row = tk.Frame(lf, bg=COLORS["bg1"])
             row.pack(fill="x", pady=1)
-            
             tk.Checkbutton(row, text=translated_label, variable=var,
                            font=("Arial", 9),
+                           bg=COLORS["bg1"], fg=COLORS["text2"],
+                           activebackground=COLORS["bg2"],
+                           activeforeground=COLORS["text"],
+                           selectcolor=COLORS["bg2"],
+                           relief="flat", bd=0,
                            command=lambda k=key, v=var: self._write_flag(k, v)
                            ).pack(side="left")
             
@@ -225,7 +232,7 @@ class BarsParamWidget:
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), font=("Arial", 9, "bold"))
+        lf = TLabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), font=("Arial", 9, "bold"))
         lf.pack(fill="x", pady=(0, 5), ipady=5)
 
         mapping = {
@@ -251,9 +258,9 @@ class BarsParamWidget:
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"),
+        lf = TLabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(4, 0))
+        lf.pack(fill="x")
 
         profiles = get_shader_profiles_for_module("bars")
         names    = sorted(profiles.keys())
@@ -265,26 +272,26 @@ class BarsParamWidget:
         if names: self.profile_cb.current(0)
 
         tk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)"),
-                 font=("Arial", 7), fg="gray50").pack(anchor="w")
+                 font=("Arial", 7), bg=COLORS["bg1"], fg=COLORS["text3"]).pack(anchor="w")
 
-        btn_row = tk.Frame(lf)
+        btn_row = tk.Frame(lf, bg=COLORS["bg1"])
         btn_row.pack(fill="x", pady=(4, 0))
         tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"),
                   command=self._apply_profile,
-                  bg="#00695c", fg="white", font=("Arial", 8)
+                  **BTN_APPLY
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"),
                   command=self._save_profile,
-                  bg="#37474f", fg="white", font=("Arial", 8)
+                  **BTN_SAVE
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"),
                   command=self._delete_profile,
-                  bg="#b71c1c", fg="white", font=("Arial", 8)
+                  **BTN_DELETE
                   ).pack(side="left")
 
         tk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
                   command=self._reset_shader,
-                  bg="#5d4037", fg="white", font=("Arial", 8)
+                  **BTN_RESET
                   ).pack(fill="x", pady=(4, 0))
 
     def _combo_row(self, parent, label, key, values, cur, tooltip):
@@ -328,112 +335,59 @@ class BarsParamWidget:
     # ── Wiersz suwaka int — etykieta(stała) + ? + suwak + wartość + jednostka ─
 
     def _slider_row(self, parent, param_def, current, target):
-        # Rozpakowujemy dokładnie 7 elementów (zgodnie z SHAPE_PARAMS)
-        # key(0), label(1), vmin(2), vmax(3), default(4), unit(5), tooltip(6)
         key, label, vmin, vmax, default, unit, tooltip = param_def
-        
         cur = int(current.get(key, default))
         var = tk.IntVar(value=cur)
         self.vars[key] = var
-        entry_var = tk.StringVar(value=str(cur))
 
-        row = tk.Frame(parent)
+        row = tk.Frame(parent, bg=COLORS["bg1"])
         row.pack(fill="x", pady=2)
-
-        # Etykieta - używa 'label' (podmienimy go w pętli na angielski)
         tk.Label(row, text=label, font=("Arial", 9),
+                 bg=COLORS["bg1"], fg=COLORS["text2"],
                  width=16, anchor="w").pack(side="left")
-        
         if tooltip:
             _tip(row, "?", tooltip)
 
-        # Suwak
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          orient="horizontal", showvalue=False,
-                          sliderlength=12, font=("Arial", 7))
+        def on_change(v, k=key, tgt=target):
+            iv = int(round(v))
+            var.set(iv)
+            self._debounce(k, iv, tgt)
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=1, on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-
-        # Pole wartości
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=5, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
-
-        # Jednostka
         tk.Label(row, text=unit if unit else "  ",
-                 font=("Arial", 9), fg="gray50", width=3
-                 ).pack(side="left")
-
-        def on_slide(val, ev=entry_var, k=key, tgt=target):
-            ev.set(str(int(float(val))))
-            self._debounce(k, int(float(val)), tgt)
-
-        def on_entry(event, sv=var, ev=entry_var,
-                     lo=vmin, hi=vmax, k=key, tgt=target):
-            try:
-                v = max(lo, min(hi, int(ev.get())))
-                sv.set(v); ev.set(str(v))
-                self._debounce(k, v, tgt)
-            except ValueError:
-                ev.set(str(sv.get()))
-
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
+                 font=("Arial", 9), bg=COLORS["bg1"], fg=COLORS["text3"], width=3).pack(side="left")
 
     # ── Wiersz suwaka float ───────────────────────────────────────────────────
 
     def _float_slider_row(self, parent, param_def, current):
-        # Tutaj musi być 8 elementów, bo SMOOTH_PARAMS ma 'step' na 6. pozycji
         key, label, vmin, vmax, default, unit, step, tooltip = param_def
-        
         try:
             cur = float(current.get(key, default))
         except (ValueError, TypeError):
             cur = float(default)
-            
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = _decimals(step)
-        fmt = f"{{:.{dec}f}}"
-        entry_var = tk.StringVar(value=fmt.format(cur))
 
-        row = tk.Frame(parent)
+        row = tk.Frame(parent, bg=COLORS["bg1"])
         row.pack(fill="x", pady=2)
-
-        # Używamy 'label', który podmienimy w pętli
         tk.Label(row, text=label, font=("Arial", 9),
+                 bg=COLORS["bg1"], fg=COLORS["text2"],
                  width=16, anchor="w").pack(side="left")
-        
         if tooltip:
             _tip(row, "?", tooltip)
 
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          resolution=step, orient="horizontal",
-                          showvalue=False, sliderlength=12)
+        def on_change(v, k=key):
+            var.set(v)
+            self._debounce(k, v, "smooth")
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=step, is_float=True, decimals=dec,
+                             on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=6, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
-        
-        tk.Label(row, text="  ", font=("Arial", 9), width=2).pack(side="left")
-
-        def on_slide(val, ev=entry_var, k=key, f=fmt):
-            ev.set(f.format(float(val)))
-            self._debounce(k, float(val), "smooth")
-
-        def on_entry(event, sv=var, ev=entry_var,
-                     lo=vmin, hi=vmax, k=key, f=fmt):
-            try:
-                v = max(lo, min(hi, float(ev.get())))
-                sv.set(v); ev.set(f.format(v))
-                self._debounce(k, v, "smooth")
-            except ValueError:
-                ev.set(f.format(sv.get()))
-
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
+        tk.Label(row, text="  ", font=("Arial", 9), bg=COLORS["bg1"], width=2).pack(side="left")
 
     # ── Profile szadera — callbacki ──────────────────────────────────────────
 
@@ -449,19 +403,10 @@ class BarsParamWidget:
         glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil szadera"),
-            self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name:
-            return
-        existing = get_shader_profiles_for_module("bars")
-        if name in existing:
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
-        save_shader_profile_for_module("bars", name, collect_params(self.app))
+        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Enter profile name:"))
+        if not name: return
+        params = collect_params(self.app)
+        save_shader_profile_for_module("bars", name, params)
         self._refresh_profile_cb()
         self.profile_var.set(name)
 
@@ -492,7 +437,29 @@ class BarsParamWidget:
     def _write_flag(self, key, var):
         val = 1 if var.get() else 0
         _write_flag_defines(_bars_glsl(), {key: val})
+        if key in ("FLIP", "MIRROR_YX"):
+            self._update_geometry()
         self._schedule_restart()
+
+    def _update_geometry(self):
+        """Koryguje geometrię rc.glsl na podstawie aktualnych flag FLIP i MIRROR_YX."""
+        try:
+            from ..geometry import get_screen_info, calc_geometry, write_geometry
+            from ..core import RC_GLSL
+            # Odczytaj aktualne wartości flag z pliku
+            current = _read_flag_defines(_bars_glsl())
+            flipped   = bool(current.get("FLIP", 0))
+            mirror_yx = bool(current.get("MIRROR_YX", 0))
+            si = get_screen_info()
+            # si: (screen_w, screen_h, work_h, top, bottom, left, right)
+            x, y, w, h = calc_geometry(
+                "bars", si[0], si[1], si[4], si[3],
+                flipped=flipped, mirror_yx=mirror_yx,
+                left_reserved=si[5], right_reserved=si[6]
+            )
+            write_geometry(RC_GLSL, x, y, w, h)
+        except Exception:
+            pass
 
     def _write_bool_rc(self, key, var):
         _write_bool_req(RC_GLSL, key, var.get())
@@ -675,8 +642,9 @@ def _tip(parent, label, text):
     import tkinter as tk
     if not text: return
     lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
+                   bg=COLORS["bg1"], fg=COLORS["blue"],
+                   cursor="question_arrow",
+                   relief="flat", padx=2)
     lbl.pack(side="left", padx=(2, 0))
     tip_window = [None]
     def show(e):
@@ -685,8 +653,10 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+        tk.Label(tw, text=text, justify="left",
+                 bg=COLORS["bg2"], fg=COLORS["text"],
+                 relief="flat", bd=1,
+                 font=("Arial", 8), padx=6, pady=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

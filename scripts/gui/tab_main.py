@@ -27,7 +27,9 @@ from . import core
 
 
 def build_tab_main(parent, app):
-    TabMain(parent, app).build()
+    tab = TabMain(parent, app)
+    tab.build()
+    app._tab_main_ref = tab
 
 
 class TabMain:
@@ -230,6 +232,13 @@ class TabMain:
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
 
+    def refresh_geometry(self):
+        """Odświeża pola X/Y/W/H aktualną wartością z rc.glsl."""
+        geo = read_geometry(core.RC_GLSL)
+        if geo and hasattr(self, "geo_vars"):
+            for k, v in zip(("x", "y", "w", "h"), geo):
+                self.geo_vars[k].set(str(v))
+
     def _apply_module(self):
         module = self.module_var.get()
         self.app.active_module = module
@@ -238,6 +247,8 @@ class TabMain:
         if not os.path.exists(tmpl):
             messagebox.showerror("", f"Brak szablonu:\n{tmpl}")
             return
+        # Przelicz geometrię dla nowego modułu
+        self._update_geometry_for_module(module)
         if not os.path.exists(get_live_frag(module)):
             self._apply_colors(); return
         if not os.path.exists(FLAG_RED) and not os.path.exists(FLAG_MANUAL):
@@ -247,6 +258,39 @@ class TabMain:
             glava_restart(module, after_fn=self.app.update_status)
         self.app.rebuild_module_tab()
         self._update_hsv_warn()
+
+    def _update_geometry_for_module(self, module):
+        """Przelicza i zapisuje geometrię dla danego modułu uwzględniając jego flagi."""
+        try:
+            from .geometry import get_screen_info, calc_geometry, write_geometry
+            import re as _re
+            si = get_screen_info()
+            flipped   = False
+            mirror_yx = False
+            glava_dir = os.path.join(os.path.expanduser("~"), ".config/glava")
+            if module == "bars":
+                path = os.path.join(glava_dir, "bars.glsl")
+                if os.path.exists(path):
+                    txt = open(path).read()
+                    m = _re.search(r'^#define\s+FLIP\s+(\S+)', txt, _re.MULTILINE)
+                    if m: flipped = bool(int(m.group(1)))
+                    m = _re.search(r'^#define\s+MIRROR_YX\s+(\S+)', txt, _re.MULTILINE)
+                    if m: mirror_yx = bool(int(m.group(1)))
+            elif module == "graph":
+                path = os.path.join(glava_dir, "graph.glsl")
+                if os.path.exists(path):
+                    txt = open(path).read()
+                    m = _re.search(r'^#define\s+INVERT\s+(\S+)', txt, _re.MULTILINE)
+                    if m: flipped = bool(int(m.group(1)))
+            # circle, wave, radial — brak flag flip/mirror, standardowa geometria
+            x, y, w, h = calc_geometry(
+                module, si[0], si[1], si[4], si[3],
+                flipped=flipped, mirror_yx=mirror_yx,
+                left_reserved=si[5], right_reserved=si[6]
+            )
+            write_geometry(core.RC_GLSL, x, y, w, h)
+        except Exception:
+            pass
 
     def _pick_color(self, key):
         color = colorchooser.askcolor(color=self.current_colors[key])[1]
@@ -295,21 +339,11 @@ class TabMain:
             self._apply_colors()
 
     def _save_preset(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil kolorów"),
-            self.T.get("dialog_profile_name",  "Podaj nazwę:"))
-        if not name:
-            return
-        if name in self.presets and name != "LAST_SESSION":
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
-        self.presets[name] = self.current_colors.copy()
-        save_color_presets(self.presets)
-        self._refresh_preset_cb()
-        self.preset_var.set(name)
+        name = simpledialog.askstring("Nowy profil kolorów", "Podaj nazwę:")
+        if name:
+            self.presets[name] = self.current_colors.copy()
+            save_color_presets(self.presets)
+            self._refresh_preset_cb()
 
     def _delete_preset(self):
         name = self.preset_var.get()

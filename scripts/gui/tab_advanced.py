@@ -11,7 +11,7 @@ import subprocess
 
 from .core import BIN_DIR, RC_GLSL
 from .geometry import get_screen_info, get_strut_reserved
-
+from .theme import COLORS
 
 def build_tab_advanced(parent, app):
     tab = TabAdvanced(parent, app)
@@ -28,11 +28,11 @@ class TabAdvanced:
         T = self.T
         p = self.parent
 
-        outer = tk.Frame(p, padx=6, pady=6)
+        outer = tk.Frame(p, padx=6, pady=6, bg=COLORS["bg1"], bd=0, highlightthickness=0)
         outer.pack(fill="both", expand=True)
 
-        left  = tk.Frame(outer)
-        right = tk.Frame(outer)
+        left  = tk.Frame(outer, bg=COLORS["bg1"], bd=0, highlightthickness=0)
+        right = tk.Frame(outer, bg=COLORS["bg1"], bd=0, highlightthickness=0)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         outer.columnconfigure(0, weight=1, uniform="col")
@@ -46,7 +46,8 @@ class TabAdvanced:
 
     def _build_audio(self, parent):
         lf = tk.LabelFrame(parent, text=self.T.get("section_audio", "Audio"),
-                           font=("Arial", 8, "bold"), padx=4, pady=4)
+                           bg=COLORS["bg1"], fg=COLORS["text2"], 
+                           bd=0, highlightthickness=0)
         lf.pack(fill="x", pady=(0, 4))
 
         tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
@@ -102,7 +103,7 @@ class TabAdvanced:
         # ... reszta kodu (samplerate, fps) pozostaje bez zmian ...
 
         # 4. Limit FPS (klucz: label_fps_limit)
-        fps_cur = self._read_request_int("setframerate", 60)
+        fps_cur = self._read_request_int("setframerate", 0)
         self._fps_var = tk.IntVar(value=fps_cur)
         fps_entry = tk.StringVar(value=str(fps_cur))
         fps_row = tk.Frame(lf)
@@ -254,7 +255,8 @@ class TabAdvanced:
         T = self.T
         lf = tk.LabelFrame(parent,
                             text=T.get("section_glava_flags", "GLava startup parameters"),
-                            font=("Arial", 8, "bold"), padx=4, pady=4)
+                            bg=COLORS["bg1"], fg=COLORS["text2"], 
+                            bd=0, highlightthickness=0)
         lf.pack(fill="x", pady=(0, 4))
         tk.Label(lf, text=T.get("label_concept_status", "⚠ Currently in concept phase"),
                  font=("Arial", 7, "italic"), fg="#d32f2f").pack(anchor="w")
@@ -359,7 +361,7 @@ class TabAdvanced:
 
     def _test_strut(self):
         T = self.T
-        screen_w, screen_h, work_h, top_res, bot_res = get_screen_info()
+        screen_w, screen_h, work_h, top_res, bot_res, left_res, right_res = get_screen_info()
         
         # Pobieramy etykiety z JSONa, a wartości doklejamy dynamicznie
         lines = [
@@ -367,6 +369,8 @@ class TabAdvanced:
             f"{T.get('label_work_area', 'Obszar roboczy:')} {screen_w} × {work_h} px",
             f"{T.get('label_top_bar', 'Pasek górny:')}    {top_res} px",
             f"{T.get('label_bottom_bar', 'Pasek dolny:')}    {bot_res} px",
+            f"{T.get('label_left_bar', 'Pasek lewy:')}     {left_res} px",
+            f"{T.get('label_right_bar', 'Pasek prawy:')}    {right_res} px",
             "",
             f"{T.get('label_source', 'Źródło:')} _NET_WM_STRUT_PARTIAL (EWMH)",
         ]

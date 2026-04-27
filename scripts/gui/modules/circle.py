@@ -21,6 +21,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..widgets import AccelSlider
+from ..theme import BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -54,6 +56,9 @@ SMOOTH_PARAMS = [
     ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
      "Odcięcie najniższych częstotliwości FFT"),
 ]
+
+# C_SMOOTH niezaimplementowane w shaderze circle/1.frag — ukryte do czasu wdrożenia
+_UNIMPLEMENTED = {"C_SMOOTH"}
 
 FLAG_PARAMS = [
     ("C_FILL",   "Wypełnij wnętrze",
@@ -200,31 +205,16 @@ class CircleParamWidget:
             # Tutaj wstawiamy tooltip pobrany z JSON
             _tip(row, "?", tooltip_text)
 
-            slider = tk.Scale(row, variable=var,
-                              from_=-max_val, to=max_val,
-                              orient="horizontal", showvalue=False,
-                              sliderlength=12)
-            slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-            entry = tk.Entry(row, textvariable=entry_var,
-                             width=6, font=("Arial", 9), justify="right")
-            entry.pack(side="left", padx=(3, 0))
+            def on_offset(v, k=key, sv=var):
+                sv.set(int(round(v)))
+                self._debounce_int(k, int(round(v)))
+
+            offset_slider = AccelSlider(row, vmin=-max_val, vmax=max_val,
+                                        value=cur, step=1,
+                                        on_change=on_offset)
+            offset_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
             tk.Label(row, text="px", font=("Arial", 9),
                      fg="gray50", width=3).pack(side="left")
-
-            def on_slide(val, ev=entry_var, k=key):
-                ev.set(str(int(float(val))))
-                self._debounce_int(k, int(float(val)))
-            def on_entry(event, sv=var, ev=entry_var,
-                         lo=-max_val, hi=max_val, k=key):
-                try:
-                    v = max(lo, min(hi, int(ev.get())))
-                    sv.set(v); ev.set(str(v))
-                    self._debounce_int(k, v)
-                except ValueError:
-                    ev.set(str(sv.get()))
-            slider.config(command=on_slide)
-            entry.bind("<Return>",   on_entry)
-            entry.bind("<FocusOut>", on_entry)
 
     def _debounce_int(self, key, value):
         if key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
@@ -252,30 +242,16 @@ class CircleParamWidget:
         # --------------------------
 
         # Suwak (już go masz)
-        slider = tk.Scale(row, variable=self.rotate_var,
-                          from_=0, to=360, orient="horizontal",
-                          showvalue=False, sliderlength=12)
-        slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=4, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
-        tk.Label(row, text="°", font=("Arial", 9),
-                 fg="gray50", width=2).pack(side="left")
-
-        def on_slide(val, ev=entry_var):
-            ev.set(str(int(float(val))))
+        def on_rot_change(v):
+            self.rotate_var.set(int(round(v)))
             self._write_rotate()
-        def on_entry(event):
-            try:
-                v = max(0, min(360, int(entry_var.get())))
-                self.rotate_var.set(v); entry_var.set(str(v))
-                self._write_rotate()
-            except ValueError:
-                entry_var.set(str(self.rotate_var.get()))
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
+
+        rot_slider = AccelSlider(row, vmin=0, vmax=360,
+                                 value=cur, step=1,
+                                 on_change=on_rot_change)
+        rot_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
+        tk.Label(row, text="°", font=("Arial", 9),
+                 fg="gray50", width=3).pack(side="left")
 
     def _build_smooth(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), 
@@ -323,6 +299,8 @@ class CircleParamWidget:
         }
 
         for key, label, tooltip in FLAG_PARAMS:
+            if key in _UNIMPLEMENTED:
+                continue
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
@@ -366,20 +344,20 @@ class CircleParamWidget:
         btn_row = tk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
         tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"), command=self._apply_profile,
-                  bg="#00695c", fg="white", font=("Arial", 8)
+                  **BTN_APPLY
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"), command=self._save_profile,
-                  bg="#37474f", fg="white", font=("Arial", 8)
+                  **BTN_SAVE
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
         tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"), command=self._delete_profile,
-                  bg="#b71c1c", fg="white", font=("Arial", 8)
+                  **BTN_SAVE
                   ).pack(side="left")
 
         rf = tk.LabelFrame(parent, text=self.T.get("section_reset", "Reset"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
         rf.pack(fill="x", pady=(4, 0))
         tk.Button(rf, text=self.T.get("btn_reset_shader_circle", "Reset circle shader"), command=self._reset_shader,
-                  bg="#5d4037", fg="white", font=("Arial", 8)
+                  **BTN_RESET
                   ).pack(fill="x")
 
     def _slider_row(self, parent, param_def, current):
@@ -387,37 +365,22 @@ class CircleParamWidget:
         cur = int(current.get(key, default))
         var = tk.IntVar(value=cur)
         self.vars[key] = var
-        entry_var = tk.StringVar(value=str(cur))
 
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          orient="horizontal", showvalue=False, sliderlength=12)
+
+        def on_change(v, k=key, sv=var):
+            sv.set(int(round(v)))
+            self._debounce(k, int(round(v)))
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=1, on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=5, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
         tk.Label(row, text=unit if unit else "  ",
                  font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-
-        def on_slide(val, ev=entry_var, k=key):
-            ev.set(str(int(float(val))))
-            self._debounce(k, int(float(val)))
-
-        def on_entry(event, sv=var, ev=entry_var, lo=vmin, hi=vmax, k=key):
-            try:
-                v = max(lo, min(hi, int(ev.get())))
-                sv.set(v); ev.set(str(v))
-                self._debounce(k, v)
-            except ValueError:
-                ev.set(str(sv.get()))
-
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
 
     def _write_rotate(self):
         deg = int(self.rotate_var.get())
@@ -435,38 +398,23 @@ class CircleParamWidget:
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
-        fmt = f"{{:.{dec}f}}"
-        entry_var = tk.StringVar(value=fmt.format(cur))
+
         row = tk.Frame(parent)
         row.pack(fill="x", pady=2)
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
-        slider = tk.Scale(row, variable=var, from_=vmin, to=vmax,
-                          resolution=step, orient="horizontal",
-                          showvalue=False, sliderlength=12)
+
+        def on_change(v, k=key, sv=var):
+            sv.set(v)
+            self._debounce_smooth(k, v)
+
+        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+                             step=step, is_float=True, decimals=dec,
+                             on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        entry = tk.Entry(row, textvariable=entry_var,
-                         width=6, font=("Arial", 9), justify="right")
-        entry.pack(side="left", padx=(3, 0))
         tk.Label(row, text=unit if unit else "  ",
                  font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-
-        def on_slide(val, ev=entry_var, k=key):
-            ev.set(fmt.format(float(val)))
-            self._debounce_smooth(k, float(val))
-
-        def on_entry(event, sv=var, ev=entry_var, lo=vmin, hi=vmax, k=key):
-            try:
-                v = max(float(lo), min(float(hi), float(ev.get())))
-                sv.set(v); ev.set(fmt.format(v))
-                self._debounce_smooth(k, v)
-            except ValueError:
-                ev.set(fmt.format(sv.get()))
-
-        slider.config(command=on_slide)
-        entry.bind("<Return>",   on_entry)
-        entry.bind("<FocusOut>", on_entry)
 
     def _write_flag(self, key, var):
         _write_flag_defines(_circle_glsl(), {key: 1 if var.get() else 0})
@@ -645,7 +593,7 @@ def _tip(parent, label, text):
     if not text: return
     lbl = tk.Label(parent, text=label, font=("Arial", 8),
                    fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
+                   relief="flat", padx=2)
     lbl.pack(side="left", padx=(2, 0))
     tip_window = [None]
     def show(e):
@@ -654,7 +602,7 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
+        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
                  font=("Arial", 8), padx=4, pady=2).pack()
         tip_window[0] = tw
     def hide(e):
