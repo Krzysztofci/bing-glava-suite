@@ -118,7 +118,7 @@ class WaveParamWidget:
         lf = tk.LabelFrame(parent,
                            text=self.T.get("section_shape", "Kształt i dynamika"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         mapping = {
             "MIN_THICKNESS": ("label_line_min",  "tooltip_line_min"),
@@ -135,7 +135,7 @@ class WaveParamWidget:
         # WAVE_LENGTH z dynamicznym zakresem
         wl_val = int(current.get("WAVE_LENGTH", 0))
         row = tk.Frame(lf)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=self.T.get("label_wave_length", "Długość fali"),
                  font=("Arial", 9), width=16, anchor="w").pack(side="left")
         _tip(row, "?", self.T.get("tooltip_wave_length",
@@ -158,13 +158,13 @@ class WaveParamWidget:
         lf = tk.LabelFrame(parent,
                            text=self.T.get("label_wave_position", "Pozycja i obrót"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         # ROTATE — zakres -180 do +180 stopni
         cur_deg = int(round(math.degrees(_read_rotate(_wave_glsl()))))
         cur_deg = max(-180, min(180, cur_deg))
         row = tk.Frame(lf)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=self.T.get("label_rotation", "Obrót"),
                  font=("Arial", 9), width=16, anchor="w").pack(side="left")
         _tip(row, "?", self.T.get("tooltip_rotate_wave",
@@ -181,7 +181,7 @@ class WaveParamWidget:
         # CENTER_OFFSET_X
         ox_val = int(current.get("CENTER_OFFSET_X", 0))
         row_x = tk.Frame(lf)
-        row_x.pack(fill="x", pady=2)
+        row_x.pack(fill="x")
         tk.Label(row_x, text=self.T.get("label_offset_x", "Offset X"),
                  font=("Arial", 9), width=16, anchor="w").pack(side="left")
         _tip(row_x, "?", self.T.get("tooltip_offset_x_wave",
@@ -198,7 +198,7 @@ class WaveParamWidget:
         # CENTER_OFFSET_Y
         oy_val = int(current.get("CENTER_OFFSET_Y", 0))
         row_y = tk.Frame(lf)
-        row_y.pack(fill="x", pady=2)
+        row_y.pack(fill="x")
         tk.Label(row_y, text=self.T.get("label_offset_y", "Offset Y"),
                  font=("Arial", 9), width=16, anchor="w").pack(side="left")
         _tip(row_y, "?", self.T.get("tooltip_offset_y_wave",
@@ -265,7 +265,7 @@ class WaveParamWidget:
         lf = tk.LabelFrame(parent,
                            text=self.T.get("section_smoothing", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         mapping = {
             "setgravitystep":  ("label_gravity",       "tooltip_gravity"),
@@ -291,14 +291,13 @@ class WaveParamWidget:
         lf = tk.LabelFrame(parent,
                            text=self.T.get("section_profiles_wave", "Profile szadera wave"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         profiles = get_shader_profiles_for_module("wave")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
-        self.profile_cb.pack(fill="x", pady=(0, 3))
+                                        values=names, state="readonly")
+        self.profile_cb.pack(fill="x")
         if names: self.profile_cb.current(0)
         tk.Label(lf, text=self.T.get("label_profiles_hint_wave", "Kształt (kolory bez zmian)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
@@ -330,7 +329,7 @@ class WaveParamWidget:
                  write_fn=None):
         """Wiersz z AccelSlider dla parametrów całkowitoliczbowych."""
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -358,7 +357,7 @@ class WaveParamWidget:
         """Wiersz z AccelSlider dla parametrów zmiennoprzecinkowych."""
         dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -566,7 +565,7 @@ def _tip(parent, label, text):
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+                 font=("Arial", 8), padx=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

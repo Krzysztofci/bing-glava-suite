@@ -28,11 +28,11 @@ class TabAdvanced:
         T = self.T
         p = self.parent
 
-        outer = tk.Frame(p, padx=6, pady=6, bg=COLORS["bg1"], bd=0, highlightthickness=0)
-        outer.pack(fill="both", expand=True)
+        outer = ttk.Frame(p)
+        outer.pack(fill="both", expand=True, pady=(0, 8))
 
-        left  = tk.Frame(outer, bg=COLORS["bg1"], bd=0, highlightthickness=0)
-        right = tk.Frame(outer, bg=COLORS["bg1"], bd=0, highlightthickness=0)
+        left  = ttk.Frame(outer)
+        right = ttk.Frame(outer)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         outer.columnconfigure(0, weight=1, uniform="col")
@@ -45,13 +45,10 @@ class TabAdvanced:
         self._build_diagnostics(right)
 
     def _build_audio(self, parent):
-        lf = tk.LabelFrame(parent, text=self.T.get("section_audio", "Audio"),
-                           bg=COLORS["bg1"], fg=COLORS["text2"], 
-                           bd=0, highlightthickness=0)
-        lf.pack(fill="x", pady=(0, 4))
+        lf = ttk.LabelFrame(parent, text=self.T.get("section_audio", "Audio"))
+        lf.pack(fill="x", pady=(0, 8))
 
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
-                 font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(0, 4))
+        ttk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły")).pack(anchor="w")
 
         # --- 1. Zmienne stanu ---
         buf_cur = self._read_request_int("setbufsize", 4096)
@@ -106,10 +103,10 @@ class TabAdvanced:
         fps_cur = self._read_request_int("setframerate", 0)
         self._fps_var = tk.IntVar(value=fps_cur)
         fps_entry = tk.StringVar(value=str(fps_cur))
-        fps_row = tk.Frame(lf)
-        fps_row.pack(fill="x", pady=2)
+        fps_row = ttk.Frame(lf)
+        fps_row.pack(fill="x")
         
-        tk.Label(fps_row, text=self.T.get("label_fps_limit", "Limit FPS"), font=("Arial", 8),
+        ttk.Label(fps_row, text=self.T.get("label_fps_limit", "Limit FPS"),
                  width=16, anchor="w").pack(side="left")
         _tip(fps_row, "?", self.T.get("tooltip_fps_limit", "Maksymalna liczba klatek na sekundę"))
         
@@ -120,10 +117,10 @@ class TabAdvanced:
                      self._debounce_request("setframerate", int(float(v)))
                  )).pack(side="left", fill="x", expand=True, padx=(3, 0))
         
-        fps_e = tk.Entry(fps_row, textvariable=fps_entry, width=4, font=("Arial", 8), justify="right")
+        fps_e = ttk.Entry(fps_row, textvariable=fps_entry, width=4, justify="right")
         fps_e.pack(side="left", padx=(3, 0))
         
-        tk.Label(fps_row, text="fps", font=("Arial", 8), fg="gray50", width=3).pack(side="left")
+        tk.Label(fps_row, bg=COLORS["bg1"], text="fps", fg="gray50", width=3).pack(side="left")
 
         def on_fps(event):
             try:
@@ -142,11 +139,10 @@ class TabAdvanced:
             var = tk.BooleanVar(value=val)
             setattr(self, f"_{key}_var", var)
 
-            brow = tk.Frame(lf)
-            brow.pack(fill="x", pady=1)
+            brow = ttk.Frame(lf)
+            brow.pack(fill="x")
     
-            tk.Checkbutton(brow, text=self.T.get(label_key, label_key), variable=var,
-                           font=("Arial", 8),
+            ttk.Checkbutton(brow, text=self.T.get(label_key, label_key), variable=var,
                            command=lambda k=key, v=var: self._write_bool_rc(k, v)
                            ).pack(side="left")
 
@@ -159,9 +155,9 @@ class TabAdvanced:
         return hasattr(self.app, "expert_mode") and self.app.expert_mode.get()
 
     def _combo_row(self, parent, label, key, values, current_var, tooltip_key):
-        row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 8), width=16, anchor="w").pack(side="left")
+        row = ttk.Frame(parent)
+        row.pack(fill="x")
+        ttk.Label(row, text=label, width=16, anchor="w").pack(side="left")
         
         # Obsługa tooltipów - pobiera tekst z Twojego JSONa
         if tooltip_key:
@@ -174,7 +170,7 @@ class TabAdvanced:
         # Używamy bezpośrednio przekazanej zmiennej StringVar
         cb = ttk.Combobox(row, textvariable=current_var,
                           values=[str(v) for v in values],
-                          width=7, state="readonly", font=("Arial", 8))
+                          width=7, state="readonly")
         cb.pack(side="left", padx=(3, 0))
         
         # Rejestrujemy referencję dla blokady próbek
@@ -253,15 +249,11 @@ class TabAdvanced:
 
     def _build_glava_flags(self, parent):
         T = self.T
-        lf = tk.LabelFrame(parent,
-                            text=T.get("section_glava_flags", "GLava startup parameters"),
-                            bg=COLORS["bg1"], fg=COLORS["text2"], 
-                            bd=0, highlightthickness=0)
-        lf.pack(fill="x", pady=(0, 4))
-        tk.Label(lf, text=T.get("label_concept_status", "⚠ Currently in concept phase"),
-                 font=("Arial", 7, "italic"), fg="#d32f2f").pack(anchor="w")
-        tk.Label(lf, text=T.get("label_extra_flags", "Extra flags:"),
-                 font=("Arial", 8)).pack(anchor="w")
+        lf = ttk.LabelFrame(parent,
+                            text=T.get("section_glava_flags", "GLava startup parameters"))
+        lf.pack(fill="x", pady=(0, 8))
+        ttk.Label(lf, text=T.get("label_concept_status", "⚠ Currently in concept phase")).pack(anchor="w")
+        ttk.Label(lf, text=T.get("label_extra_flags", "Extra flags:")).pack(anchor="w")
         # Wczytaj aktualną flagę z procesu GLava
         import subprocess, re
         extra = "--desktop"
@@ -278,66 +270,54 @@ class TabAdvanced:
         setattr(self.app, "extra_flags", extra)
         self.flags_var = tk.StringVar(value=extra)
         self.flags_var.trace_add("write", lambda *_: setattr(self.app, "extra_flags", self.flags_var.get()))
-        tk.Entry(lf, textvariable=self.flags_var,
-                 font=("Arial", 9)).pack(fill="x", pady=(2, 2))
-        tk.Label(lf, text=T.get("label_flags_note", "e.g. --desktop --force-mod=bars"),
-                 font=("Arial", 7), fg="gray50").pack(anchor="w")
+        ttk.Entry(lf, textvariable=self.flags_var).pack(fill="x", pady=(2, 2))
+        ttk.Label(lf, text=T.get("label_flags_note", "e.g. --desktop --force-mod=bars")).pack(anchor="w")
 
     def _build_rendering(self, parent):
         T = self.T
-        lf = tk.LabelFrame(
+        lf = ttk.LabelFrame(
             parent,
-            text=T.get("section_rendering", "Rendering / compositor"),
-            font=("Arial", 8, "bold"), padx=4, pady=4
+            text=T.get("section_rendering", "Rendering / compositor")
         )
-        lf.pack(fill="x", pady=(0, 4))
-        tk.Label(lf, text=T.get("label_concept_status", "⚠ Currently in concept phase"),
-                 font=("Arial", 7, "italic"), fg="#d32f2f").pack(anchor="w")
-        tk.Label(lf,
+        lf.pack(fill="x", pady=(0, 8))
+        ttk.Label(lf, text=T.get("label_concept_status", "⚠ Currently in concept phase")).pack(anchor="w")
+        ttk.Label(lf,
                  text=T.get("label_rendering_warn",
                              "⚠ Environment-dependent settings.\nMay not work on every configuration."
-                             "Mogą nie działać na każdej konfiguracji."),
-                 font=("Arial", 7), fg="#bf360c", justify="left").pack(anchor="w", pady=(0, 6))
+                             "Mogą nie działać na każdej konfiguracji."), justify="left").pack(anchor="w", pady=(0, 6))
 
-        row = tk.Frame(lf)
-        row.pack(fill="x", pady=(0, 4))
-        tk.Label(row, text=T.get("label_render_mode", "Mode:"),
-                 font=("Arial", 8)).pack(side="left")
+        row = ttk.Frame(lf)
+        row.pack(fill="x")
+        ttk.Label(row, text=T.get("label_render_mode", "Mode:")).pack(side="left")
         self.render_var = tk.StringVar(value="auto")
         ttk.Combobox(row, textvariable=self.render_var,
                      values=["auto", "software", "hardware"],
-                     width=9, state="readonly",
-                     font=("Arial", 8)).pack(side="left", padx=(4, 0))
+                     width=9, state="readonly").pack(side="left", padx=(4, 0))
 
-        alpha_row = tk.Frame(lf)
+        alpha_row = ttk.Frame(lf)
         alpha_row.pack(fill="x")
-        tk.Label(alpha_row, text=T.get("label_alpha", "Transparency:"),
-                 font=("Arial", 8)).pack(side="left")
+        ttk.Label(alpha_row, text=T.get("label_alpha", "Transparency:")).pack(side="left")
         self.alpha_var = tk.IntVar(value=100)
         tk.Scale(alpha_row, variable=self.alpha_var,
                  from_=0, to=100, orient="horizontal",
                  font=("Arial", 7), showvalue=True,
                  length=80).pack(side="left", padx=(4, 0))
-        tk.Label(alpha_row, text="%",
-                 font=("Arial", 8), fg="gray50").pack(side="left")
+        ttk.Label(alpha_row, text="%").pack(side="left")
 
     def _build_diagnostics(self, parent):
         T = self.T
-        lf = tk.LabelFrame(parent,
-                            text=T.get("section_diagnostics", "Diagnostics"),
-                            font=("Arial", 8, "bold"), padx=4, pady=4)
-        lf.pack(fill="x", pady=(0, 0))
+        lf = ttk.LabelFrame(parent,
+                            text=T.get("section_diagnostics", "Diagnostics"))
+        lf.pack(fill="x", pady=(0, 8))
 
-        tk.Button(lf,
+        ttk.Button(lf,
                   text=T.get("btn_show_logs", "Show daemon logs"),
-                  command=self._show_logs,
-                  bg="#37474f", fg="white", font=("Arial", 8)
-                  ).pack(fill="x", pady=(0, 3))
+                  command=self._show_logs
+                  ).pack(fill="x")
 
-        tk.Button(lf,
+        ttk.Button(lf,
                   text=T.get("btn_test_strut", "Test panel detection"),
-                  command=self._test_strut,
-                  bg="#37474f", fg="white", font=("Arial", 8)
+                  command=self._test_strut
                   ).pack(fill="x")
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
@@ -383,9 +363,9 @@ class TabAdvanced:
 def _tip(parent, label, text):
     import tkinter as tk
     if not text: return
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="groove", padx=2)
+    lbl = tk.Label(parent, text=label,
+               bg=COLORS["bg1"], fg=COLORS["blue"],
+               cursor="question_arrow", relief="flat", padx=2)
     lbl.pack(side="left", padx=(2, 0))
     tip_window = [None]
     def show(e):
@@ -394,8 +374,7 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="solid", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+        ttk.Label(tw, text=text, justify="left").pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

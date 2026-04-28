@@ -126,7 +126,7 @@ class GraphParamWidget:
         # Definiujemy 'lf' na samym początku funkcji
         lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         # Twoje SHAPE_PARAMS (zgodnie z plikiem mają 7 elementów)
         # Indeks 1 to label, Indeks 6 to tooltip
@@ -154,7 +154,7 @@ class GraphParamWidget:
     def _build_flags(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         # Mapowanie technicznych nazw z FLAG_PARAMS na Twoje klucze label_ w pl.json
         mapping_flags = {
@@ -198,7 +198,7 @@ class GraphParamWidget:
     def _build_smooth(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_smooth", "Wygładzanie"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf.pack(fill="x", pady=(0, 8))
 
         # Wypełniamy mapowanie zgodnie z Twoim pl.json
         mapping = {
@@ -233,15 +233,14 @@ class GraphParamWidget:
     def _build_profiles(self, parent):
         lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_graph", "Shader profiles graph"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         profiles = get_shader_profiles_for_module("graph")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
-        self.profile_cb.pack(fill="x", pady=(0, 3))
+                                        values=names, state="readonly")
+        self.profile_cb.pack(fill="x")
         if names: self.profile_cb.current(0)
 
         tk.Label(lf, text=self.T.get("label_profiles_hint_shape", "Shape & options (colors unchanged)"),
@@ -273,7 +272,7 @@ class GraphParamWidget:
         self.vars[key] = var
 
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -300,7 +299,7 @@ class GraphParamWidget:
         dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
 
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -446,7 +445,7 @@ def _write_flag_defines(path, params):
 #        tip[0].wm_geometry(f"+{x}+{y}")
 #        tk.Label(tip[0], text=text, justify="left",
 #                 bg="#ffffcc", relief="solid", bd=1,
-#                 font=("Arial", 8), padx=4, pady=2).pack()
+#                 font=("Arial", 8), padx=4).pack()
 #    def hide(e):
 #        if tip[0]: tip[0].destroy(); tip[0] = None
 #    lbl.bind("<Enter>", show)
@@ -493,7 +492,7 @@ def _tip(parent, label, text):
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+                 font=("Arial", 8), padx=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

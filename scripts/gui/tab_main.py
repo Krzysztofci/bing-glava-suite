@@ -52,7 +52,7 @@ class TabMain:
 
     def build(self):
         outer = tk.Frame(self.parent, padx=8, pady=6)
-        outer.pack(fill="both", expand=True)
+        outer.pack(fill="both", expand=True, pady=(0, 8))
 
         left  = tk.Frame(outer)
         right = tk.Frame(outer)
@@ -71,29 +71,24 @@ class TabMain:
         T = self.T
 
         # Motyw GLava
-        lf_mod = tk.LabelFrame(col, text=T.get("section_module", "GLava theme"),
-                               font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_mod.pack(fill="x", pady=(0, 4))
+        lf_mod = ttk.LabelFrame(col, text=T.get("section_module", "GLava theme"), padding=(8, 6))
+        lf_mod.pack(fill="x", pady=(0, 8))
         row = tk.Frame(lf_mod)
         row.pack(fill="x")
-        tk.Label(row, text=T.get("label_module", "Active theme") + ":",
-                 font=("Arial", 9)).pack(side="left")
+        ttk.Label(row, text=T.get("label_module", "Active theme") + ":").pack(side="left")
         self.module_var = tk.StringVar(value=self.app.active_module)
         ttk.Combobox(row, textvariable=self.module_var,
-                     values=GLAVA_MODULES, width=9, state="readonly",
-                     font=("Arial", 9)).pack(side="left", padx=(4, 8))
+                     values=GLAVA_MODULES, width=9, state="readonly").pack(side="left", padx=(4, 8))
         row.children["!combobox"].bind("<<ComboboxSelected>>",
                                        lambda e: None)
-        tk.Button(row, text=T.get("btn_apply_module", "Apply theme"),
-                  command=self._apply_module,
-                  bg="#1565c0", fg="white", font=("Arial", 9)
+        ttk.Button(row, text=T.get("btn_apply_module", "Apply theme"),
+                  command=self._apply_module
                   ).pack(side="left", fill="x", expand=True)
 
         # Kolory
-        lf_col = tk.LabelFrame(col, text=T.get("section_colors", "Colors"),
-                               font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_col.pack(fill="x", pady=(0, 4))
-        srow = tk.Frame(lf_col)
+        lf_col = ttk.LabelFrame(col, text=T.get("section_colors", "Colors"), padding=(8, 6))
+        lf_col.pack(fill="x", pady=(0, 8))
+        srow = ttk.Frame(lf_col)
         srow.pack(fill="x", pady=(0, 5))
         self.color_btns = {}
         for key in ("top", "mid", "bottom"):
@@ -101,75 +96,68 @@ class TabMain:
             btn = tk.Button(srow, text=lbl,
                             bg=self.current_colors[key],
                             command=lambda k=key: self._pick_color(k),
-                            font=("Arial", 9), height=1)
+                            height=1)
             btn.pack(side="left", padx=2, expand=True, fill="x")
             self.color_btns[key] = btn
-        tk.Button(lf_col, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
-                  command=self._apply_colors,
-                  bg="#2e7d32", fg="white", font=("Arial", 9)
-                  ).pack(fill="x", pady=(0, 3))
-        tk.Button(lf_col, text=T.get("btn_capture", "Capture current from screen"),
-                  command=self._capture_colors,
-                  bg="#f39c12", fg="white", font=("Arial", 9)
-                  ).pack(fill="x", pady=(0, 4))
-        grad_row = tk.Frame(lf_col)
+        ttk.Button(lf_col, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
+                  command=self._apply_colors
+                  ).pack(fill="x")
+        ttk.Button(lf_col, text=T.get("btn_capture", "Capture current from screen"),
+                  command=self._capture_colors
+                  ).pack(fill="x")
+        grad_row = ttk.Frame(lf_col)
         grad_row.pack(fill="x")
-        tk.Label(grad_row, text=T.get("label_gradient", "Gradient:"),
-                 font=("Arial", 9)).pack(side="left")
+        ttk.Label(grad_row, text=T.get("label_gradient", "Gradient:")).pack(side="left")
         self.gradient_var = tk.StringVar(value=self.gradient_mode)
         for val, lbl in (("rgb", "RGB"), ("hsv", "HSV")):
-            tk.Radiobutton(grad_row, text=lbl, variable=self.gradient_var,
-                           value=val, command=self._change_gradient,
-                           font=("Arial", 9)).pack(side="left", padx=3)
-        self.hsv_warn = tk.Label(grad_row, text="", font=("Arial", 8), fg="#e65100")
+            ttk.Radiobutton(grad_row, text=lbl, variable=self.gradient_var,
+                           value=val, command=self._change_gradient).pack(side="left", padx=3)
+        self.hsv_warn = tk.Label(grad_row, text="", fg="#e65100")
         self.hsv_warn.pack(side="left")
         self._update_hsv_warn()
 
 
         # Profile kolorów
-        lf_pre = tk.LabelFrame(col, text=T.get("section_profiles", "Color profiles"),
-                               font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_pre.pack(fill="x", pady=(0, 4))
+        lf_pre = ttk.LabelFrame(col, text=T.get("section_profiles", "Color profiles"), padding=(8, 6))
+        lf_pre.pack(fill="x", pady=(0, 8))
         self.preset_var = tk.StringVar()
         names = sorted(k for k in self.presets if k != "LAST_SESSION")
         self.preset_cb = ttk.Combobox(lf_pre, textvariable=self.preset_var,
-                                      values=names, state="readonly",
-                                      font=("Arial", 9))
+                                      values=names, state="readonly")
         self.preset_cb.pack(fill="x", pady=(0, 5))
         if names:
             self.preset_cb.current(0)
-        btn_row = tk.Frame(lf_pre)
+        btn_row = ttk.Frame(lf_pre)
         btn_row.pack(fill="x")
-        for text, cmd, color in [
-            (T.get("btn_load",     "Load"),     self._load_preset,   "#546e7a"),
-            (T.get("btn_save_new", "Save new"), self._save_preset,   "#546e7a"),
-            (T.get("btn_delete",   "Delete"),   self._delete_preset, "#b71c1c"),
-        ]:
-            tk.Button(btn_row, text=text, command=cmd,
-                      bg=color, fg="white", font=("Arial", 9)
-                      ).pack(side="left", expand=True, fill="x", padx=(0, 2))
+        ttk.Button(btn_row, text=T.get("btn_load", "Load"),
+                   command=self._load_preset
+                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
+        ttk.Button(btn_row, text=T.get("btn_save_new", "Save new"),
+                   command=self._save_preset
+                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
+        ttk.Button(btn_row, text=T.get("btn_delete", "Delete"),
+                   command=self._delete_preset,
+                   style="Accent.TButton"
+                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
 
         # Ustawienia
-        lf_set = tk.LabelFrame(col, text=T.get("section_settings", "Settings"),
-                               font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_set.pack(fill="x", pady=(0, 0))
-        s_row = tk.Frame(lf_set)
-        s_row.pack(fill="x", pady=(0, 3))
-        tk.Label(s_row, text=T.get("label_region", "Bing region") + ":",
-                 font=("Arial", 9)).pack(side="left")
+        lf_set = ttk.LabelFrame(col, text=T.get("section_settings", "Settings"), padding=(8, 6))
+        lf_set.pack(fill="x", pady=(0, 8))
+        s_row = ttk.Frame(lf_set)
+        s_row.pack(fill="x")
+        ttk.Label(s_row, text=T.get("label_region", "Bing region") + ":").pack(side="left")
         self.region_var = tk.StringVar(value=self.bing_cfg.get("BING_REGION", "de-DE"))
         ttk.Combobox(s_row, textvariable=self.region_var, values=BING_REGIONS,
-                     width=7, state="readonly", font=("Arial", 9)
+                     width=7, state="readonly"
                      ).pack(side="left", padx=(4, 8))
-        tk.Button(s_row, text=T.get("btn_save_settings", "Save settings"),
-                  command=self._save_settings,
-                  font=("Arial", 9)).pack(side="left")
+        ttk.Button(s_row, text=T.get("btn_save_settings", "Save settings"),
+                  command=self._save_settings).pack(side="left")
         lock_text = (T.get("btn_unlock_wallpaper", "Unlock wallpaper")
                      if os.path.exists(WALLPAPER_LOCK)
                      else T.get("btn_lock_wallpaper", "Lock wallpaper"))
-        self.lock_btn = tk.Button(lf_set, text=lock_text,
-                                  command=self._toggle_lock,
-                                  bg="#6a1b9a", fg="white", font=("Arial", 9))
+        self.lock_btn = ttk.Button(lf_set, text=lock_text,
+                                   command=self._toggle_lock,
+                                   style="Accent.TButton")
         self.lock_btn.pack(fill="x")
 
     # ── PRAWA: Tryby + Geometria ──────────────────────────────────────────────
@@ -178,29 +166,29 @@ class TabMain:
         T = self.T
 
         # Tryby
-        lf_mode = tk.LabelFrame(col, text=T.get("section_modes", "Modes"),
-                                font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_mode.pack(fill="x", pady=(0, 4))
-        for text, color, cmd in [
-            (T.get("btn_fetch_wallpaper",
-                   "Fetch Bing wallpaper (desktop only)"),
-             "#1565c0", self._fetch_wallpaper_user),
-            (T.get("btn_fetch_wallpaper_full",
-                   "Fetch Bing wallpaper (desktop + login screen)"),
-             "#0d47a1", self._fetch_wallpaper_full),
-            (T.get("btn_restore_auto", "Restore Bing (auto)"),
-             "#37474f", self._restore_auto),
-            (T.get("btn_toggle_glava", "Enable / Disable GLava"),
-             "#424242", self._toggle_glava),
-        ]:
-            tk.Button(lf_mode, text=text, command=cmd,
-                      bg=color, fg="white", font=("Arial", 9)
-                      ).pack(fill="x", pady=2)
-
+        lf_mode = ttk.LabelFrame(col, text=T.get("section_modes", "Modes"), padding=(8, 6))
+        lf_mode.pack(fill="x", pady=(0, 8))
+        ttk.Button(lf_mode,
+                   text=T.get("btn_fetch_wallpaper", "Fetch Bing wallpaper (desktop only)"),
+                   command=self._fetch_wallpaper_user,
+                   style="Accent.TButton"
+                   ).pack(fill="x", pady=(4, 2))
+        ttk.Button(lf_mode,
+                   text=T.get("btn_fetch_wallpaper_full", "Fetch Bing wallpaper (desktop + login screen)"),
+                   command=self._fetch_wallpaper_full,
+                   style="Accent.TButton"
+                   ).pack(fill="x")
+        ttk.Button(lf_mode,
+                   text=T.get("btn_restore_auto", "Restore Bing (auto)"),
+                   command=self._restore_auto
+                   ).pack(fill="x")
+        ttk.Button(lf_mode,
+                   text=T.get("btn_toggle_glava", "Enable / Disable GLava"),
+                   command=self._toggle_glava
+                   ).pack(fill="x", pady=(2, 4))
         # Geometria GLava
-        lf_geo = tk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
-                               font=("Arial", 9, "bold"), padx=5, pady=5)
-        lf_geo.pack(fill="x", pady=(0, 0))
+        lf_geo = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"), padding=(8, 6))
+        lf_geo.pack(fill="x", pady=(0, 8))
         geo = read_geometry(core.RC_GLSL)
         if geo is None:
             si  = get_screen_info()
@@ -213,21 +201,19 @@ class TabMain:
             ("w", geo[2], "W"), ("h", geo[3], "H"),
         ]):
             r, c = i // 2, (i % 2) * 2
-            tk.Label(grid, text=lbl, font=("Arial", 9), width=2, anchor="e"
-                     ).grid(row=r, column=c, padx=(0, 2), pady=2, sticky="e")
+            ttk.Label(grid, text=lbl, width=2, anchor="e"
+                     ).grid(row=r, column=c, padx=(0, 2), sticky="e")
             var = tk.StringVar(value=str(val))
             self.geo_vars[key] = var
-            tk.Entry(grid, textvariable=var, width=8, font=("Arial", 9)
-                     ).grid(row=r, column=c+1, padx=(0, 10), pady=2)
-        tk.Button(lf_geo,
+            ttk.Entry(grid, textvariable=var, width=8
+                     ).grid(row=r, column=c+1, padx=(0, 10))
+        ttk.Button(lf_geo,
                   text=T.get("btn_auto_geometry", "Auto-detect geometry"),
-                  command=self._auto_geometry,
-                  bg="#37474f", fg="white", font=("Arial", 9)
-                  ).pack(fill="x", pady=(0, 3))
-        tk.Button(lf_geo,
+                  command=self._auto_geometry
+                  ).pack(fill="x")
+        ttk.Button(lf_geo,
                   text=T.get("btn_apply_geometry", "Apply geometry"),
-                  command=self._apply_geometry,
-                  bg="#1565c0", fg="white", font=("Arial", 9)
+                  command=self._apply_geometry
                   ).pack(fill="x")
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..widgets import AccelSlider
 from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
                      COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
+from tkinter import ttk as _ttk  # używamy ttk dla przycisków/labelek
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
@@ -156,8 +157,8 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"))
-        lf.pack(fill="x", pady=(0, 5))
+        lf = TLabelFrame(parent, text=self.T.get("section_shape", "Kształt"))
+        lf.pack(fill="x", pady=(0, 8))
 
         # MAPA: Co ma zostać podmienione
         mapping = {
@@ -184,9 +185,8 @@ class BarsParamWidget:
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf = TLabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"))
+        lf.pack(fill="x", pady=(0, 8))
 
         # To musi być wewnątrz funkcji!
         mapping_flags = {
@@ -215,15 +215,9 @@ class BarsParamWidget:
             if not translated_tip:
                 translated_tip = tooltip
 
-            row = tk.Frame(lf, bg=COLORS["bg1"])
-            row.pack(fill="x", pady=1)
-            tk.Checkbutton(row, text=translated_label, variable=var,
-                           font=("Arial", 9),
-                           bg=COLORS["bg1"], fg=COLORS["text2"],
-                           activebackground=COLORS["bg2"],
-                           activeforeground=COLORS["text"],
-                           selectcolor=COLORS["bg2"],
-                           relief="flat", bd=0,
+            row = ttk.Frame(lf)
+            row.pack(fill="x")
+            ttk.Checkbutton(row, text=translated_label, variable=var,
                            command=lambda k=key, v=var: self._write_flag(k, v)
                            ).pack(side="left")
             
@@ -232,8 +226,8 @@ class BarsParamWidget:
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), font=("Arial", 9, "bold"))
-        lf.pack(fill="x", pady=(0, 5), ipady=5)
+        lf = TLabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"))
+        lf.pack(fill="x", pady=(0, 8))
 
         mapping = {
             "setgravitystep": "label_gravity",
@@ -258,51 +252,48 @@ class BarsParamWidget:
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
     def _build_profiles(self, parent):
-        lf = TLabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf = TLabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"))
+        lf.pack(fill="x", pady=(0, 8))
 
         profiles = get_shader_profiles_for_module("bars")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
-        self.profile_cb.pack(fill="x", pady=(0, 3))
+                                        values=names, state="readonly")
+        self.profile_cb.pack(fill="x")
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)"),
-                 font=("Arial", 7), bg=COLORS["bg1"], fg=COLORS["text3"]).pack(anchor="w")
+        ttk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)")).pack(anchor="w")
 
-        btn_row = tk.Frame(lf, bg=COLORS["bg1"])
+        btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"),
+        ttk.Button(btn_row, text=self.T.get("btn_apply", "Apply"),
                   command=self._apply_profile,
                   **BTN_APPLY
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"),
+        ttk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"),
                   command=self._save_profile,
                   **BTN_SAVE
                   ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"),
+        ttk.Button(btn_row, text=self.T.get("btn_delete", "Delete"),
                   command=self._delete_profile,
                   **BTN_DELETE
                   ).pack(side="left")
 
-        tk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
+        ttk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
                   command=self._reset_shader,
                   **BTN_RESET
                   ).pack(fill="x", pady=(4, 0))
 
     def _combo_row(self, parent, label, key, values, cur, tooltip):
-        row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
+        row = ttk.Frame(parent)
+        row.pack(fill="x")
+        ttk.Label(row, text=label,
                  width=13, anchor="w").pack(side="left")
         var = self.vars[key]
         cb = ttk.Combobox(row, textvariable=var,
                           values=[str(v) for v in values],
-                          width=6, state="readonly", font=("Arial", 9))
+                          width=6, state="readonly")
         cb.pack(side="left")
         _tip(row, "?", tooltip)
 
@@ -340,11 +331,9 @@ class BarsParamWidget:
         var = tk.IntVar(value=cur)
         self.vars[key] = var
 
-        row = tk.Frame(parent, bg=COLORS["bg1"])
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
-                 bg=COLORS["bg1"], fg=COLORS["text2"],
-                 width=16, anchor="w").pack(side="left")
+        row = ttk.Frame(parent)
+        row.pack(fill="x")
+        ttk.Label(row, text=label, width=16, anchor="w").pack(side="left")
         if tooltip:
             _tip(row, "?", tooltip)
 
@@ -356,8 +345,7 @@ class BarsParamWidget:
         slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
                              step=1, on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text=unit if unit else "  ",
-                 font=("Arial", 9), bg=COLORS["bg1"], fg=COLORS["text3"], width=3).pack(side="left")
+        ttk.Label(row, text=unit if unit else "  ", width=3).pack(side="left")
 
     # ── Wiersz suwaka float ───────────────────────────────────────────────────
 
@@ -371,11 +359,9 @@ class BarsParamWidget:
         self.vars[key] = var
         dec = _decimals(step)
 
-        row = tk.Frame(parent, bg=COLORS["bg1"])
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
-                 bg=COLORS["bg1"], fg=COLORS["text2"],
-                 width=16, anchor="w").pack(side="left")
+        row = ttk.Frame(parent)
+        row.pack(fill="x")
+        ttk.Label(row, text=label, width=16, anchor="w").pack(side="left")
         if tooltip:
             _tip(row, "?", tooltip)
 
@@ -387,7 +373,7 @@ class BarsParamWidget:
                              step=step, is_float=True, decimals=dec,
                              on_change=on_change)
         slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text="  ", font=("Arial", 9), bg=COLORS["bg1"], width=2).pack(side="left")
+        ttk.Label(row, text="  ", width=2).pack(side="left")
 
     # ── Profile szadera — callbacki ──────────────────────────────────────────
 
@@ -500,7 +486,7 @@ class BarsParamWidget:
 #        tip[0].wm_geometry(f"+{x}+{y}")
 #        tk.Label(tip[0], text=text, justify="left",
 #                 bg="#ffffcc", relief="solid", bd=1,
-#                 font=("Arial", 8), padx=4, pady=2).pack()
+#                 font=("Arial", 8), padx=4).pack()
 #    def hide(e):
 #        if tip[0]: tip[0].destroy(); tip[0] = None
 #    lbl.bind("<Enter>", show)
@@ -641,10 +627,7 @@ def _write_bool_req(path, key, val):
 def _tip(parent, label, text):
     import tkinter as tk
     if not text: return
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   bg=COLORS["bg1"], fg=COLORS["blue"],
-                   cursor="question_arrow",
-                   relief="flat", padx=2)
+    lbl = ttk.Label(parent, text=label)
     lbl.pack(side="left", padx=(2, 0))
     tip_window = [None]
     def show(e):
@@ -654,9 +637,9 @@ def _tip(parent, label, text):
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=text, justify="left",
-                 bg=COLORS["bg2"], fg=COLORS["text"],
-                 relief="flat", bd=1,
-                 font=("Arial", 8), padx=6, pady=4).pack()
+                 bg="#ffffcc", fg="#333333",
+                 relief="solid", bd=1,
+                 font=("TkDefaultFont", 8), padx=6, pady=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

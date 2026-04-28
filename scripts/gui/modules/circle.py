@@ -152,7 +152,7 @@ class CircleParamWidget:
     def _build_shape(self, parent, current):
         # TUTAJ TWORZYMY BRAKUJĄCY 'lf'
         lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         # ... (kod tworzący ramkę Kształt) ...
         
         mapping = {
@@ -178,7 +178,7 @@ class CircleParamWidget:
     def _build_position(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_position", "Screen position"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         max_x = self._sw // 2
         max_y = self._sh // 2
 
@@ -192,7 +192,7 @@ class CircleParamWidget:
             self.vars[key] = var
             entry_var = tk.StringVar(value=str(cur))
             row = tk.Frame(lf)
-            row.pack(fill="x", pady=2)
+            row.pack(fill="x")
 
             # Pobieramy etykietę i tooltip z pliku JSON
             label_text = self.T.get(lang_key, lang_key)
@@ -226,12 +226,12 @@ class CircleParamWidget:
     def _build_rotate(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_rotation", self.T.get("label_rotation", "Rotation")),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         cur = int(current.get("ROTATE_DEG", 90))
         self.rotate_var = tk.IntVar(value=cur)
         entry_var = tk.StringVar(value=str(cur))
         row = tk.Frame(lf)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         
         # Etykieta (już ją masz)
         tk.Label(row, text=self.T.get("section_rotation", self.T.get("label_rotation", "Rotation")), font=("Arial", 9),
@@ -256,7 +256,7 @@ class CircleParamWidget:
     def _build_smooth(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), 
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         # Twoje sprawdzone mapowanie z bars.py
         mapping = {
@@ -289,7 +289,7 @@ class CircleParamWidget:
     def _build_flags(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"), 
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf.pack(fill="x", pady=(0, 8))
 
         # Mapa: Techniczny klucz -> Klucz w Twoim JSON
         mapping_flags = {
@@ -319,7 +319,7 @@ class CircleParamWidget:
                 translated_tip = tooltip
 
             row = tk.Frame(lf)
-            row.pack(fill="x", pady=1)
+            row.pack(fill="x")
             tk.Checkbutton(row, text=translated_label, variable=var, font=("Arial", 9),
                            command=lambda k=key, v=var: self._write_flag(k, v)).pack(side="left")
             _tip(row, "?", translated_tip)
@@ -327,15 +327,14 @@ class CircleParamWidget:
     def _build_profiles(self, parent):
         lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_circle", "Shader profiles circle"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         profiles = get_shader_profiles_for_module("circle")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
-        self.profile_cb.pack(fill="x", pady=(0, 3))
+                                        values=names, state="readonly")
+        self.profile_cb.pack(fill="x")
         if names: self.profile_cb.current(0)
 
         tk.Label(lf, text=self.T.get("label_profiles_hint_shape", "Shape & options (colors unchanged)"),
@@ -367,7 +366,7 @@ class CircleParamWidget:
         self.vars[key] = var
 
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -400,7 +399,7 @@ class CircleParamWidget:
         dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
 
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -603,7 +602,7 @@ def _tip(parent, label, text):
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+                 font=("Arial", 8), padx=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None

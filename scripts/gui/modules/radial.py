@@ -210,7 +210,7 @@ class RadialParamWidget:
     def _build_shape(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_shape", "Shape & dynamics"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         
         # Poprawione mapowanie kluczy pod Twój pl.json
         mapping_shape = {
@@ -246,7 +246,7 @@ class RadialParamWidget:
         self.rotate_var = tk.IntVar(value=cur_rot)
         rot_entry_var = tk.StringVar(value=str(cur_rot))
         rot_row = tk.Frame(lf)
-        rot_row.pack(fill="x", pady=2)
+        rot_row.pack(fill="x")
         tk.Label(rot_row, text=self.T.get("label_rotation", "Rotation"), font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(rot_row, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
@@ -266,7 +266,7 @@ class RadialParamWidget:
     def _build_position(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_position", "Screen position"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         max_x = self._sw // 2
         max_y = self._sh // 2
@@ -282,7 +282,7 @@ class RadialParamWidget:
             entry_var = tk.StringVar(value=str(cur))
 
             row = tk.Frame(lf)
-            row.pack(fill="x", pady=2)
+            row.pack(fill="x")
             
             # Pobieramy etykietę i tooltip bezpośrednio z JSON-a po kluczu
             label_text = self.T.get(lang_key, lang_key)
@@ -311,7 +311,7 @@ class RadialParamWidget:
         # Pobieramy tytuł sekcji z JSON
         lf = tk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         # Mapa kluczy technicznych na klucze w pliku JSON - tylko INVERT
         mapping_flags = {
@@ -350,7 +350,7 @@ class RadialParamWidget:
     def _build_smooth(self, parent, current):
         lf = tk.LabelFrame(parent, text=self.T.get("section_smoothing", "Smoothing"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
         mapping_smooth = {
             "setgravitystep": "label_gravity",
             "setsmoothfactor": "label_smooth_factor",
@@ -379,15 +379,14 @@ class RadialParamWidget:
     def _build_profiles(self, parent):
         lf = tk.LabelFrame(parent, text=self.T.get("section_profiles_radial", "Shader profiles radial"),
                            font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 4))
+        lf.pack(fill="x", pady=(0, 8))
 
         profiles = get_shader_profiles_for_module("radial")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
-        self.profile_cb.pack(fill="x", pady=(0, 3))
+                                        values=names, state="readonly")
+        self.profile_cb.pack(fill="x")
         if names: self.profile_cb.current(0)
         tk.Label(lf, text=self.T.get("label_profiles_hint_radial", "Shape & smoothing (colors unchanged)"),
                  font=("Arial", 7), fg="gray50").pack(anchor="w")
@@ -455,7 +454,7 @@ class RadialParamWidget:
         is_float = (fmt is not None)
         dec = len(fmt.replace("{:.", "").replace("f}", "")) if fmt else 0
         row = tk.Frame(parent)
-        row.pack(fill="x", pady=2)
+        row.pack(fill="x")
         tk.Label(row, text=label, font=("Arial", 9),
                  width=16, anchor="w").pack(side="left")
         _tip(row, "?", tooltip)
@@ -692,7 +691,7 @@ def _write_request(path, key, val_str):
 #        tip[0].wm_geometry(f"+{x}+{y}")
 #        tk.Label(tip[0], text=text, justify="left",
 #                 bg="#ffffcc", relief="solid", bd=1,
-#                 font=("Arial", 8), padx=4, pady=2).pack()
+#                 font=("Arial", 8), padx=4).pack()
 #    def hide(e):
 #        if tip[0]: tip[0].destroy(); tip[0] = None
 #    lbl.bind("<Enter>", show)
@@ -712,7 +711,7 @@ def _tip(parent, label, text):
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
-                 font=("Arial", 8), padx=4, pady=2).pack()
+                 font=("Arial", 8), padx=4).pack()
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
