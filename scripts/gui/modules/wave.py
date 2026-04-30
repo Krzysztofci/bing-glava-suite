@@ -1,9 +1,12 @@
 # =============================================================================
 # gui/modules/wave.py
+#
+# Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
 import os, re, math
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
 from ..core import (
     get_shader_profiles_for_module,
@@ -11,13 +14,13 @@ from ..core import (
     delete_shader_profile_for_module,
 )
 from ..widgets import AccelSlider
-from ..theme import BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET
 
 def _wave_glsl():   return os.path.join(GLAVA_DIR, "wave.glsl")
 def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
 def _wave_tmpl():   return os.path.join(GLAVA_DIR, "wave_colors.frag")
 def _wave_1frag():  return os.path.join(GLAVA_DIR, "wave", "1.frag")
 
+# (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_PARAMS = [
     ("MIN_THICKNESS", "Min. grubość linii",  1,  20,  1, "px",
      "Minimalna grubość linii fali w pikselach\n(przy niskiej amplitudzie)"),
@@ -27,6 +30,7 @@ SHAPE_PARAMS = [
      "Wzmocnienie amplitudy sygnału audio\nWiększe = wyższe fale"),
 ]
 
+# (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
 SMOOTH_PARAMS = [
     ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
      "Szybkość opadania po szczycie"),
@@ -41,20 +45,23 @@ SMOOTH_PARAMS = [
 ]
 
 FLAG_PARAMS = []
-ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {"ROTATE", "WAVE_LENGTH",
-                                                    "CENTER_OFFSET_X", "CENTER_OFFSET_Y"}
+ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {
+    "ROTATE", "WAVE_LENGTH", "CENTER_OFFSET_X", "CENTER_OFFSET_Y"}
+
 
 def build_params(parent, app, T):
     WaveParamWidget(parent, app, T).build()
 
+
 def collect_params(app):
     p = _read_defines(_wave_glsl(), SHAPE_PARAMS)
-    p["WAVE_LENGTH"]    = _read_int(_wave_glsl(), "WAVE_LENGTH", 0)
+    p["WAVE_LENGTH"]     = _read_int(_wave_glsl(), "WAVE_LENGTH", 0)
     p["CENTER_OFFSET_X"] = _read_int(_wave_glsl(), "CENTER_OFFSET_X", 0)
     p["CENTER_OFFSET_Y"] = _read_int(_wave_glsl(), "CENTER_OFFSET_Y", 0)
-    p["ROTATE"]         = _read_rotate(_wave_glsl())
+    p["ROTATE"]          = _read_rotate(_wave_glsl())
     p.update(_read_smooth(_smooth_glsl()))
     return p
+
 
 def apply_params(params, app):
     _write_defines(_wave_glsl(), params, SHAPE_PARAMS)
@@ -64,6 +71,7 @@ def apply_params(params, app):
     if "ROTATE" in params:
         _write_rotate(_wave_glsl(), float(params["ROTATE"]))
     _write_smooth(_smooth_glsl(), params)
+
 
 def reset_shader(app):
     import shutil
@@ -86,11 +94,10 @@ class WaveParamWidget:
         self.T      = T
         self.vars   = {}
         self._accel_sliders = {}
-        # Oblicz przekątną ekranu raz przy starcie
         try:
             from ..geometry import get_screen_info
             si = get_screen_info()
-            self._diag = int(math.sqrt(si[0]**2 + si[1]**2) * 1.1)
+            self._diag   = int(math.sqrt(si[0]**2 + si[1]**2) * 1.1)
             self._half_x = si[0] // 2
             self._half_y = si[1] // 2
         except Exception:
@@ -100,13 +107,15 @@ class WaveParamWidget:
 
     def build(self):
         current = collect_params(self.app)
-        left  = tk.Frame(self.parent)
-        right = tk.Frame(self.parent)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+
+        left  = ttk.Frame(self.parent)
+        right = ttk.Frame(self.parent)
+        left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
         self.parent.columnconfigure(0, weight=1, uniform="wc")
         self.parent.columnconfigure(1, weight=1, uniform="wc")
         self.parent.rowconfigure(0, weight=1)
+
         self._build_shape(left, current)
         self._build_position(left, current)
         self._build_smooth(right, current)
@@ -115,38 +124,43 @@ class WaveParamWidget:
     # ── Kształt ───────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = tk.LabelFrame(parent,
-                           text=self.T.get("section_shape", "Kształt i dynamika"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 8))
+        lf = ttk.LabelFrame(parent,
+                            text=self.T.get("section_shape", "Kształt i dynamika"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+        lf.columnconfigure(2, weight=1)
 
         mapping = {
             "MIN_THICKNESS": ("label_line_min",  "tooltip_line_min"),
             "MAX_THICKNESS": ("label_line_max",  "tooltip_line_max"),
             "AMPLIFY":       ("label_gain",      "tooltip_gain"),
         }
-        for p in SHAPE_PARAMS:
+
+        for idx, p in enumerate(SHAPE_PARAMS):
             lk, tk_ = mapping.get(p[0], (None, None))
             label   = self.T.get(lk, p[1]) if lk else p[1]
             tooltip = self.T.get(tk_, p[6]) if tk_ else p[6]
-            self._int_row(lf, p[0], label, p[2], p[3], int(current.get(p[0], p[4])),
-                          p[5], tooltip, write_fn=self._write_shape)
+            self._int_row(lf, p[0], label, p[2], p[3],
+                          int(current.get(p[0], p[4])), p[5], tooltip, idx)
 
-        # WAVE_LENGTH z dynamicznym zakresem
+        # WAVE_LENGTH
+        row_idx = len(SHAPE_PARAMS)
         wl_val = int(current.get("WAVE_LENGTH", 0))
-        row = tk.Frame(lf)
-        row.pack(fill="x")
-        tk.Label(row, text=self.T.get("label_wave_length", "Długość fali"),
-                 font=("Arial", 9), width=16, anchor="w").pack(side="left")
-        _tip(row, "?", self.T.get("tooltip_wave_length",
-             "Długość fali w pikselach. 0 = pełna szerokość ekranu."))
-        self._wave_length_slider = AccelSlider(
-            row, vmin=0, vmax=self._diag, value=wl_val, step=1,
-            on_change=self._on_wave_length,
-        )
-        self._wave_length_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text="px", font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        self._accel_sliders["WAVE_LENGTH"] = self._wave_length_slider
+
+        ttk.Label(lf, text=self.T.get("label_wave_length", "Długość fali"),
+                  width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = _tip(lf, "?", self.T.get("tooltip_wave_length",
+                 "Długość fali w pikselach. 0 = pełna szerokość ekranu."))
+        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
+
+        wl_slider = AccelSlider(lf, vmin=0, vmax=self._diag,
+                                value=wl_val, step=1,
+                                on_change=self._on_wave_length)
+        wl_slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+        ttk.Label(lf, text="px", width=4).grid(
+            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
+        self._accel_sliders["WAVE_LENGTH"] = wl_slider
 
     def _on_wave_length(self, val):
         _write_int(_wave_glsl(), "WAVE_LENGTH", int(val))
@@ -155,81 +169,67 @@ class WaveParamWidget:
     # ── Pozycja i rotacja ─────────────────────────────────────────────────────
 
     def _build_position(self, parent, current):
-        lf = tk.LabelFrame(parent,
-                           text=self.T.get("label_wave_position", "Pozycja i obrót"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 8))
+        lf = ttk.LabelFrame(parent,
+                            text=self.T.get("label_wave_position", "Pozycja i obrót"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+        lf.columnconfigure(2, weight=1)
 
-        # ROTATE — zakres -180 do +180 stopni
+        # ROTATE
         cur_deg = int(round(math.degrees(_read_rotate(_wave_glsl()))))
         cur_deg = max(-180, min(180, cur_deg))
-        row = tk.Frame(lf)
-        row.pack(fill="x")
-        tk.Label(row, text=self.T.get("label_rotation", "Obrót"),
-                 font=("Arial", 9), width=16, anchor="w").pack(side="left")
-        _tip(row, "?", self.T.get("tooltip_rotate_wave",
-             "Obrót fali. -180 = zgodnie ze wskazówkami zegara, +180 = przeciwnie.\nShift+przeciąganie = precyzja"))
-        rotate_slider = AccelSlider(
-            row, vmin=-180, vmax=180, value=cur_deg, step=1,
-            on_change=self._on_rotate,
-            tooltip=self.T.get("tooltip_rotate_wave", ""),
-        )
-        rotate_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text="°", font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        self._accel_sliders["ROTATE"] = rotate_slider
 
-        # CENTER_OFFSET_X
-        ox_val = int(current.get("CENTER_OFFSET_X", 0))
-        row_x = tk.Frame(lf)
-        row_x.pack(fill="x")
-        tk.Label(row_x, text=self.T.get("label_offset_x", "Offset X"),
-                 font=("Arial", 9), width=16, anchor="w").pack(side="left")
-        _tip(row_x, "?", self.T.get("tooltip_offset_x_wave",
-             "Przesunięcie środka fali w osi X.\nShift+przeciąganie = precyzja"))
-        ox_slider = AccelSlider(
-            row_x, vmin=-self._half_x, vmax=self._half_x, value=ox_val, step=1,
-            on_change=lambda v: self._on_offset("CENTER_OFFSET_X", v),
-            tooltip=self.T.get("tooltip_offset_x_wave", ""),
-        )
-        ox_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row_x, text="px", font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        self._accel_sliders["CENTER_OFFSET_X"] = ox_slider
+        ttk.Label(lf, text=self.T.get("label_rotation", "Obrót"),
+                  width=12, anchor="w").grid(
+            row=0, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = _tip(lf, "?", self.T.get("tooltip_rotate_wave",
+                 "Obrót fali. -180 = zgodnie ze wskazówkami zegara, +180 = przeciwnie."))
+        if t: t.grid(row=0, column=1, padx=5, pady=5)
 
-        # CENTER_OFFSET_Y
-        oy_val = int(current.get("CENTER_OFFSET_Y", 0))
-        row_y = tk.Frame(lf)
-        row_y.pack(fill="x")
-        tk.Label(row_y, text=self.T.get("label_offset_y", "Offset Y"),
-                 font=("Arial", 9), width=16, anchor="w").pack(side="left")
-        _tip(row_y, "?", self.T.get("tooltip_offset_y_wave",
-             "Przesunięcie środka fali w osi Y.\nShift+przeciąganie = precyzja"))
-        oy_slider = AccelSlider(
-            row_y, vmin=-self._half_y, vmax=self._half_y, value=oy_val, step=1,
-            on_change=lambda v: self._on_offset("CENTER_OFFSET_Y", v),
-            tooltip=self.T.get("tooltip_offset_y_wave", ""),
-        )
-        oy_slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row_y, text="px", font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        self._accel_sliders["CENTER_OFFSET_Y"] = oy_slider
+        rot_slider = AccelSlider(lf, vmin=-180, vmax=180,
+                                 value=cur_deg, step=1,
+                                 on_change=self._on_rotate)
+        rot_slider.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
+        ttk.Label(lf, text="°", width=4).grid(
+            row=0, column=3, padx=(5, 10), pady=5, sticky="e")
+        self._accel_sliders["ROTATE"] = rot_slider
 
-        # Checkbox odblokowania pełnego zakresu
+        # CENTER_OFFSET_X / Y
+        for row_idx, (key, lk, max_val, unit) in enumerate([
+            ("CENTER_OFFSET_X", "label_offset_x", self._half_x, "px"),
+            ("CENTER_OFFSET_Y", "label_offset_y", self._half_y, "px"),
+        ], start=1):
+            cur = int(current.get(key, 0))
+            ttk.Label(lf, text=self.T.get(lk, key),
+                      width=12, anchor="w").grid(
+                row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+            t = _tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"), ""))
+            if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
+
+            slider = AccelSlider(lf, vmin=-max_val, vmax=max_val,
+                                 value=cur, step=1,
+                                 on_change=lambda v, k=key: self._on_offset(k, v))
+            slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+            ttk.Label(lf, text=unit, width=4).grid(
+                row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
+            self._accel_sliders[key] = slider
+
+        # Odblokuj pełny zakres
         self._unlock_var = tk.BooleanVar(value=False)
-        unlock_row = tk.Frame(lf)
-        unlock_row.pack(fill="x", pady=(6, 0))
-        cb = tk.Checkbutton(
+        unlock_row = ttk.Frame(lf)
+        unlock_row.grid(row=4, column=0, columnspan=4,
+                        padx=10, pady=(6, 0), sticky="w")
+        ttk.Checkbutton(
             unlock_row,
             text=self.T.get("label_unlock_range", "Odblokuj pełny zakres"),
             variable=self._unlock_var,
-            font=("Arial", 8), fg="#bf360c",
             command=self._on_unlock_toggle,
-        )
-        cb.pack(side="left")
+        ).pack(side="left")
         _tip(unlock_row, "?", self.T.get("tooltip_unlock_range",
              "Rozszerza zakres długości fali 3× i offsetów do przekątnej ekranu"))
 
     def _on_rotate(self, val):
-        rad = math.radians(float(val))
-        _write_rotate(_wave_glsl(), rad)
+        _write_rotate(_wave_glsl(), math.radians(float(val)))
         self._schedule_restart()
 
     def _on_offset(self, key, val):
@@ -239,162 +239,141 @@ class WaveParamWidget:
     def _on_unlock_toggle(self):
         unlocked = self._unlock_var.get()
         diag = self._diag
-        if unlocked:
-            wl_max  = int(diag * 3.0)
-            off_max = diag
-        else:
-            wl_max  = diag
-            off_max = self._half_x  # przybliżenie — X i Y mają różne half
-
         s = self._accel_sliders.get("WAVE_LENGTH")
-        if s: s.set_range(0, wl_max)
-
+        if s: s.set_range(0, int(diag * 3.0) if unlocked else diag)
         sx = self._accel_sliders.get("CENTER_OFFSET_X")
-        if sx:
-            lim = off_max if unlocked else self._half_x
-            sx.set_range(-lim, lim)
-
+        if sx: sx.set_range(-(diag if unlocked else self._half_x),
+                             diag if unlocked else self._half_x)
         sy = self._accel_sliders.get("CENTER_OFFSET_Y")
-        if sy:
-            lim = off_max if unlocked else self._half_y
-            sy.set_range(-lim, lim)
+        if sy: sy.set_range(-(diag if unlocked else self._half_y),
+                             diag if unlocked else self._half_y)
 
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = tk.LabelFrame(parent,
-                           text=self.T.get("section_smoothing", "Wygładzanie"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 8))
+        lf = ttk.LabelFrame(parent,
+                            text=self.T.get("section_smoothing", "Wygładzanie"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+        lf.columnconfigure(2, weight=1)
 
         mapping = {
-            "setgravitystep":  ("label_gravity",       "tooltip_gravity"),
-            "setsmoothfactor": ("label_smooth_factor",  "tooltip_smooth_factor"),
-            "setavgframes":    ("label_avg_frames",     "tooltip_avg_frames"),
-            "setfftscale":     ("label_fft_scale",      "tooltip_fft_scale"),
-            "setfftcutoff":    ("label_bass_cutoff",    "tooltip_bass_cutoff"),
+            "setgravitystep":  ("label_gravity",      "tooltip_gravity"),
+            "setsmoothfactor": ("label_smooth_factor", "tooltip_smooth_factor"),
+            "setavgframes":    ("label_avg_frames",    "tooltip_avg_frames"),
+            "setfftscale":     ("label_fft_scale",     "tooltip_fft_scale"),
+            "setfftcutoff":    ("label_bass_cutoff",   "tooltip_bass_cutoff"),
         }
-        for p in SMOOTH_PARAMS:
+
+        for idx, p in enumerate(SMOOTH_PARAMS):
             lk, tk_ = mapping.get(p[0], (None, None))
             label   = self.T.get(lk, p[1]) if lk else p[1]
             tooltip = self.T.get(tk_, p[7]) if tk_ else p[7]
             self._float_row(lf, p[0], label, p[2], p[3],
                             float(current.get(p[0], p[4])),
-                            p[5], p[6], tooltip)
+                            p[6], tooltip, idx)
 
-        tk.Label(lf, text=self.T.get("audio_affects_all", "⚠ Wpływa na wszystkie moduły"),
-                 font=("Arial", 7), fg="#bf360c").pack(anchor="w", pady=(4, 0))
+        ttk.Label(lf, text=self.T.get("audio_affects_all",
+                                       "⚠ Wpływa na wszystkie moduły")).grid(
+            row=len(SMOOTH_PARAMS), column=0, columnspan=4,
+            padx=10, pady=(4, 0), sticky="w")
 
     # ── Profile ───────────────────────────────────────────────────────────────
 
     def _build_profiles(self, parent):
-        lf = tk.LabelFrame(parent,
-                           text=self.T.get("section_profiles_wave", "Profile szadera wave"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x", pady=(0, 8))
+        lf = ttk.LabelFrame(parent,
+                            text=self.T.get("section_profiles_wave", "Shader profiles wave"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+
         profiles = get_shader_profiles_for_module("wave")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
                                         values=names, state="readonly")
-        self.profile_cb.pack(fill="x")
+        self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
-        tk.Label(lf, text=self.T.get("label_profiles_hint_wave", "Kształt (kolory bez zmian)"),
-                 font=("Arial", 7), fg="gray50").pack(anchor="w")
-        btn_row = tk.Frame(lf)
+
+        ttk.Label(lf, text=self.T.get("label_profiles_hint_wave",
+                                       "Kształt (kolory bez zmian)")).pack(anchor="w")
+
+        btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=self.T.get("btn_apply",    "Zastosuj"),
-                  command=self._apply_profile,
-                  **BTN_APPLY
-                  ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_save_new", "Zapisz nowy"),
-                  command=self._save_profile,
-                  **BTN_SAVE
-                  ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_delete",   "Usuń"),
-                  command=self._delete_profile,
-                  **BTN_DELETE
-                  ).pack(side="left")
-        rf = tk.LabelFrame(parent, text=self.T.get("section_reset", "Reset"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        rf.pack(fill="x", pady=(4, 0))
-        tk.Button(rf, text=self.T.get("btn_reset_shader_wave", "Reset szadera wave"),
-                  command=self._reset_shader,
-                  **BTN_RESET
-                  ).pack(fill="x")
+        ttk.Button(btn_row, text=self.T.get("btn_apply", "Zastosuj"),
+                   command=self._apply_profile,
+                   style="Accent.TButton").pack(side="left", expand=True,
+                                                fill="x", padx=(0, 2))
+        ttk.Button(btn_row, text=self.T.get("btn_save_new", "Zapisz nowy"),
+                   command=self._save_profile).pack(side="left", expand=True,
+                                                     fill="x", padx=(0, 2))
+        ttk.Button(btn_row, text=self.T.get("btn_delete", "Usuń"),
+                   command=self._delete_profile).pack(side="left")
 
-    # ── Row helpers ───────────────────────────────────────────────────────────
+        ttk.Button(lf, text=self.T.get("btn_reset_shader_wave", "Reset szadera wave"),
+                   command=self._reset_shader,
+                   style="Accent.TButton").pack(fill="x", pady=(4, 0))
 
-    def _int_row(self, parent, key, label, vmin, vmax, value, unit, tooltip,
-                 write_fn=None):
-        """Wiersz z AccelSlider dla parametrów całkowitoliczbowych."""
-        row = tk.Frame(parent)
-        row.pack(fill="x")
-        tk.Label(row, text=label, font=("Arial", 9),
-                 width=16, anchor="w").pack(side="left")
-        _tip(row, "?", tooltip)
+    # ── Wiersze suwaków (grid) ────────────────────────────────────────────────
 
-        def on_change(v):
-            v = self._clamp_thickness(key, int(round(v)))
-            # Synchronizuj vars jeśli istnieje
-            if key in self.vars:
-                self.vars[key].set(v)
-            if write_fn: write_fn(key, v)
-            else: self._debounce(key, v)
-
-        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=value,
-                             step=1, on_change=on_change)
-        slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text=unit if unit else "  ",
-                 font=("Arial", 9), fg="gray50", width=3).pack(side="left")
-        # Zachowaj referencję do slidera dla _clamp_thickness
-        self._accel_sliders[key] = slider
-        # Var dla kompatybilności z _clamp_thickness
+    def _int_row(self, parent, key, label, vmin, vmax, value, unit, tooltip, row_idx):
         var = tk.IntVar(value=value)
         self.vars[key] = var
 
-    def _float_row(self, parent, key, label, vmin, vmax, value, unit, step, tooltip):
-        """Wiersz z AccelSlider dla parametrów zmiennoprzecinkowych."""
-        dec = len(str(step).rstrip("0").split(".")[-1]) if "." in str(step) else 0
-        row = tk.Frame(parent)
-        row.pack(fill="x")
-        tk.Label(row, text=label, font=("Arial", 9),
-                 width=16, anchor="w").pack(side="left")
-        _tip(row, "?", tooltip)
+        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = _tip(parent, "?", tooltip)
+        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v):
+            v = self._clamp_thickness(key, int(round(v)))
+            var.set(v)
+            self._write_shape(key, v)
+
+        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
+                             step=1, on_change=on_change)
+        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
+            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
+        self._accel_sliders[key] = slider
+
+    def _float_row(self, parent, key, label, vmin, vmax, value, step, tooltip, row_idx):
+        dec = _decimals(step)
+        var = tk.DoubleVar(value=value)
+        self.vars[key] = var
+
+        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = _tip(parent, "?", tooltip)
+        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
+
+        def on_change(v):
+            var.set(v)
             self._debounce_smooth(key, v)
 
-        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=value,
+        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
                              step=step, is_float=True, decimals=dec,
                              on_change=on_change)
-        slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text=unit if unit else "  ",
-                 font=("Arial", 9), fg="gray50", width=3).pack(side="left")
+        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+        ttk.Label(parent, text=" ", width=4).grid(
+            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
         self._accel_sliders[key] = slider
 
     def _clamp_thickness(self, key, value):
         if key == "MIN_THICKNESS" and "MAX_THICKNESS" in self.vars:
-            max_v = self.vars["MAX_THICKNESS"].get()
-            if value > max_v:
+            mx = self.vars["MAX_THICKNESS"].get()
+            if value > mx:
                 self.vars["MAX_THICKNESS"].set(value)
-                if hasattr(self, "_entry_MAX_THICKNESS"):
-                    self._entry_MAX_THICKNESS.set(str(value))
                 _write_defines(_wave_glsl(), {"MAX_THICKNESS": value}, SHAPE_PARAMS)
         elif key == "MAX_THICKNESS" and "MIN_THICKNESS" in self.vars:
-            min_v = self.vars["MIN_THICKNESS"].get()
-            if value < min_v:
+            mn = self.vars["MIN_THICKNESS"].get()
+            if value < mn:
                 self.vars["MIN_THICKNESS"].set(value)
-                if hasattr(self, "_entry_MIN_THICKNESS"):
-                    self._entry_MIN_THICKNESS.set(str(value))
                 _write_defines(_wave_glsl(), {"MIN_THICKNESS": value}, SHAPE_PARAMS)
         return value
 
-    def _write_shape(self, key, value):
-        _write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
-        self._schedule_restart()
+    # ── Zapis ─────────────────────────────────────────────────────────────────
 
-    def _debounce(self, key, value):
+    def _write_shape(self, key, value):
         _write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
@@ -421,14 +400,13 @@ class WaveParamWidget:
         apply_params(profiles[name], self.app)
         self.app.rebuild_module_tab()
         from gui.glava import glava_restart
-        glava_restart("wave",
-                      extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+        glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                       after_fn=self.app.update_status)
 
     def _save_profile(self):
         name = simpledialog.askstring(
             self.T.get("dialog_profile_title", "Nowy profil"),
-            self.T.get("dialog_profile_name",  "Podaj nazwę profilu:"))
+            self.T.get("dialog_profile_name", "Podaj nazwę profilu:"))
         if not name: return
         existing = get_shader_profiles_for_module("wave")
         if name in existing:
@@ -461,9 +439,37 @@ class WaveParamWidget:
             reset_shader(self.app)
             self.app.rebuild_module_tab()
             from gui.glava import glava_restart
-            glava_restart("wave",
-                          extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+            glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                           after_fn=self.app.update_status)
+
+
+# ─── _tip ────────────────────────────────────────────────────────────────────
+
+def _tip(parent, label, text):
+    if not text: return None
+    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
+    tip_window = [None]
+    def show(e):
+        x = lbl.winfo_rootx() + 20
+        y = lbl.winfo_rooty() + 20
+        tw = tk.Toplevel(lbl)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tw.configure(bg="#333333")
+        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
+        tip_window[0] = tw
+    def hide(e):
+        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
+    lbl.bind("<Enter>", show)
+    lbl.bind("<Leave>", hide)
+    return lbl
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _decimals(step):
+    s = str(step)
+    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
 
 
 # ─── I/O ─────────────────────────────────────────────────────────────────────
@@ -544,30 +550,10 @@ def _write_smooth(path, params):
     with open(path) as f: content = f.read()
     for key, val in params.items():
         if key not in keys: continue
-        sv = str(int(val)) if key == "setavgframes" \
-            else f"{float(val):.4f}".rstrip("0").rstrip(".")
+        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
+        dec = _decimals(p[6])
+        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
         new = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
                      content, flags=re.MULTILINE)
         content = new if new != content else content + f"\n#request {key} {sv}\n"
     with open(path, "w") as f: f.write(content)
-
-def _tip(parent, label, text):
-    if not text: return
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   fg="#1565c0", cursor="question_arrow",
-                   relief="flat", padx=2)
-    lbl.pack(side="left", padx=(2, 0))
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left", bg="#ffffcc", relief="flat", bd=1,
-                 font=("Arial", 8), padx=4).pack()
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)

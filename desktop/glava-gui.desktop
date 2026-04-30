@@ -10,4 +10,4 @@ Icon=glava-gui
 Terminal=false
 Categories=AudioVideo;GLava;
 Keywords=glava;kolory;tapeta;bing;audio;wizualizator
-StartupNotify=true
+StartupNotify=false
