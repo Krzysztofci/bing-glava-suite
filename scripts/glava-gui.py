@@ -28,8 +28,8 @@ from gui.core import (
 )
 from gui.glava import glava_is_running
 
-WIN_W_DEFAULT = 760
-WIN_H_DEFAULT = 560
+WIN_W_DEFAULT = 1040
+WIN_H_DEFAULT = 792
 WIN_W_MIN     = 600
 WIN_H_MIN     = 460
 

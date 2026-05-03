@@ -213,7 +213,7 @@ chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 # Moduły gui/
 for pyfile in core.py colors.py geometry.py glava.py \
               tab_main.py tab_module.py tab_advanced.py \
-              theme.py widgets.py color_button.py accent_manager.py; do
+              theme.py widgets.py color_button.py; do
     src="$SCRIPT_DIR/scripts/gui/$pyfile"
     [ -f "$src" ] || error "Missing file: $src"
     cp "$src" "$GLAVAMP_DIR/gui/$pyfile"
