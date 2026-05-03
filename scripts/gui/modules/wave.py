@@ -547,13 +547,29 @@ def _read_smooth(path):
 def _write_smooth(path, params):
     if not os.path.exists(path): return
     keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path) as f: content = f.read()
+    with open(path, "r") as f: 
+        content = f.read()
+    
+    modified = False
     for key, val in params.items():
         if key not in keys: continue
+        
         p = next(x for x in SMOOTH_PARAMS if x[0] == key)
         dec = _decimals(p[6])
         sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        new = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#request {key} {sv}\n"
-    with open(path, "w") as f: f.write(content)
+        
+        # Poprawiony wzorzec: szuka #request, potem klucza, potem dowolnych znaków do końca linii
+        pattern = rf'^#request\s+{key}\s+.*$'
+        replacement = f"#request {key} {sv}"
+        
+        if re.search(pattern, content, flags=re.MULTILINE):
+            # Jeśli klucz istnieje, podmień go
+            content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+        else:
+            # Jeśli klucza nie ma, dodaj go na końcu
+            content = content.rstrip() + f"\n{replacement}\n"
+        modified = True
+
+    if modified:
+        with open(path, "w") as f: 
+            f.write(content)

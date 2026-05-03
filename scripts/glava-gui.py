@@ -296,6 +296,10 @@ class GlavaGUI:
     # Zapis stanu okna
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _save_gui_conf(self):
+        """Publiczny dostęp do zapisu gui_conf — używany przez tab_advanced."""
+        save_gui_conf(self.gui_conf)
+
     def _on_configure(self, event=None):
         if self._resize_after:
             self.root.after_cancel(self._resize_after)
@@ -324,10 +328,10 @@ class GlavaGUI:
         lang = self.lang_var.get()
         self.settings["lang"] = lang
         save_settings(self.settings)
-        self.T = load_lang(lang)
-        for w in self.root.winfo_children():
-            w.destroy()
-        self.__init__(self.root)
+        # Restart GUI — tak samo jak przy zmianie motywu
+        # żeby ColorButton i inne widgety zostały zbudowane od nowa
+        self._restart = True
+        self.root.destroy()
 
     def _on_expert_toggle(self):
         self.rebuild_module_tab()
@@ -368,11 +372,14 @@ def _bind_tooltip(widget, text):
 
 
 if __name__ == "__main__":
-    root = tk.Tk(className="glavamasterpanel")
-    # Wczytaj zapisane ustawienia gui.conf żeby dobrać właściwy motyw przed init
-    _conf = load_gui_conf()
-    _theme = _conf.get("theme", "forest-dark")
-    apply_theme(root, theme=_theme)
-    _ensure_shift_style(root)
-    app = GlavaGUI(root)
-    root.mainloop()
+    while True:
+        root = tk.Tk(className="glavamasterpanel")
+        _conf = load_gui_conf()
+        _theme = _conf.get("theme", "forest-dark")
+        apply_theme(root, theme=_theme)
+        _ensure_shift_style(root)
+        app = GlavaGUI(root)
+        root.mainloop()
+        # mainloop() kończy się po destroy() — sprawdź czy to był restart
+        if not getattr(app, "_restart", False):
+            break

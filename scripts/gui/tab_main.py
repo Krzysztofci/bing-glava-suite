@@ -26,6 +26,7 @@ from .colors import (
 from .geometry import get_screen_info, calc_geometry, read_geometry, write_geometry
 from .glava import glava_restart, glava_toggle, restore_auto, toggle_wallpaper_lock
 from . import core
+from .color_button import ColorButton, _PIL_OK
 
 
 def build_tab_main(parent, app):
@@ -93,25 +94,19 @@ class TabMain:
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
 
-        # Przyciski kolorów — ttk.Label ze stylem dynamicznym per kolor
+        # Przyciski kolorów — ColorButton z dynamicznie kolorowanym PNG nine-slice
         srow = ttk.Frame(lf)
         srow.pack(fill="x", pady=(0, 5))
         self.color_btns = {}
-        self._color_styles = {}
-        _style = ttk.Style()
         for key in ("top", "mid", "bottom"):
-            lbl_text   = T.get(f"btn_{key}", key.capitalize())
-            style_name = f"Color_{key}.TLabel"
-            color      = self.current_colors[key]
-            fg         = self._contrast_fg(color)
-            _style.configure(style_name, background=color, foreground=fg,
-                             relief="raised", padding=(4, 4), anchor="center")
-            _style.map(style_name, relief=[("active", "sunken")])
-            lbl = ttk.Label(srow, text=lbl_text, style=style_name, cursor="hand2")
-            lbl.pack(side="left", padx=2, expand=True, fill="x")
-            lbl.bind("<Button-1>", lambda e, k=key: self._pick_color(k))
-            self.color_btns[key]    = lbl
-            self._color_styles[key] = style_name
+            lbl_text = T.get(f"btn_{key}", key.capitalize())
+            color    = self.current_colors[key]
+            cb = ColorButton(srow, key=key, text=lbl_text,
+                             color=color,
+                             command=lambda k=key: self._pick_color(k),
+                             root=self.app.root)
+            cb.widget.pack(side="left", padx=2, expand=True, fill="x")
+            self.color_btns[key] = cb
 
         ttk.Button(lf, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
                    command=self._apply_colors,
@@ -299,12 +294,9 @@ class TabMain:
             return "#ffffff"
 
     def _update_color_btn(self, key, color):
-        """Aktualizuje kolor przycisku przez styl TTK."""
-        if key not in self._color_styles:
-            return
-        fg = self._contrast_fg(color)
-        ttk.Style().configure(self._color_styles[key],
-                              background=color, foreground=fg)
+        """Aktualizuje kolor przycisku przez ColorButton.set_color()."""
+        if key in self.color_btns:
+            self.color_btns[key].set_color(color)
 
     def _pick_color(self, key):
         color = colorchooser.askcolor(color=self.current_colors[key])[1]

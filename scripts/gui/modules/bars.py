@@ -374,39 +374,43 @@ class BarsParamWidget:
     # ── Wiersz suwaka float ───────────────────────────────────────────────────
 
     def _float_slider_row(self, parent, param_def, current, row_idx):
+        # Rozpakowanie 8 elementów (bezpieczne, bo to pętla dedykowana dla Smooth)
         key, label, vmin, vmax, default, unit, step, tooltip = param_def
+    
         try:
             cur = float(current.get(key, default))
         except (ValueError, TypeError):
             cur = float(default)
+        
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = _decimals(step)
 
-        # Kluczowe: pozwalamy kolumnie nr 2 (suwak) rosnąć
         parent.columnconfigure(2, weight=1)
 
-        # 1. Etykieta
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+    # Etykieta - zwiększamy szerokość do 18, żeby pasowała do flag!
+        ttk.Label(parent, text=label, width=18, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w"
         )
 
-        # 2. Tooltip
         if tooltip:
             t = _tip(parent, "?", tooltip)
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
-        def on_change(v, k=key):
-            var.set(v)
-            self._debounce(k, v, "smooth")
+        # POPRAWKA: Funkcja on_change z bezpiecznikiem
+        def on_change(v, k=key, mi=vmin, ma=vmax):
+            # Bezpiecznik: nie pozwól wartości wyjść poza min/max
+            val = max(mi, min(ma, float(v)))
+            var.set(val)
+            self._debounce(k, val, "smooth")
 
-        # 3. Suwak (musi mieć sticky="ew", żeby się rozciągał)
+        # Tworzenie suwaka
         slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=step, is_float=True, decimals=dec,
-                             on_change=on_change)
+                         on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
 
-        # 4. Miejsce na jednostkę (wyrównanie do lewej sekcji)
+        # Pusta etykieta dla wyrównania do jednostek z sekcji Shape
         ttk.Label(parent, text=" ", width=4).grid(row=row_idx, column=3)
 
     # ── Profile szadera — callbacki ──────────────────────────────────────────

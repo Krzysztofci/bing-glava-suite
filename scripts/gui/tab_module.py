@@ -32,9 +32,9 @@ class TabModule:
         self.module = app.active_module
 
     def build(self):
-        outer = tk.Frame(self.parent, bg=COLORS["bg1"], padx=6, pady=6)
+        # ttk.Frame sam pobierze kolor tła z motywu Forest
+        outer = ttk.Frame(self.parent, padding=6) 
         outer.pack(fill="both", expand=True)
-        # Parametry modułu — plugin buduje całą zawartość łącznie z profilami
         self._build_module_params(outer)
 
     def _build_module_params(self, parent):
@@ -144,16 +144,14 @@ def _load_module_plugin(module_name):
 
 
 def _build_placeholder(parent, module, T):
-    """Pokazywany gdy moduł nie ma jeszcze wtyczki parametrów."""
-    lf = tk.LabelFrame(parent,
+    # ttk.LabelFrame automatycznie dostosuje obramowanie i tło
+    lf = ttk.LabelFrame(parent,
                         text=T.get("section_shape", "Shape & dynamics"),
-                        bg=COLORS["bg1"], fg=COLORS["text2"],
-                        font=("Arial", 8, "bold"), padx=4, pady=4,
-                        relief="flat", highlightbackground=COLORS["border2"],
-                        highlightthickness=1)
-    lf.pack(fill="x")
-    tk.Label(lf,
+                        padding=10) 
+    lf.pack(fill="x", padx=10, pady=10)
+    
+    # ttk.Label zamiast tk.Label, aby tekst pasował do motywu
+    ttk.Label(lf,
              text=T.get("label_no_plugin",
                         f"Parametry dla modułu '{module}'\nzostaną dodane wkrótce."),
-             bg=COLORS["bg1"], fg=COLORS["text3"],
-             font=("Arial", 9), justify="left").pack(pady=8)
+             justify="left").pack(pady=8)

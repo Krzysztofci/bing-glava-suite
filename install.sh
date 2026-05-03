@@ -95,7 +95,8 @@ info "Interval: every $INPUT_CRON minutes"
 section "Installing dependencies"
 
 APT_PACKAGES=(curl wget jq inotify-tools python3 python3-pil
-              python3-sklearn python3-numpy python3-tk)
+              python3-sklearn python3-numpy python3-tk
+              x11-utils python3-pip)
 MISSING=()
 for pkg in "${APT_PACKAGES[@]}"; do
     dpkg -s "$pkg" &>/dev/null || MISSING+=("$pkg")
@@ -146,6 +147,7 @@ section "Creating directories"
 mkdir -p \
     "$BIN_DIR" \
     "$GLAVAMP_DIR/gui/modules" \
+    "$GLAVAMP_DIR/gui/themes" \
     "$GLAVAMP_DIR/icon" \
     "$GLAVAMP_CONF_DIR" \
     "$SHARE_DIR/lang" \
@@ -210,12 +212,21 @@ chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 
 # Moduły gui/
 for pyfile in core.py colors.py geometry.py glava.py \
-              tab_main.py tab_module.py tab_advanced.py; do
+              tab_main.py tab_module.py tab_advanced.py \
+              theme.py widgets.py color_button.py accent_manager.py; do
     src="$SCRIPT_DIR/scripts/gui/$pyfile"
     [ -f "$src" ] || error "Missing file: $src"
     cp "$src" "$GLAVAMP_DIR/gui/$pyfile"
 done
 touch "$GLAVAMP_DIR/gui/__init__.py"
+
+# Motywy Forest-ttk-theme
+if [ -d "$SCRIPT_DIR/scripts/gui/themes" ]; then
+    cp -r "$SCRIPT_DIR/scripts/gui/themes/"* "$GLAVAMP_DIR/gui/themes/"
+    info "Installed: gui/themes/ (Forest-ttk-theme)"
+else
+    error "Missing directory: $SCRIPT_DIR/scripts/gui/themes"
+fi
 
 # Pluginy modułów
 for mod_plugin in "$SCRIPT_DIR/scripts/gui/modules/"*.py; do
@@ -232,6 +243,7 @@ cp "$SCRIPT_DIR/scripts/icon/glava-gui.png" \
     "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
 
 chown -R "$TARGET_USER:$TARGET_USER" "$GLAVAMP_DIR"
+chown -R "$TARGET_USER:$TARGET_USER" "$GLAVAMP_DIR/gui/"
 chown "$TARGET_USER:$TARGET_USER" \
     "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
 
@@ -516,12 +528,16 @@ fi
 # KROK 14: Usługa systemd
 # =============================================================================
 section "Color daemon (systemd service)"
-
 cp "$SCRIPT_DIR/systemd/glava-color-daemon.service" "$SYSTEMD_DIR/glava-color-daemon.service"
 chown -R "$TARGET_USER:$TARGET_USER" "$SYSTEMD_DIR"
 
-loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes" || \
+# Sprawdź czy linger był już włączony przed instalacją
+_linger_was_enabled=false
+if loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes"; then
+    _linger_was_enabled=true
+else
     loginctl enable-linger "$TARGET_USER"
+fi
 
 if [ -d "/run/user/$TARGET_UID" ]; then
     sudo -u "$TARGET_USER" \
@@ -535,6 +551,12 @@ if [ -d "/run/user/$TARGET_UID" ]; then
     info "Service configured and enabled."
 else
     warn "No active session — service will start on next login."
+fi
+
+# Jeśli linger był wyłączony — wyłącz ponownie po konfiguracji
+if [ "$_linger_was_enabled" = false ]; then
+    loginctl disable-linger "$TARGET_USER"
+    info "Linger disabled (was not active before installation)."
 fi
 
 # =============================================================================

@@ -6,7 +6,7 @@
 # =============================================================================
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, colorchooser
 import os, re, subprocess
 
 from .core import BIN_DIR, RC_GLSL
@@ -36,11 +36,46 @@ class TabAdvanced:
         outer.columnconfigure(1, weight=1, uniform="col")
         outer.rowconfigure(0, weight=1)
 
-        self._build_glava_flags(left)
-        self._build_audio(left)
-        self._build_rendering(right)
-        self._build_diagnostics(right)
+        self._build_theme(left)
+        #self._build_glava_flags(left)
+        self._build_audio(right)
+        #self._build_rendering(right)
+        self._build_diagnostics(left)
+        self._build_footer(outer)
 
+    # ── Motyw GUI ────────────────────────────────────────────────────────────────
+
+    def _build_theme(self, parent):
+        T = self.T
+        lf = ttk.LabelFrame(parent, text=T.get("section_theme", "Motyw GUI"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+
+        row = ttk.Frame(lf)
+        row.pack(fill="x")
+        ttk.Label(row, text=T.get("label_theme", "Motyw:"),
+                  width=8, anchor="w").pack(side="left")
+
+        THEMES = ["forest-dark", "forest-light"]
+        self._theme_var = tk.StringVar(
+            value=self.app.gui_conf.get("theme", "forest-dark"))
+        ttk.Combobox(row, textvariable=self._theme_var,
+                     values=THEMES, state="readonly",
+                     width=14).pack(side="left", padx=(4, 8))
+        ttk.Button(row, text=T.get("btn_apply_theme", "Apply"),
+                   command=self._apply_theme,
+                   style="Accent.TButton").pack(side="left")
+
+    def _apply_theme(self):
+        theme = self._theme_var.get()
+        self.app.gui_conf["theme"] = theme
+        self.app._save_gui_conf()
+        # Restart GUI — jedyna pewna metoda żeby wszystkie tk.* i ttk.*
+        # widgety oraz option_add zostały zastosowane od nowa
+        self.app._restart = True
+        self.app.root.destroy()
+
+    
     # ── GLava startup parameters ──────────────────────────────────────────────
 
     def _build_glava_flags(self, parent):
@@ -239,6 +274,55 @@ class TabAdvanced:
                    style="Accent.TButton").pack(fill="x", pady=(0, 3))
         ttk.Button(lf, text=T.get("btn_test_strut", "Test panel detection"),
                    command=self._test_strut).pack(fill="x")
+
+    def _build_footer(self, parent):
+        import webbrowser
+        T = self.T
+        
+        # Ramka dolna
+        footer = ttk.Frame(parent)
+        footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(20, 10))
+
+        # Separator dla oddzielenia od reszty opcji
+        ttk.Separator(footer, orient="horizontal").pack(fill="x", pady=(0, 15))
+
+        # Tekst pobierany z JSONa
+        promo_text = T.get("label_star_me", "Podoba Ci się to co robię? Zajrzyj na GitHub i daj mi gwiazdkę ★")
+        promo_label = ttk.Label(footer, text=promo_text, font=("", 10, "bold"))
+        promo_label.pack(pady=(0, 5))
+
+        motivation_text = T.get("label_motivation", "Zmotywuje mnie to do dalszego rozwoju programu!")
+        ttk.Label(footer, text=motivation_text).pack(pady=(0, 10))
+
+        # Kontener na przyciski
+        btn_box = ttk.Frame(footer)
+        btn_box.pack()
+
+        # Przycisk GitHub z Twoim zielonym stylem Accent
+        github_url = "https://github.com/Krzysztofci/bing-glava-suite"
+        ttk.Button(btn_box, 
+                   text=T.get("btn_github", "GitHub Repository ⭐"), 
+                   style="Accent.TButton",
+                   command=lambda: webbrowser.open(github_url)).pack(side="left", padx=5)
+
+        # Licencje
+        ttk.Button(btn_box, 
+                   text=T.get("btn_license", "License"), 
+                   width=10,
+                   command=lambda: self._show_license_text("LICENSE")).pack(side="left", padx=2)
+        
+        ttk.Button(btn_box, 
+                   text=T.get("btn_3rd_party", "Third-party Licenses"),
+                   command=lambda: self._show_license_text("CREDITS")).pack(side="left", padx=2)
+
+    def _show_license_text(self, filename):
+        # Proste okno z tekstem (możesz potem zamienić na czytanie z pliku)
+        if filename == "LICENSE":
+            msg = "\nLicensed under MIT License\n\nCopyright (c) 2026 Krzysztofci\n"
+        else:
+            msg = "\n- GLava (GPLv3) - Copyright (c) 2015 Karl Stavestrand <karl@stavestrand.no>\n\n- Forest-ttk-theme (MIT)- Copyright (c) 2021 rdbende\n"
+        
+        messagebox.showinfo(filename, msg)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

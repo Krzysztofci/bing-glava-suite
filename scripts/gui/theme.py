@@ -23,8 +23,8 @@ _THEMES_DIR = os.path.join(os.path.dirname(__file__), "themes")
 # { nazwa_ttk: ścieżka_do_.tcl }
 # ─────────────────────────────────────────────────────────────────────────────
 AVAILABLE_THEMES = {
-    "forest-dark":  os.path.join(_THEMES_DIR, "forest-dark.tcl"),
-    "forest-light": os.path.join(_THEMES_DIR, "forest-light.tcl"),
+    "forest-dark":         os.path.join(_THEMES_DIR, "forest-dark.tcl"),
+    "forest-light":        os.path.join(_THEMES_DIR, "forest-light.tcl"),
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ def apply_theme(root: tk.Tk, theme: str = "forest-dark"):
     style.theme_use(theme)
 
     # Zaktualizuj globalną paletę canvas
-    COLORS = dict(_PALETTE[theme])
+    COLORS = dict(_PALETTE.get(theme, _PALETTE["forest-dark"]))
     ACTIVE_THEME = theme
 
 

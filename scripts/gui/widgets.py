@@ -1,4 +1,3 @@
-# =============================================================================
 # gui/widgets.py
 # AccelSlider — wrapper wokół ttk.Scale z Forest-ttk-theme.
 # =============================================================================
@@ -86,14 +85,16 @@ class AccelSlider(ttk.Frame):
         # ttk.Scale: zakres 0..1 (mapujemy sami)
         self._scale_var = tk.DoubleVar(value=self._to_norm(float(value)))
 
+        self._scale = ttk.Style() # (jeśli potrzebujesz stylu)
         self._scale = ttk.Scale(
+        
             self,
             orient="horizontal",
-            from_=0.0,
-            to=1.0,
+            from_=self.vmin, # Ustawiamy realne wartości zamiast 0..1
+            to=self.vmax,
             variable=self._scale_var,
             style="Horizontal.TScale",
-            command=self._on_scale_cmd,
+            command=self._on_scale_cmd
         )
         self._scale.pack(side="left", fill="x", expand=True)
 
@@ -103,9 +104,12 @@ class AccelSlider(ttk.Frame):
         self._entry.pack(side="right", padx=(4, 0))
 
         # Drag z przyspieszeniem — nadpisuje domyślny ruch Scale
-        self._scale.bind("<ButtonPress-1>",   self._on_press)
-        self._scale.bind("<B1-Motion>",        self._on_drag)
-        self._scale.bind("<ButtonRelease-1>", self._on_release)
+        #self._scale.bind("<ButtonPress-1>",   self._on_press)
+        #self._scale.bind("<B1-Motion>",        self._on_drag)
+        #self._scale.bind("<ButtonRelease-1>", self._on_release)
+        #self._scale.bind("<KeyPress-Shift_L>", lambda e: self._set_shift(True))
+        #self._scale.bind("<KeyRelease-Shift_L>", lambda e: self._set_shift(False))
+        self._scale.bind("<Button-1>", self._smart_click)
 
         # Shift przez okno
         self.after(100, self._bind_shift_to_root)
@@ -113,8 +117,7 @@ class AccelSlider(ttk.Frame):
         self._entry.bind("<Return>",   self._on_entry)
         self._entry.bind("<FocusOut>", self._on_entry)
 
-        tip = tooltip + "\nShift = tryb precyzji" if tooltip else "Shift = tryb precyzji"
-        self._setup_tooltip(tip)
+        self._setup_tooltip()
 
         self.set(value)
 
@@ -135,26 +138,41 @@ class AccelSlider(ttk.Frame):
 
     def set(self, value):
         self._value = self._clamp(float(value))
-        self._scale_var.set(self._to_norm(self._value))
+        # ZMIANA: Wysyłamy realną wartość, a nie wynik _to_norm
+        self._scale_var.set(self._value) 
         self._update_entry()
 
     def set_range(self, vmin, vmax):
         self.vmin = float(vmin)
         self.vmax = float(vmax)
         self._value = self._clamp(self._value)
-        self._scale_var.set(self._to_norm(self._value))
+        # ZMIANA: Tutaj też realna wartość
+        self._scale_var.set(self._value) 
         self._update_entry()
 
     # ── Scale callback (kliknięcie bez drag) ──────────────────────────────────
 
     def _on_scale_cmd(self, val):
-        if self._dragging:
-            return
-        self._value = self._clamp(self._from_norm(float(val)))
+        # Pobieramy surową wartość z suwaka
+        v = float(val)
+        
+        # Wymuszamy zaokrąglenie do Twojego kroku (np. 0.001)
+        # To sprawi, że nawet jeśli suwak "chce" skoczyć o 1, 
+        # my natychmiast korygujemy to do wielokrotności stepu.
+        if self.step > 0:
+            v = round(v / self.step) * self.step
+            
+        # Ograniczamy do zakresu i zaokrąglamy dla floatów
+        self._value = max(self.vmin, min(self.vmax, v))
+        if self.is_float:
+            self._value = round(self._value, self.decimals)
+
+        # Klucz: Wymuszamy na suwaku, by wrócił na "dobrą" drogę
+        self._scale_var.set(self._value)
         self._update_entry()
+        
         if self.on_change:
             self.on_change(self._value)
-
     # ── Drag z przyspieszeniem ────────────────────────────────────────────────
 
     def _on_press(self, e):
@@ -175,11 +193,14 @@ class AccelSlider(ttk.Frame):
         w = max(self._scale.winfo_width(), 1)
 
         if self._shift:
-            new_val = self._drag_v + dx * self.step
+            # TRYB PRECYZYJNY: Ruch myszy o całą szerokość suwaka 
+            # zmienia wartość tylko o 5% zakresu (bardzo wolno)
+            span = self.vmax - self.vmin
+            new_val = self._drag_v + (dx / w) * (span * 0.05) 
         else:
-            t = dx / w
-            t_acc = math.copysign(abs(t) ** self.accel, t)
-            new_val = self._drag_v + t_acc * (self.vmax - self.vmin)
+            # TRYB NORMALNY: Liniowy 1:1
+            ratio = dx / w
+            new_val = self._drag_v + ratio * (self.vmax - self.vmin)
 
         self._value = self._clamp(new_val)
         self._scale_var.set(self._to_norm(self._value))
@@ -191,6 +212,45 @@ class AccelSlider(ttk.Frame):
         self._drag_x = None
         self._drag_v = None
         self._dragging = False
+
+    # ── Zakres chwytu i kroki──────────────────────────────────────────────────
+
+    def _smart_click(self, event):
+        # coords() zwraca [x, y] lewego górnego rogu uchwytu
+        slider_coords = self._scale.coords()
+        handle_x_left = slider_coords[0]
+        
+        # Przyjmujemy standardową szerokość uchwytu dla motywu (ok. 16-20px)
+        # Możesz to dostosować, ale 8-10px przesunięcia zazwyczaj trafia w środek
+        handle_center_x = handle_x_left + 10 
+        
+        click_x = event.x
+        
+        # Margines musi być teraz mierzony od środka
+        margin = 16 
+        dist = abs(click_x - handle_center_x)
+
+        # Jeśli klik w obrębie uchwytu (środek +/- margines) — pozwól na standardowy drag
+        if dist <= margin:
+            return
+
+        # Klik w tor → wymuszamy Twój krokowy ruch z bars.py
+        direction = 1 if click_x > handle_center_x else -1
+        new_val = self._value + (direction * self.step)
+
+        # Clamp + zaokrąglenie (zgodnie z Twoją logiką)
+        new_val = max(self.vmin, min(self.vmax, new_val))
+        if self.is_float:
+            new_val = round(new_val, self.decimals)
+        else:
+            new_val = int(round(new_val))
+
+        self.set(new_val)
+
+        if self.on_change:
+            self.on_change(new_val)
+
+        return "break"
 
     # ── Shift ─────────────────────────────────────────────────────────────────
 
@@ -206,12 +266,12 @@ class AccelSlider(ttk.Frame):
             pass
 
     def _shift_root_on(self, e):
-        if self.focus_get() is self._scale:
-            self._set_shift(True)
+        # Usuwamy sprawdzanie focusu - jeśli okno widzi Shift, suwak też ma go widzieć
+        self._set_shift(True)
 
     def _shift_root_off(self, e):
-        if self.focus_get() is self._scale or self._shift:
-            self._set_shift(False)
+        # Wyłączamy tryb precyzji po puszczeniu klawisza
+        self._set_shift(False)
 
     def _set_shift(self, on):
         if self._shift == on:
@@ -244,21 +304,45 @@ class AccelSlider(ttk.Frame):
     def _clamp(self, v):
         return max(self.vmin, min(self.vmax, v))
 
-    def _setup_tooltip(self, text):
-        tip = [None]
-        def show(e):
-            x = self._scale.winfo_rootx() + 20
-            y = self._scale.winfo_rooty() + 20
-            tip[0] = tk.Toplevel(self._scale)
-            tip[0].wm_overrideredirect(True)
-            tip[0].wm_geometry(f"+{x}+{y}")
-            tk.Label(tip[0], text=text, justify="left",
-                     bg="#ffffcc", fg="#333333",
-                     relief="solid", bd=1,
-                     font=("TkDefaultFont", 8), padx=4, pady=2).pack()
+    def _setup_tooltip(self, text=None):
+        tip_window = [None]
+        label_ref = [None]  # Referencja do etykiety, by zmieniać jej tekst
+
+        def update_tip(e):
+            current_val = self._fmt()
+            
+            if not tip_window[0]:
+                tip_window[0] = tw = tk.Toplevel(self._scale)
+                tw.wm_overrideredirect(True)
+                tw.attributes("-topmost", True)
+                
+                # Używamy ttk.Label - pobierze styl domyślny programu
+                label_ref[0] = ttk.Label(tw, text=str(current_val), padding=(8, 4))
+                label_ref[0].pack()
+            
+            x = e.x_root + 15
+            y = e.y_root + 15
+            tip_window[0].wm_geometry(f"+{x}+{y}")
+            
+            if label_ref[0]:
+                label_ref[0].config(text=str(current_val))
+            
+            # 2. Aktualizuj pozycję (podążanie za kursorem)
+            # e.x_root i e.y_root to aktualna pozycja myszy na ekranie
+            x = e.x_root + 15
+            y = e.y_root + 15
+            tip_window[0].wm_geometry(f"+{x}+{y}")
+            
+            # 3. Aktualizuj wartość "na żywo"
+            if label_ref[0]:
+                label_ref[0].config(text=str(current_val))
+
         def hide(e):
-            if tip[0]:
-                tip[0].destroy()
-                tip[0] = None
-        self._scale.bind("<Enter>", show)
+            if tip_window[0]:
+                tip_window[0].destroy()
+                tip_window[0] = None
+                label_ref[0] = None
+
+        # Bindujemy pod ruch myszy, żeby dymek "żył" podczas przesuwania
+        self._scale.bind("<Motion>", update_tip)
         self._scale.bind("<Leave>", hide)

@@ -42,9 +42,9 @@ out vec4 fragment;
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
-vec3 bottom = vec3(1.00, 1.00, 1.00);
-vec3 mid = vec3(0.00, 0.00, 0.00);
-vec3 top = vec3(1.00, 1.00, 1.00);
+vec3 bottom = vec3(0.18, 0.16, 0.40);
+vec3 mid = vec3(0.71, 0.24, 0.80);
+vec3 top = vec3(0.05, 0.76, 0.11);
 
 #define HSV_MODE 1  // 0 = RGB, 1 = HSV
 #define USE_OUTLINE 1   // 1 = outline włączony, 0 = wyłączony
