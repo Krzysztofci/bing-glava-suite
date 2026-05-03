@@ -95,7 +95,8 @@ info "Interval: every $INPUT_CRON minutes"
 section "Installing dependencies"
 
 APT_PACKAGES=(curl wget jq inotify-tools python3 python3-pil
-              python3-numpy python3-tk x11-utils)
+              python3-numpy python3-sklearn python3-tk x11-utils
+              libgl1 libglx0 libglx-mesa0 libgl1-mesa-dev libglvnd0)
 MISSING=()
 for pkg in "${APT_PACKAGES[@]}"; do
     dpkg -s "$pkg" &>/dev/null || MISSING+=("$pkg")
@@ -212,7 +213,7 @@ chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 # Moduły gui/
 for pyfile in core.py colors.py geometry.py glava.py \
               tab_main.py tab_module.py tab_advanced.py \
-              theme.py widgets.py color_button.py accent_manager.py; do
+              theme.py widgets.py color_button.py; do
     src="$SCRIPT_DIR/scripts/gui/$pyfile"
     [ -f "$src" ] || error "Missing file: $src"
     cp "$src" "$GLAVAMP_DIR/gui/$pyfile"
