@@ -56,6 +56,8 @@
     "flag_verbose_tip": "Detailed GLava logs in terminal",
     "geometry_applied": "Geometry updated.",
     "glava_start_failed": "⚠ GLava did not start — check flags",
+    "label_left_bar": "Left panel",
+    "label_right_bar": "Right panel",
     "label_alpha": "Transparency:",
     "label_avg_frames": "Avg frames",
     "label_bar_count": "Bar count",

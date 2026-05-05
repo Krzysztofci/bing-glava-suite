@@ -56,6 +56,8 @@
     "flag_verbose_tip": "Szczegółowe logi GLava w terminalu",
     "geometry_applied": "Geometria zaktualizowana.",
     "glava_start_failed": "⚠ GLava nie uruchomiła się — sprawdź flagi",
+    "label_left_bar": "Pasek lewy",
+    "label_right_bar": "Pasek prawy",
     "label_alpha": "Przeźroczystość:",
     "label_avg_frames": "Klatek avg",
     "label_bar_count": "Liczba słupków",

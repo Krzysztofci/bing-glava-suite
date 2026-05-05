@@ -421,7 +421,8 @@ class TabMain:
     def _save_settings(self):
         self.bing_cfg["BING_REGION"] = self.region_var.get()
         write_bing_config(self.bing_cfg)
-        messagebox.showinfo("", "Zapisano.")
+        msg = self.T.get("settings_saved", "Settings saved.") 
+        messagebox.showinfo("", msg)
 
     def _toggle_lock(self):
         locked = toggle_wallpaper_lock(WALLPAPER_LOCK)
