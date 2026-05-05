@@ -240,7 +240,7 @@ class CircleParamWidget:
 
         mapping = {
             "C_FILL":  "label_grad_fill",
-            "C_SMOOTH": "label_smoth_post",
+            "C_SMOOTH": "label_smooth_post",
             "INVERT":  "label_swap_lr",
         }
 
