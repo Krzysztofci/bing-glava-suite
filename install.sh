@@ -95,44 +95,76 @@ info "Interval: every $INPUT_CRON minutes"
 section "Installing dependencies"
 
 APT_PACKAGES=(curl wget jq inotify-tools python3 python3-pil
-              python3-numpy python3-sklearn python3-tk x11-utils
+              python3-sklearn python3-numpy python3-tk x11-utils
               libgl1 libglx0 libglx-mesa0 libgl1-mesa-dev libglvnd0)
+
+# --- Pasek postępu (ASCII, czytelny w każdym terminalu) ---
+_progress_bar() {
+    local current=$1 total=$2 label=$3
+    local filled=$(( current * 30 / total ))
+    local empty=$(( 30 - filled ))
+    local bar=""
+    for (( i=0; i<filled; i++ )); do bar+="█"; done
+    for (( i=0; i<empty;  i++ )); do bar+="░"; done
+    printf "\r  [%s] %2d/%d  %-28s" "$bar" "$current" "$total" "$label"
+}
+
+# --- Sprawdzanie pakietów krok po kroku ---
+echo ""
+TOTAL=${#APT_PACKAGES[@]}
 MISSING=()
-for pkg in "${APT_PACKAGES[@]}"; do
+for i in "${!APT_PACKAGES[@]}"; do
+    pkg="${APT_PACKAGES[$i]}"
+    _progress_bar $(( i + 1 )) "$TOTAL" "$pkg"
     dpkg -s "$pkg" &>/dev/null || MISSING+=("$pkg")
 done
+echo ""   # nowa linia po pasku
 
 if [ ${#MISSING[@]} -gt 0 ]; then
-    info "Missing packages: ${MISSING[*]}"
+    echo ""
+    warn "Missing packages (${#MISSING[@]}):"
+    for pkg in "${MISSING[@]}"; do
+        echo -e "    ${YEL}•${RST} $pkg"
+    done
+    echo ""
+    info "Updating package list..."
     apt-get update -qq
+    echo ""
+    info "Installing missing packages..."
     apt-get install -y "${MISSING[@]}"
+    echo ""
+    info "All packages installed successfully."
 else
-    info "All required packages are installed."
+    info "All required packages are already installed."
 fi
 
-# GLava
+# --- GLava ---
+echo ""
 GLAVA_INSTALLED=false
 if command -v glava &>/dev/null; then
     GLAVA_INSTALLED=true
     info "GLava is installed."
 else
     warn "GLava was not found."
-    echo -e "Download and install GLava automatically? [Y/n]"
+    echo -e "\nDownload and install GLava automatically? [Y/n]"
     read -rp "" INSTALL_GLAVA
     INSTALL_GLAVA="${INSTALL_GLAVA:-Y}"
     if [[ "$INSTALL_GLAVA" =~ ^[Yy]$ ]]; then
-        info "Downloading GLava from GitHub Releases..."
+        info "Fetching GLava download URL from GitHub Releases..."
         GLAVA_URL=$(curl -s https://api.github.com/repos/Krzysztofci/bing-glava-suite/releases/latest \
             | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url')
         if [ -z "$GLAVA_URL" ]; then
             warn "Failed to fetch GLava package URL. Install manually."
         else
             GLAVA_DEB="/tmp/glava_latest.deb"
-            wget -q --show-progress -O "$GLAVA_DEB" "$GLAVA_URL"
+            info "Downloading GLava .deb package..."
+            wget --show-progress -O "$GLAVA_DEB" "$GLAVA_URL"
+            echo ""
+            info "Installing GLava..."
             dpkg -i "$GLAVA_DEB" || apt-get install -f -y
             rm -f "$GLAVA_DEB"
             GLAVA_INSTALLED=true
-            info "GLava installed."
+            info "GLava installed successfully."
         fi
     else
         warn "Continuing without GLava — the visualizer will not work."
