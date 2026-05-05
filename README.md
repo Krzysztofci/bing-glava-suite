@@ -81,6 +81,8 @@ glava-gui
 
 The GUI panel has three tabs:
 
+![Panel Sterowania](screenshots/demo0.5.0.gif)
+
 - **Main** — wallpaper lock toggle, manual color picker, color presets, module switcher
 - **Module** — per-module controls (colors, gradient mode, rotation, position, profiles)
 - **Advanced** — geometry, FPS cap, GLava restart
@@ -146,10 +148,15 @@ Each module has an independent control panel in the GUI with:
 | Module | Style |
 |---|---|
 | `bars` | Classic frequency bars |
+![Bars](screenshots/bars.gif) | 
 | `graph` | Waveform / spectrum graph anchored to taskbar |
+![Graph](screenshots/graph.gif)
 | `circle` | Circular amplitude ring |
+![Circle](screenshots/circle.gif)
 | `radial` | Radial spokes with rotation |
-| `wave` | Horizontal wave |
+![Radial](screenshots/radial.gif) 
+| `wave` | Horizontal wave/Verical wave/Rotation Wave |
+![Wave](screenshots/wave.gif)
 
 ---
 
@@ -212,4 +219,4 @@ Full history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
-[MIT](LICENSE) — Krzysztof Ciombor
+[MIT](LICENSE) — KrzysztofCi
