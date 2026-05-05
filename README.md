@@ -7,6 +7,47 @@ for fine-tuning everything.
 > Tested on **Linux Mint / XFCE** · Lenovo ThinkPad T420 · Intel HD 3000
 
 ---
+## Usage
+
+### GUI
+
+```bash
+glava-gui
+```
+
+The GUI panel has three tabs:
+
+![Panel Sterowania](screenshots/demo0.5.0.gif)
+
+- **Main** — wallpaper lock toggle, manual color picker, color presets, module switcher
+- **Module** — per-module controls (colors, gradient mode, rotation, position, profiles)
+- **Advanced** — geometry, FPS cap, GLava restart
+
+
+## Shader modules
+
+Each module has an independent control panel in the GUI with:
+
+- **Color gradient** — two color endpoints, HSV or RGB interpolation
+- **Shader profiles** — named presets saved per module
+- **Rotation** — 0–360° slider (where the shader supports it)
+- **Position offsets** — X/Y sliders for fine placement
+- **HSV color wheel** — shortest-path hue interpolation for smooth gradients
+
+| Module | Style |
+|---|---|
+| `bars` | Classic frequency bars |
+![Bars](screenshots/bars.gif) | 
+| `graph` | Waveform / spectrum graph anchored to taskbar |
+![Graph](screenshots/graph.gif)
+| `circle` | Circular amplitude ring |
+![Circle](screenshots/circle.gif)
+| `radial` | Radial spokes with rotation |
+![Radial](screenshots/radial.gif) 
+| `wave` | Horizontal wave/Verical wave/Rotation Wave |
+![Wave](screenshots/wave.gif)
+
+---
 
 ## Features
 
@@ -71,21 +112,21 @@ glava --desktop &
 
 ---
 
-## Usage
+## Configuration files
 
-### GUI
+### Wallpaper downloader — `~/.config/bing-glava/config`
 
 ```bash
-glava-gui
+WALLPAPER_DIR="$HOME/Pictures/Bing"
+LOCK=0          # 1 = don't update GLava colors on wallpaper change
 ```
 
-The GUI panel has three tabs:
+### GLava — `~/.config/glava/rc.glsl`
 
-![Panel Sterowania](screenshots/demo0.5.0.gif)
+Geometry, FPS cap and active module are managed by the GUI and installer.
+Manual edits are fine — the GUI reads the file on startup.
 
-- **Main** — wallpaper lock toggle, manual color picker, color presets, module switcher
-- **Module** — per-module controls (colors, gradient mode, rotation, position, profiles)
-- **Advanced** — geometry, FPS cap, GLava restart
+---
 
 ### Scripts
 
@@ -132,47 +173,6 @@ sudo ./uninstall.sh
 
 Removes scripts, GUI files, systemd service and cron entry.
 GLava itself and wallpapers are left untouched.
-
----
-
-## Shader modules
-
-Each module has an independent control panel in the GUI with:
-
-- **Color gradient** — two color endpoints, HSV or RGB interpolation
-- **Shader profiles** — named presets saved per module
-- **Rotation** — 0–360° slider (where the shader supports it)
-- **Position offsets** — X/Y sliders for fine placement
-- **HSV color wheel** — shortest-path hue interpolation for smooth gradients
-
-| Module | Style |
-|---|---|
-| `bars` | Classic frequency bars |
-![Bars](screenshots/bars.gif) | 
-| `graph` | Waveform / spectrum graph anchored to taskbar |
-![Graph](screenshots/graph.gif)
-| `circle` | Circular amplitude ring |
-![Circle](screenshots/circle.gif)
-| `radial` | Radial spokes with rotation |
-![Radial](screenshots/radial.gif) 
-| `wave` | Horizontal wave/Verical wave/Rotation Wave |
-![Wave](screenshots/wave.gif)
-
----
-
-## Configuration files
-
-### Wallpaper downloader — `~/.config/bing-glava/config`
-
-```bash
-WALLPAPER_DIR="$HOME/Pictures/Bing"
-LOCK=0          # 1 = don't update GLava colors on wallpaper change
-```
-
-### GLava — `~/.config/glava/rc.glsl`
-
-Geometry, FPS cap and active module are managed by the GUI and installer.
-Manual edits are fine — the GUI reads the file on startup.
 
 ---
 
