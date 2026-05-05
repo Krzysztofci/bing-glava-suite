@@ -2,7 +2,7 @@ Changelog
 
 All notable changes to this project are documented here.Format based on Keep a Changelog.
 
-##[0.5.0] — 2026‑05‑05
+## [0.5.0] — 2026‑05‑05
 This release is a major architectural overhaul that replaces manual configuration with a modular Master Panel, giving you real-time, surgical control over every shader parameter through a polished GUI.
 
 ### Added
