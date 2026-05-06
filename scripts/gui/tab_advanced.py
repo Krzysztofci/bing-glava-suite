@@ -69,9 +69,12 @@ class TabAdvanced:
     def _apply_theme(self):
         theme = self._theme_var.get()
         self.app.gui_conf["theme"] = theme
+        # Anuluj debounced zapis i zapisz pozycję przed zniszczeniem okna
+        if self.app._resize_after:
+            self.app.root.after_cancel(self.app._resize_after)
+            self.app._resize_after = None
+        self.app._save_window_state()
         self.app._save_gui_conf()
-        # Restart GUI — jedyna pewna metoda żeby wszystkie tk.* i ttk.*
-        # widgety oraz option_add zostały zastosowane od nowa
         self.app._restart = True
         self.app.root.destroy()
 

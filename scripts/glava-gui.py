@@ -28,8 +28,8 @@ from gui.core import (
 )
 from gui.glava import glava_is_running
 
-WIN_W_DEFAULT = 1040
-WIN_H_DEFAULT = 792
+WIN_W_DEFAULT = 760
+WIN_H_DEFAULT = 560
 WIN_W_MIN     = 600
 WIN_H_MIN     = 460
 
@@ -307,12 +307,13 @@ class GlavaGUI:
 
     def _save_window_state(self):
         try:
-            w = self.root.winfo_width()
-            h = self.root.winfo_height()
-            x = self.root.winfo_x()
-            y = self.root.winfo_y()
-            self.gui_conf.update({"width": w, "height": h, "x": x, "y": y})
-            save_gui_conf(self.gui_conf)
+            geo = self.root.geometry()  # "WxH+X+Y"
+            import re
+            m = re.match(r'(\d+)x(\d+)\+(-?\d+)\+(-?\d+)', geo)
+            if m:
+                w, h, x, y = int(m[1]), int(m[2]), int(m[3]), int(m[4])
+                self.gui_conf.update({"width": w, "height": h, "x": x, "y": y})
+                save_gui_conf(self.gui_conf)
         except Exception:
             pass
 
@@ -328,9 +329,12 @@ class GlavaGUI:
         lang = self.lang_var.get()
         self.settings["lang"] = lang
         save_settings(self.settings)
-        # Restart GUI — tak samo jak przy zmianie motywu
-        # żeby ColorButton i inne widgety zostały zbudowane od nowa
         self._restart = True
+        # Anuluj debounced zapis i zapisz aktualną pozycję
+        if self._resize_after:
+            self.root.after_cancel(self._resize_after)
+            self._resize_after = None
+        self._save_window_state()
         self.root.destroy()
 
     def _on_expert_toggle(self):
@@ -374,11 +378,13 @@ def _bind_tooltip(widget, text):
 if __name__ == "__main__":
     while True:
         root = tk.Tk(className="glavamasterpanel")
+        root.withdraw()
         _conf = load_gui_conf()
         _theme = _conf.get("theme", "forest-dark")
         apply_theme(root, theme=_theme)
         _ensure_shift_style(root)
         app = GlavaGUI(root)
+        root.deiconify()
         root.mainloop()
         # mainloop() kończy się po destroy() — sprawdź czy to był restart
         if not getattr(app, "_restart", False):
