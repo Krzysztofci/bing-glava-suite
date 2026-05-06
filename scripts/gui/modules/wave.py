@@ -215,18 +215,18 @@ class WaveParamWidget:
             self._accel_sliders[key] = slider
 
         # Odblokuj pełny zakres
-        self._unlock_var = tk.BooleanVar(value=False)
-        unlock_row = ttk.Frame(lf)
-        unlock_row.grid(row=4, column=0, columnspan=4,
-                        padx=10, pady=(6, 0), sticky="w")
-        ttk.Checkbutton(
-            unlock_row,
-            text=self.T.get("label_unlock_range", "Odblokuj pełny zakres"),
-            variable=self._unlock_var,
-            command=self._on_unlock_toggle,
-        ).pack(side="left")
-        _tip(unlock_row, "?", self.T.get("tooltip_unlock_range",
-             "Rozszerza zakres długości fali 3× i offsetów do przekątnej ekranu"))
+        #self._unlock_var = tk.BooleanVar(value=False)
+        #unlock_row = ttk.Frame(lf)
+        #unlock_row.grid(row=4, column=0, columnspan=4,
+        #                padx=10, pady=(6, 0), sticky="w")
+        #ttk.Checkbutton(
+        #    unlock_row,
+        #    text=self.T.get("label_unlock_range", "Odblokuj pełny zakres"),
+        #    variable=self._unlock_var,
+        #    command=self._on_unlock_toggle,
+        #).pack(side="left")
+        #_tip(unlock_row, "?", self.T.get("tooltip_unlock_range",
+        #     "Rozszerza zakres długości fali 3× i offsetów do przekątnej ekranu"))
 
     def _on_rotate(self, val):
         _write_rotate(_wave_glsl(), math.radians(float(val)))
@@ -359,17 +359,27 @@ class WaveParamWidget:
         self._accel_sliders[key] = slider
 
     def _clamp_thickness(self, key, value):
+        # MIN nie może przekroczyć MAX
         if key == "MIN_THICKNESS" and "MAX_THICKNESS" in self.vars:
             mx = self.vars["MAX_THICKNESS"].get()
             if value > mx:
+                # aktualizuj zmienną
                 self.vars["MAX_THICKNESS"].set(value)
+                # aktualizuj suwak
+                self._accel_sliders["MAX_THICKNESS"].set(value)
+                # zapisz do GLSL
                 _write_defines(_wave_glsl(), {"MAX_THICKNESS": value}, SHAPE_PARAMS)
+
+        # MAX nie może spaść poniżej MIN
         elif key == "MAX_THICKNESS" and "MIN_THICKNESS" in self.vars:
             mn = self.vars["MIN_THICKNESS"].get()
             if value < mn:
                 self.vars["MIN_THICKNESS"].set(value)
+                self._accel_sliders["MIN_THICKNESS"].set(value)
                 _write_defines(_wave_glsl(), {"MIN_THICKNESS": value}, SHAPE_PARAMS)
+
         return value
+
 
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
@@ -491,9 +501,9 @@ def _write_defines(path, params, param_defs):
     with open(path) as f: content = f.read()
     for key, val in params.items():
         if key not in keys: continue
-        new = re.sub(rf'^(#define\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#define {key} {val}\n"
+        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_int(path, key, default=0):
@@ -508,9 +518,9 @@ def _read_int(path, key, default=0):
 def _write_int(path, key, value):
     if not os.path.exists(path): return
     with open(path) as f: content = f.read()
-    new = re.sub(rf'^(#define\s+{key}\s+)-?\d+', rf'\g<1>{int(value)}',
-                 content, flags=re.MULTILINE)
-    content = new if new != content else content + f"\n#define {key} {int(value)}\n"
+    content = re.sub(rf'^#define\s+{key}\s+-?\d+\n?', '',
+                     content, flags=re.MULTILINE)
+    content = content.rstrip() + f"\n#define {key} {int(value)}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_rotate(path):
@@ -526,9 +536,9 @@ def _write_rotate(path, rad):
     if not os.path.exists(path): return
     with open(path) as f: content = f.read()
     val = f"{rad:.6f}"
-    new = re.sub(r'^(#define\s+ROTATE\s+)[0-9.eE+\-]+', rf'\g<1>{val}',
-                 content, flags=re.MULTILINE)
-    content = new if new != content else content + f"\n#define ROTATE {val}\n"
+    content = re.sub(r'^#define\s+ROTATE\s+[0-9.eE+\-]+\n?', '',
+                     content, flags=re.MULTILINE)
+    content = content.rstrip() + f"\n#define ROTATE {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_smooth(path):

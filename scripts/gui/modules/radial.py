@@ -574,15 +574,9 @@ def _read_raw(path):
 def _write_define_int(path, key, val):
     if not os.path.exists(path): return
     with open(path) as f: content = f.read()
-    pattern = rf'^#define\s+{key}\s+\S+[ \t]*$'
-    matches = list(re.finditer(pattern, content, re.MULTILINE))
-    if matches:
-        first = matches[0].start()
-        content = re.sub(pattern, '', content, flags=re.MULTILINE)
-        content = re.sub(r'\n{3,}', '\n\n', content)
-        content = content[:first] + f'#define {key} {val}\n' + content[first:]
-    else:
-        content = content.rstrip() + f'\n#define {key} {val}\n'
+    content = re.sub(rf'^#define\s+{key}\s+\S+[ \t]*\n?', '',
+                     content, flags=re.MULTILINE)
+    content = content.rstrip() + f'\n#define {key} {val}\n'
     with open(path, "w") as f: f.write(content)
 
 def _write_define_float(path, key, val, step):
@@ -592,15 +586,9 @@ def _write_define_float(path, key, val, step):
 def _write_define_raw(path, key, val_str):
     if not os.path.exists(path): return
     with open(path) as f: content = f.read()
-    pattern = rf'^#define\s+{key}\s+.+$'
-    matches = list(re.finditer(pattern, content, re.MULTILINE))
-    if matches:
-        first = matches[0].start()
-        content = re.sub(pattern, '', content, flags=re.MULTILINE)
-        content = re.sub(r'\n{3,}', '\n\n', content)
-        content = content[:first] + f'#define {key} {val_str}\n' + content[first:]
-    else:
-        content = content.rstrip() + f'\n#define {key} {val_str}\n'
+    content = re.sub(rf'^#define\s+{key}\s+.+\n?', '',
+                     content, flags=re.MULTILINE)
+    content = content.rstrip() + f'\n#define {key} {val_str}\n'
     with open(path, "w") as f: f.write(content)
 
 def _read_flags(path):

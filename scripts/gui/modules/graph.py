@@ -419,9 +419,9 @@ def _write_defines(path, params, param_defs):
     with open(path) as f: content = f.read()
     for key, val in params.items():
         if key not in keys: continue
-        new = re.sub(rf'^(#define\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#define {key} {val}\n"
+        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_flag_defines(path):
@@ -468,7 +468,7 @@ def _write_smooth(path, params):
         p = next(x for x in SMOOTH_PARAMS if x[0] == key)
         dec = _decimals(p[6])
         sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        new = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#request {key} {sv}\n"
+        content = re.sub(rf'^#request\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#request {key} {sv}\n"
     with open(path, "w") as f: f.write(content)

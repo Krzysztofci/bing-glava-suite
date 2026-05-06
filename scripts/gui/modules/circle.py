@@ -397,8 +397,8 @@ class CircleParamWidget:
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _write_rotate(self):
-        deg = int(self.rotate_var.get())
-        _write_raw_define(_circle_glsl(), "ROTATE", _deg_to_rotate(deg))
+        deg = self.rotate_var.get()
+        _write_rotate(_circle_glsl(), _deg_to_rotate(deg))
         self._schedule_restart()
 
     def _write_flag(self, key, var):
@@ -536,15 +536,24 @@ def _read_defines(path, param_defs):
             except ValueError: pass
     return result
 
+def _write_rotate(path, rad):
+    if not os.path.exists(path): return
+    with open(path) as f: content = f.read()
+    val = str(rad)
+    content = re.sub(r'^#define\s+ROTATE\s+.*$\n?', '',
+                     content, flags=re.MULTILINE)
+    content = content.rstrip() + f"\n#define ROTATE {val}\n"
+    with open(path, "w") as f: f.write(content)
+
 def _write_defines(path, params, param_defs):
     if not os.path.exists(path): return
     keys = {p[0] for p in param_defs}
     with open(path) as f: content = f.read()
     for key, val in params.items():
         if key not in keys: continue
-        new = re.sub(rf'^(#define\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#define {key} {val}\n"
+        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_flag_defines(path):
@@ -564,9 +573,9 @@ def _write_flag_defines(path, params):
     with open(path) as f: content = f.read()
     for key, val in params.items():
         if key not in keys: continue
-        new = re.sub(rf'^(#define\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#define {key} {val}\n"
+        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#define {key} {val}\n"
     with open(path, "w") as f: f.write(content)
 
 def _read_raw_define(path, key):
@@ -612,7 +621,7 @@ def _write_smooth(path, params):
         p = next(x for x in SMOOTH_PARAMS if x[0] == key)
         dec = _decimals(p[6])
         sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        new = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#request {key} {sv}\n"
+        content = re.sub(rf'^#request\s+{key}\s+\S+\n?', '',
+                         content, flags=re.MULTILINE)
+        content = content.rstrip() + f"\n#request {key} {sv}\n"
     with open(path, "w") as f: f.write(content)
