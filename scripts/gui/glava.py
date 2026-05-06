@@ -121,8 +121,10 @@ def update_autostart(extra_flags):
 
 
 def glava_toggle():
-    subprocess.run(["pkill", "-x", "glava"]) if glava_is_running() \
-        else glava_start()
+    if glava_is_running():
+        subprocess.run(["pkill", "-x", "glava"])
+    else:
+        glava_start(env={"XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"})
 
 
 def _write_rc_module(module):

@@ -398,7 +398,7 @@ class TabMain:
         if si[4] > 0:
             parts.append(f"{T.get('label_bottom_bar', 'Bottom panel')}: {si[4]}px")
         bar_info = ", ".join(parts) if parts else T.get("label_no_bar", "Brak paska")
-        messagebox.showinfo(T.get("auto_geo_title", "Auto-konfiguracja geometrii"),
+        messagebox.showinfo(self.T.get("auto_geo_title", "Auto-konfiguracja geometrii"),
                             f"{T.get('auto_geo_info', 'Wykryto')}: {si[0]}×{si[1]}\n{bar_info}\n"
                             f"X={x}  Y={y}  W={w}  H={h}")
         for k, v in (("x", x), ("y", y), ("w", w), ("h", h)):
@@ -411,13 +411,13 @@ class TabMain:
             x, y = int(self.geo_vars["x"].get()), int(self.geo_vars["y"].get())
             w, h = int(self.geo_vars["w"].get()), int(self.geo_vars["h"].get())
         except ValueError:
-            messagebox.showerror("", T.get("error_int_only", "Wartości muszą być liczbami całkowitymi."))
+            messagebox.showerror("", self.T.get("error_int_only", "Wartości muszą być liczbami całkowitymi."))
             return
         if w <= 0 or h <= 0:
-            messagebox.showerror("", T.get("error_positive_only", "Szerokość i wysokość muszą być > 0."))
+            messagebox.showerror("", self.T.get("error_positive_only", "Szerokość i wysokość muszą być > 0."))
             return
         if write_geometry(core.RC_GLSL, x, y, w, h):
-            messagebox.showinfo("", T.get("geometry_applied", "Geometria zaktualizowana."))
+            messagebox.showinfo("", self.T.get("geometry_applied", "Geometria zaktualizowana."))
             glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _save_settings(self):
@@ -428,6 +428,7 @@ class TabMain:
 
     def _toggle_lock(self):
         locked = toggle_wallpaper_lock(WALLPAPER_LOCK)
-        self.lock_btn.config(text=(
-            "Odblokuj tapetę" if locked else "Zablokuj tapetę"))
+        self.lock_btn.config(
+            text=self.T.get("btn_unlock_wallpaper") if locked else self.T.get("btn_lock_wallpaper")
+        )
         self.app.update_status()
