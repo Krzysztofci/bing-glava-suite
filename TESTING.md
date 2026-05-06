@@ -26,8 +26,17 @@ quiet splash toram
 
 Press **F10** to boot. The system will take longer to start than usual
 (copying to RAM), but will be significantly faster once running.
+### 2. Before install
 
-### 2. Install the suite
+Before running the installer on a live CD/USB environment, remove the CD-ROM
+repository from apt sources, otherwise the installation will fail:
+
+    sudo sed -i '/cdrom/d' /etc/apt/sources.list
+
+This is required because live systems include a cdrom: entry in sources.list
+that causes apt to fail when the disc is not accessible.
+
+### 3. Install the suite
 
 ```bash
 sudo apt install git
@@ -39,7 +48,7 @@ sudo ./install.sh
 Follow the installer prompts. GLava will be downloaded automatically
 from GitHub Releases if not present.
 
-### 3. Memory management
+### 4. Memory management
 
 On an 8 GB machine, RAM is shared between the live system, the suite, and
 any audio player. After installation:
@@ -58,7 +67,7 @@ echo 3 | sudo tee /proc/sys/vm/drop_caches
 **Do not open a browser** — it will consume too much RAM and make the test
 unreliable.
 
-### 4. Test audio playback
+### 5. Test audio playback
 
 GLava needs an audio source to visualize. `mpv` works well in a live
 environment and is lightweight. Install it:
@@ -76,7 +85,7 @@ bash tools/radio.sh
 This plays internet radio through `mpv` without a GUI — enough to drive all
 GLava shader modules for visual testing.
 
-### 5. What to verify
+### 6. What to verify
 
 - [ ] Installer completes without errors
 - [ ] GLava starts automatically after install (or after `systemctl --user start glava-color-daemon`)
