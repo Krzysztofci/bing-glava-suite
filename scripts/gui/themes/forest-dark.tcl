@@ -418,7 +418,7 @@ namespace eval ttk::theme::forest-dark {
                 disabled $I(border-basic) \
                 focus $I(border-accent) \
                 hover $I(border-hover) \
-            ] -border 5 -padding {8} -sticky nsew
+            ] -border 5 -padding {4} -sticky nsew
 
         # Combobox
         ttk::style map TCombobox -selectbackground [list \
