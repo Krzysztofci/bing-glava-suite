@@ -5,7 +5,7 @@ CONFIG_DIR="$HOME/.config/glava"
 BIN_DIR="$HOME/.local/bin"
 
 echo "==> Tworzenie katalogów i kopiowanie plików .glsl..."
-for module in bars circle wave radial; do
+for module in bars circle wave radial graph; do
     mkdir -p "$CONFIG_DIR/$module"
     cp -rf "/etc/xdg/glava/$module/" "$CONFIG_DIR/$module/"
     cp -f "/etc/xdg/glava/$module.glsl" "$CONFIG_DIR/$module.glsl"
@@ -13,7 +13,7 @@ for module in bars circle wave radial; do
 done
 
 echo "==> Instalacja szablonów shaderów..."
-for frag in bars_colors.frag circle_colors.frag wave_colors.frag radial_colors.frag; do
+for frag in bars_colors.frag circle_colors.frag wave_colors.frag radial_colors.frag graph_colors.frag; do
     src="$SCRIPT_DIR/config/$frag"
     dst="$CONFIG_DIR/$frag"
     if [ -f "$src" ]; then

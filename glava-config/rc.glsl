@@ -49,7 +49,7 @@
 #request settitle "GLava"
 
 /* Window geometry (x, y, width, height) */
-#request setgeometry 0 0 1600 900
+#request setgeometry 0 -40 1600 900
 
 /* Window background color (RGBA format).
    Does not work with `setopacity "xroot"` */
@@ -128,11 +128,11 @@
    
    This will delay data output by one update frame, so it can
    desync audio with visual effects on low UPS configs. */
-#request setinterpolate false
+#request setinterpolate true
 
 /* Frame limiter, set to the frames per second (FPS) desired or
    simply set to zero (or lower) to disable the frame limiter. */
-#request setframerate 0
+#request setframerate 60
 
 /* Suspends rendering if a fullscreen window is focused while
    GLava is still visible (ie. on another monitor). This prevents

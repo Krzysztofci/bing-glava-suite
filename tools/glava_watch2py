@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+glava_watch.py — file change monitor for GLava + GlavaMP configs
+Watches .glsl, .frag, and .json/.ini config files for real-time changes.
+Useful for debugging GUI actions during development and live testing.
+
+Usage:
+    python3 glava_watch.py [--verbose]
+"""
+
+import os
+import sys
+import time
+
+# ── Watched locations ────────────────────────────────────────────────────────
+
+WATCH_DIRS = {
+    "glava":   os.path.expanduser("~/.config/glava/"),
+    "GlavaMP": os.path.expanduser("~/.config/GlavaMP/"),
+}
+
+WATCH_EXTENSIONS = {".glsl", ".frag", ".json", ".ini", ".conf"}
+
+SKIP_DIRS = {"backup_install"}
+
+VERBOSE = "--verbose" in sys.argv or "-v" in sys.argv
+
+# ── File scanning ────────────────────────────────────────────────────────────
+
+def scan_files():
+    """Return {path: [lines]} for all watched files that exist."""
+    data = {}
+    for label, base in WATCH_DIRS.items():
+        if not os.path.isdir(base):
+            continue
+        for root, dirs, files in os.walk(base):
+            # prune excluded dirs in-place
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+            for fname in files:
+                if any(fname.endswith(ext) for ext in WATCH_EXTENSIONS):
+                    path = os.path.join(root, fname)
+                    try:
+                        with open(path, "r", errors="replace") as f:
+                            data[path] = f.readlines()
+                    except OSError:
+                        pass
+    return data
+
+
+def label_for(path):
+    """Return a short human-readable label: 'glava › rc.glsl'."""
+    for label, base in WATCH_DIRS.items():
+        if path.startswith(base):
+            rel = os.path.relpath(path, base)
+            return f"{label} › {rel}"
+    return path
+
+
+def file_type(path):
+    _, ext = os.path.splitext(path)
+    return ext.lstrip(".")
+
+# ── Diff helpers ─────────────────────────────────────────────────────────────
+
+def print_diff(old_lines, new_lines):
+    max_len = max(len(old_lines), len(new_lines))
+    changes = 0
+    for i in range(max_len):
+        old = old_lines[i].rstrip() if i < len(old_lines) else None
+        new = new_lines[i].rstrip() if i < len(new_lines) else None
+        if old == new:
+            continue
+        changes += 1
+        if VERBOSE:
+            if old is None:
+                print(f"    +  {new}")
+            elif new is None:
+                print(f"    -  {old}")
+            else:
+                print(f"    -  {old}")
+                print(f"    +  {new}")
+        else:
+            # non-verbose: show only first 8 changed lines
+            if changes <= 8:
+                if old is None:
+                    print(f"    +  {new}")
+                elif new is None:
+                    print(f"    -  {old}")
+                else:
+                    print(f"    -  {old}")
+                    print(f"    +  {new}")
+            elif changes == 9:
+                print(f"    … (use --verbose to see all changes)")
+
+# ── Main loop ────────────────────────────────────────────────────────────────
+
+def main():
+    print("━" * 58)
+    print("  glava_watch.py — GLava / GlavaMP file monitor")
+    print("━" * 58)
+
+    missing = [f"{l}: {b}" for l, b in WATCH_DIRS.items()
+               if not os.path.isdir(b)]
+    if missing:
+        print("  ⚠  Directories not found (install first?):")
+        for m in missing:
+            print(f"     {m}")
+
+    watching = [b for b in WATCH_DIRS.values() if os.path.isdir(b)]
+    if not watching:
+        print("  Nothing to watch — exiting.")
+        sys.exit(1)
+
+    print(f"  Watching: {', '.join(WATCH_DIRS.keys())}")
+    print(f"  Types:    {', '.join(sorted(WATCH_EXTENSIONS))}")
+    print(f"  Verbose:  {'yes' if VERBOSE else 'no  (use --verbose for full diffs)'}")
+    print("━" * 58)
+    print()
+
+    last_state = scan_files()
+    print(f"  {len(last_state)} file(s) indexed. Ctrl+C to stop.\n")
+
+    try:
+        while True:
+            time.sleep(0.5)
+            current_state = scan_files()
+            ts = time.strftime("%H:%M:%S")
+
+            # changed files
+            for path, lines in current_state.items():
+                if path in last_state and lines != last_state[path]:
+                    print(f"[{ts}] CHANGED  {label_for(path)}  [{file_type(path)}]")
+                    print_diff(last_state[path], lines)
+                    print()
+
+            # new files
+            for path in current_state:
+                if path not in last_state:
+                    print(f"[{ts}] NEW      {label_for(path)}")
+                    print()
+
+            # deleted files
+            for path in last_state:
+                if path not in current_state:
+                    print(f"[{ts}] DELETED  {label_for(path)}")
+                    print()
+
+            last_state = current_state
+
+    except KeyboardInterrupt:
+        print("\nStopped.")
+
+
+if __name__ == "__main__":
+    main()

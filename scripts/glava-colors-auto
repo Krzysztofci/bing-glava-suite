@@ -25,7 +25,7 @@ fi
 
 # Mapowanie modułu → szablon i plik docelowy
 case "$ACTIVE_MODULE" in
-    graph)  TEMPLATE="$CONFIG/graph_red.frag";    LIVEFRAG="$CONFIG/graph/1.frag"  ;;
+    graph)  TEMPLATE="$CONFIG/graph_colors.frag";    LIVEFRAG="$CONFIG/graph/1.frag"  ;;
     bars)   TEMPLATE="$CONFIG/bars_colors.frag";   LIVEFRAG="$CONFIG/bars/1.frag"   ;;
     circle) TEMPLATE="$CONFIG/circle_colors.frag"; LIVEFRAG="$CONFIG/circle/1.frag" ;;
     wave)   TEMPLATE="$CONFIG/wave_colors.frag";   LIVEFRAG="$CONFIG/wave/1.frag"   ;;
@@ -33,7 +33,7 @@ case "$ACTIVE_MODULE" in
     *)
         echo "Nieznany moduł: $ACTIVE_MODULE, używam graph." >&2
         ACTIVE_MODULE="graph"
-        TEMPLATE="$CONFIG/graph_red.frag"
+        TEMPLATE="$CONFIG/graph_colors.frag"
         LIVEFRAG="$CONFIG/graph/1.frag"
         ;;
 esac

@@ -11,7 +11,7 @@ export PATH=/usr/bin:/bin:/usr/local/bin
 
 CONFIG="$HOME/.config/glava"
 FLAG="$CONFIG/red.shift"
-REDFRAG="$CONFIG/graph_red.frag"
+REDFRAG="$CONFIG/graph_colors.frag"
 LIVEFRAG="$CONFIG/graph/1.frag"
 
 mkdir -p "$CONFIG"

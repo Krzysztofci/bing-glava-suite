@@ -13,17 +13,12 @@ out vec4 fragment;
 #include "@wave.glsl"
 #include ":wave.glsl"
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-#define index(offset) ((texture(audio_l, (gl_FragCoord.x + offset) / screen.x).r - 0.5) * AMPLIFY) + 0.5F
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
-vec3 bottom = vec3(0.00, 1.00, 0.00);
-vec3 mid = vec3(0.00, 0.00, 1.00);
-vec3 top = vec3(1.00, 0.00, 0.00);
+vec3 bottom = vec3(0.18, 0.09, 0.40);
+vec3 mid = vec3(0.71, 0.15, 0.80);
+vec3 top = vec3(0.76, 0.85, 0.11);
 
 #define HSV_MODE 1  // 0 = RGB, 1 = HSV
 
@@ -57,34 +52,59 @@ vec4 gradient_color(float t) {
     return vec4(col, 1.0);
 #endif
 }
-
-vec4 outline_color(vec4 base) {
-    return vec4(min(base.rgb * 1.5, vec3(1.0)), base.a);
-}
 // ─────────────────────────────────────────────────────────────────────────────
 
 void main() {
-    float os   = index(0);
-    float adj0 = index(-1);
-    float adj1 = index(1);
+    fragment = vec4(0.0, 0.0, 0.0, 0.0);
+
+    // ── 1. Środek fali (centrum rotacji i pozycjonowania) ─────────────────────
+    vec2 wave_center = vec2(
+        float(screen.x) * 0.5 + float(CENTER_OFFSET_X),
+        float(screen.y) * 0.5 + float(CENTER_OFFSET_Y)
+    );
+
+    // ── 2. Współrzędna fragmentu względem środka fali ─────────────────────────
+    vec2 p = gl_FragCoord.xy - wave_center;
+
+    // ── 3. Rotacja (obrót wokół środka fali) ─────────────────────────────────
+    float sA = sin(ROTATE);
+    float cA = cos(ROTATE);
+    vec2 r = vec2(
+        p.x * cA + p.y * sA,   // oś wzdłuż fali (lokalne X)
+       -p.x * sA + p.y * cA    // oś prostopadła do fali (lokalne Y)
+    );
+
+    // ── 4. Przycinanie do długości fali ───────────────────────────────────────
+    // WAVE_LENGTH = 0 → pełna szerokość ekranu
+    float half_len = (WAVE_LENGTH > 0)
+        ? float(WAVE_LENGTH) * 0.5
+        : float(screen.x) * 0.5;
+
+    if (abs(r.x) > half_len) return;  // fragment poza długością fali
+
+    // ── 5. Próbkowanie audio w przestrzeni po rotacji ─────────────────────────
+    // Normalizacja pozycji wzdłuż fali do zakresu [0, 1]
+    float tex_pos = (r.x + half_len) / (half_len * 2.0);
+
+    float os   = (texture(audio_l, tex_pos           ).r - 0.5) * AMPLIFY;
+    float adj0 = (texture(audio_l, tex_pos - 1.0 / (half_len * 2.0)).r - 0.5) * AMPLIFY;
+    float adj1 = (texture(audio_l, tex_pos + 1.0 / (half_len * 2.0)).r - 0.5) * AMPLIFY;
+
+    // ── 6. Wysokość fali w lokalnym Y ─────────────────────────────────────────
+    float wave_y = os;   // oś Y fali (0 = środek fali)
 
     float s0 = adj0 - os;
     float s1 = adj1 - os;
-
     float dmax = max(s0, s1);
     float dmin = min(s0, s1);
 
-    float s = (os + (screen.y * 0.5F) - 0.5F);
-    float diff = gl_FragCoord.y - s;
+    float diff = r.y - wave_y;
 
-    if (abs(diff) < clamp(abs(s - (screen.y * 0.5)) * 6, MIN_THICKNESS, MAX_THICKNESS)
-        || (diff <= dmax && diff >= dmin)) {
+    // ── 7. Grubość linii ──────────────────────────────────────────────────────
+    float thickness = clamp(abs(wave_y) * 6.0, MIN_THICKNESS, MAX_THICKNESS);
 
-        float t = clamp((s - (screen.y * 0.5F)) / (AMPLIFY * 0.5) + 0.5, 0.0, 1.0);
+    if (abs(diff) < thickness || (diff <= dmax && diff >= dmin)) {
+        float t = clamp(wave_y / (AMPLIFY * 0.5) + 0.5, 0.0, 1.0);
         fragment = gradient_color(t);
-
-    } else {
-        fragment = vec4(0, 0, 0, 0);
     }
 }
-

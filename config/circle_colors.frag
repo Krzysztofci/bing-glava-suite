@@ -10,11 +10,7 @@ uniform int audio_sz;
 #include "@circle.glsl"
 #include ":circle.glsl"
 
-// Nadpisz grubość linii (domyślnie 1.5 w circle.glsl)
-#ifdef C_LINE
-#undef C_LINE
-#endif
-#define C_LINE 3
+// C_LINE pochodzi z circle.glsl — sterowany przez GUI
 
 #request uniform "audio_l" audio_l
 #request transform audio_l "window"
@@ -41,18 +37,25 @@ out vec4 fragment;
 // ─────────────────────────────────────────────────────────────────────────────
 
 float apply_smooth(float theta) {
-    float idx = theta + ROTATE;
-    float dir = mod(abs(idx), TWOPI);
-    if (dir > PI)
-        idx = -sign(idx) * (TWOPI - dir);
+    // 1. Obliczamy kąt z obrotem i sprowadzamy do zakresu [0, TWOPI]
+    float idx = mod(theta + ROTATE, TWOPI);
+    
+    // 2. Normalizacja do zakresu [-PI, PI] - to rozwiązuje błąd 178-360*
+    if (idx > PI)  idx -= TWOPI;
+    if (idx < -PI) idx += TWOPI;
+
+    // 3. Obsługa inwersji (jeśli potrzebna)
     if (INVERT > 0)
         idx = -idx;
-    
-    float pos = abs(idx) / (PI + 0.001F);
+
+    // 4. Mapowanie na pozycję w samplerze audio (0.0 do 1.0)
+    float pos = clamp(abs(idx) / PI, 0.0, 1.0);
+
     #define smooth_f(tex) smooth_audio(tex, audio_sz, pos)
     float v;
     if (idx > 0) v = smooth_f(audio_l);
     else         v = smooth_f(audio_r);
+    
     v *= AMPLIFY;      
     #undef smooth_f
     return v;
@@ -61,9 +64,9 @@ float apply_smooth(float theta) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM KOLORÓW — ZGODNY Z GUI
 // ─────────────────────────────────────────────────────────────────────────────
-vec3 bottom = vec3(0.50, 0.00, 0.00);
-vec3 mid    = vec3(0.90, 0.10, 0.10);
-vec3 top    = vec3(0.80, 0.80, 0.80);
+vec3 bottom = vec3(0.18, 0.09, 0.40);
+vec3 mid = vec3(0.71, 0.15, 0.80);
+vec3 top = vec3(0.76, 0.85, 0.11);
 
 #define HSV_MODE 1  // 0 = RGB, 1 = HSV
 
@@ -106,8 +109,8 @@ vec4 outline_color(vec4 base) {
 void main() {
     fragment = vec4(0, 0, 0, 0);
 
-    float dx = gl_FragCoord.x - (screen.x / 2);
-    float dy = gl_FragCoord.y - (screen.y / 2);
+    float dx = gl_FragCoord.x - (screen.x / 2) + CENTER_OFFSET_X;
+    float dy = gl_FragCoord.y - (screen.y / 2) + CENTER_OFFSET_Y;
 
     float theta = atan(dy, dx);
     float d = sqrt((dx * dx) + (dy * dy));
