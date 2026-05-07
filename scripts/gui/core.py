@@ -107,7 +107,7 @@ def get_template(module=None):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_settings():
-    defaults = {"lang": "pl", "gradient_mode": "rgb"}
+    defaults = {"lang": "en", "gradient_mode": "rgb"}
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE) as f:

@@ -139,8 +139,8 @@ class BarsParamWidget:
 
         left  = TFrame(self.parent, level=0)
         right = TFrame(self.parent, level=0)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
         self.parent.columnconfigure(0, weight=1, uniform="bc")
         self.parent.columnconfigure(1, weight=1, uniform="bc")
         self.parent.rowconfigure(0, weight=1)
@@ -156,8 +156,8 @@ class BarsParamWidget:
     # ── Kształt ──────────────────────────────────────────────────────────────
 
     def _build_shape(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_shape", "Kształt"), font=("Arial", 9, "bold"))
-        lf.pack(fill="x", pady=(0, 5))
+        lf = ttk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py
 
         # MAPA: Co ma zostać podmienione
         mapping = {
@@ -168,7 +168,7 @@ class BarsParamWidget:
             "AMPLIFY": "label_gain"
         }
 
-        for p in SHAPE_PARAMS:
+        for idx, p in enumerate (SHAPE_PARAMS):
             p_list = list(p)
             json_key = mapping.get(p[0])
             
@@ -179,16 +179,17 @@ class BarsParamWidget:
                 tk_key = json_key.replace("label_", "tooltip_")
                 p_list[6] = self.T.get(tk_key, p[6])
             
-            self._slider_row(lf, tuple(p_list), current, "bars_glsl")
+            self._slider_row(lf, tuple(p_list), current, "bars_glsl", idx)
 
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf = ttk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"), padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
 
-        # To musi być wewnątrz funkcji!
+        # Konfiguracja kolumn, żeby pasowały do tych z suwaków
+        lf.columnconfigure(2, weight=1)
+
         mapping_flags = {
             "DIRECTION":    "label_invert_spectrum",
             "FLIP":         "label_flip_v",
@@ -197,43 +198,39 @@ class BarsParamWidget:
             "DISABLE_MONO": "label_disable_mono"
         }
 
-        for key, label, tooltip in FLAG_PARAMS:
-            # Teraz 'current' będzie widoczne, bo jest argumentem funkcji powyżej
+        for idx, (key, label, tooltip) in enumerate(FLAG_PARAMS):
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
             
             json_key = mapping_flags.get(key)
-            if json_key:
-                translated_label = self.T.get(json_key, label)
-                tip_key = json_key.replace("label_", "tooltip_")
-                translated_tip = self.T.get(tip_key, tooltip)
-            else:
-                translated_label = label
-                translated_tip = tooltip
+            translated_label = self.T.get(json_key, label) if json_key else label
+            tip_key = json_key.replace("label_", "tooltip_") if json_key else None
+            translated_tip = self.T.get(tip_key, tooltip) if tip_key else tooltip
 
-            if not translated_tip:
-                translated_tip = tooltip
-
-            row = tk.Frame(lf, bg=COLORS["bg1"])
-            row.pack(fill="x", pady=1)
-            tk.Checkbutton(row, text=translated_label, variable=var,
-                           font=("Arial", 9),
-                           bg=COLORS["bg1"], fg=COLORS["text2"],
-                           activebackground=COLORS["bg2"],
-                           activeforeground=COLORS["text"],
-                           selectcolor=COLORS["bg2"],
-                           relief="flat", bd=0,
-                           command=lambda k=key, v=var: self._write_flag(k, v)
-                           ).pack(side="left")
+            # Checkbox ląduje TYLKO w kolumnie 0. 
+            # Ustawiamy width=20, żeby był tak samo szeroki jak etykiety suwaków wyżej.
+            ttk.Checkbutton(
+                lf,
+                text=translated_label,
+                width=18, 
+                variable=var,
+                command=lambda k=key, v=var: self._write_flag(k, v)
+            ).grid(row=idx, column=0, sticky="w", pady=2, padx=(10, 0))
             
-            _tip(row, "?", translated_tip)
+            # Pytajnik ląduje w kolumnie 1. 
+            # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
+            if translated_tip:
+                t = _tip(lf, "?", translated_tip)
+                if t:
+                    # padx=(0, 5) przyciąga go do tekstu po lewej
+                    t.grid(row=idx, column=1, sticky="w", padx=(0, 5), pady=2)
 
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = TLabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), font=("Arial", 9, "bold"))
-        lf.pack(fill="x", pady=(0, 5), ipady=5)
+        lf = ttk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py
 
         mapping = {
             "setgravitystep": "label_gravity",
@@ -243,7 +240,7 @@ class BarsParamWidget:
             "setfftcutoff": "label_bass_cutoff"
         }
 
-        for p in SMOOTH_PARAMS:
+        for idx, p in enumerate(SMOOTH_PARAMS):
             p_list = list(p)
             json_key = mapping.get(p[0])
             
@@ -253,56 +250,62 @@ class BarsParamWidget:
                 p_list[7] = self.T.get(json_key.replace("label_", "tooltip_"), p[7])
             
             # Ważne: zmienione na _float_slider_row, żeby obsłużyć 8 parametrów
-            self._float_slider_row(lf, tuple(p_list), current)
+            self._float_slider_row(lf, tuple(p_list), current, idx)
 
     # ── Profile szadera (prawa kolumna, pod wygładzaniem) ────────────────────
 
     def _build_profiles(self, parent):
-        lf = TLabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"),
-                           font=("Arial", 9, "bold"), padx=5, pady=4)
-        lf.pack(fill="x")
+        lf = ttk.LabelFrame(parent, text=self.T.get("section_profiles_bars", "Shader profiles bars"), padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py
 
         profiles = get_shader_profiles_for_module("bars")
         names    = sorted(profiles.keys())
         self.profile_var = tk.StringVar()
         self.profile_cb  = ttk.Combobox(lf, textvariable=self.profile_var,
-                                        values=names, state="readonly",
-                                        font=("Arial", 9))
+                                        values=names, state="readonly")
         self.profile_cb.pack(fill="x", pady=(0, 3))
         if names: self.profile_cb.current(0)
 
-        tk.Label(lf, text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)"),
-                 font=("Arial", 7), bg=COLORS["bg1"], fg=COLORS["text3"]).pack(anchor="w")
+        ttk.Label(
+            lf,
+            text=self.T.get("label_profiles_hint_bars", "Shape & dynamics (colors unchanged)"),
+            #font=("Arial", 7),
+            #foreground=COLORS["text3"]
+        ).pack(anchor="w")
 
-        btn_row = tk.Frame(lf, bg=COLORS["bg1"])
+        btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
-        tk.Button(btn_row, text=self.T.get("btn_apply", "Apply"),
-                  command=self._apply_profile,
-                  **BTN_APPLY
-                  ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_save_new", "Save new"),
-                  command=self._save_profile,
-                  **BTN_SAVE
-                  ).pack(side="left", expand=True, fill="x", padx=(0, 2))
-        tk.Button(btn_row, text=self.T.get("btn_delete", "Delete"),
-                  command=self._delete_profile,
-                  **BTN_DELETE
-                  ).pack(side="left")
-
-        tk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
-                  command=self._reset_shader,
-                  **BTN_RESET
-                  ).pack(fill="x", pady=(4, 0))
+        ttk.Button(
+            btn_row, 
+            text=self.T.get("btn_apply", "Apply"),
+            command=self._apply_profile,
+            style="Accent.TButton"  # Styl z Twojego przykładu
+        ).pack(side="left", expand=True, fill="x", padx=(0, 2))
+        ttk.Button(
+            btn_row,
+            text=self.T.get("btn_save_new", "Save new"),
+            command=self._save_profile,
+            #style="Accent.TButton"  # Styl z Twojego przykładu
+        ).pack(side="left", expand=True, fill="x", padx=(0, 2))
+        ttk.Button(
+            btn_row,
+            text=self.T.get("btn_delete", "Delete"),
+            command=self._delete_profile,
+            # Styl z Twojego przykładu            
+        ).pack(side="left")
+        ttk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
+            command=self._reset_shader,
+            style="Accent.TButton"
+        ).pack(fill="x", pady=(4, 0))
 
     def _combo_row(self, parent, label, key, values, cur, tooltip):
-        row = tk.Frame(parent)
+        row = ttk.Frame(parent)
         row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
-                 width=13, anchor="w").pack(side="left")
+        ttk.Label(row, text=label, width=13, anchor="w").pack(side="left")
         var = self.vars[key]
         cb = ttk.Combobox(row, textvariable=var,
                           values=[str(v) for v in values],
-                          width=6, state="readonly", font=("Arial", 9))
+                          width=6, state="readonly")
         cb.pack(side="left")
         _tip(row, "?", tooltip)
 
@@ -334,60 +337,81 @@ class BarsParamWidget:
 
     # ── Wiersz suwaka int — etykieta(stała) + ? + suwak + wartość + jednostka ─
 
-    def _slider_row(self, parent, param_def, current, target):
+    def _slider_row(self, parent, param_def, current, target, row_idx):
         key, label, vmin, vmax, default, unit, tooltip = param_def
         cur = int(current.get(key, default))
         var = tk.IntVar(value=cur)
         self.vars[key] = var
 
-        row = tk.Frame(parent, bg=COLORS["bg1"])
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
-                 bg=COLORS["bg1"], fg=COLORS["text2"],
-                 width=16, anchor="w").pack(side="left")
+        # Konfigurujemy kolumnę z suwakiem, aby była elastyczna
+        parent.columnconfigure(index=2, weight=1)
+
+        # 1. Etykieta (Kolumna 0)
+        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w"
+        )       
+        
         if tooltip:
-            _tip(row, "?", tooltip)
+            t = _tip(parent, "?", tooltip)
+            if t: 
+                t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key, tgt=target):
             iv = int(round(v))
             var.set(iv)
             self._debounce(k, iv, tgt)
 
-        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+        # 3. Suwak (Kolumna 2)
+        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=1, on_change=on_change)
-        slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text=unit if unit else "  ",
-                 font=("Arial", 9), bg=COLORS["bg1"], fg=COLORS["text3"], width=3).pack(side="left")
+        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+
+        # 4. Jednostka (Kolumna 3) - TERAZ JEST W DOBREJ LINII
+        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
+            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e"
+        )
 
     # ── Wiersz suwaka float ───────────────────────────────────────────────────
 
-    def _float_slider_row(self, parent, param_def, current):
+    def _float_slider_row(self, parent, param_def, current, row_idx):
+        # Rozpakowanie 8 elementów (bezpieczne, bo to pętla dedykowana dla Smooth)
         key, label, vmin, vmax, default, unit, step, tooltip = param_def
+    
         try:
             cur = float(current.get(key, default))
         except (ValueError, TypeError):
             cur = float(default)
+        
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
         dec = _decimals(step)
 
-        row = tk.Frame(parent, bg=COLORS["bg1"])
-        row.pack(fill="x", pady=2)
-        tk.Label(row, text=label, font=("Arial", 9),
-                 bg=COLORS["bg1"], fg=COLORS["text2"],
-                 width=16, anchor="w").pack(side="left")
+        parent.columnconfigure(2, weight=1)
+
+    # Etykieta - zwiększamy szerokość do 18, żeby pasowała do flag!
+        ttk.Label(parent, text=label, width=18, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w"
+        )
+
         if tooltip:
-            _tip(row, "?", tooltip)
+            t = _tip(parent, "?", tooltip)
+            if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
-        def on_change(v, k=key):
-            var.set(v)
-            self._debounce(k, v, "smooth")
+        # POPRAWKA: Funkcja on_change z bezpiecznikiem
+        def on_change(v, k=key, mi=vmin, ma=vmax):
+            # Bezpiecznik: nie pozwól wartości wyjść poza min/max
+            val = max(mi, min(ma, float(v)))
+            var.set(val)
+            self._debounce(k, val, "smooth")
 
-        slider = AccelSlider(row, vmin=vmin, vmax=vmax, value=cur,
+        # Tworzenie suwaka
+        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=step, is_float=True, decimals=dec,
-                             on_change=on_change)
-        slider.pack(side="left", fill="x", expand=True, padx=(3, 0))
-        tk.Label(row, text="  ", font=("Arial", 9), bg=COLORS["bg1"], width=2).pack(side="left")
+                         on_change=on_change)
+        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+
+        # Pusta etykieta dla wyrównania do jednostek z sekcji Shape
+        ttk.Label(parent, text=" ", width=4).grid(row=row_idx, column=3)
 
     # ── Profile szadera — callbacki ──────────────────────────────────────────
 
@@ -482,29 +506,6 @@ class BarsParamWidget:
         self._rjob = self.app.root.after(
             300, lambda: glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status))
 
-
-# ─── Tooltip helper ──────────────────────────────────────────────────────────
-
-#def _tip(parent, label, text):
-#    """Dodaje znak ? z tooltipem do wiersza."""
-#    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-#                   fg="#1565c0", cursor="question_arrow",
-#                   relief="groove", padx=2)
-#    lbl.pack(side="left", padx=(2, 0))
-#    tip = [None]
-#    def show(e):
-#        x = lbl.winfo_rootx() + 20
-#        y = lbl.winfo_rooty() + 20
-#        tip[0] = tk.Toplevel(lbl)
-#        tip[0].wm_overrideredirect(True)
-#        tip[0].wm_geometry(f"+{x}+{y}")
-#        tk.Label(tip[0], text=text, justify="left",
-#                 bg="#ffffcc", relief="solid", bd=1,
-#                 font=("Arial", 8), padx=4, pady=2).pack()
-#    def hide(e):
-#        if tip[0]: tip[0].destroy(); tip[0] = None
-#    lbl.bind("<Enter>", show)
-#    lbl.bind("<Leave>", hide)
 
 def _decimals(step):
     s = str(step)
@@ -641,11 +642,8 @@ def _write_bool_req(path, key, val):
 def _tip(parent, label, text):
     import tkinter as tk
     if not text: return
-    lbl = tk.Label(parent, text=label, font=("Arial", 8),
-                   bg=COLORS["bg1"], fg=COLORS["blue"],
-                   cursor="question_arrow",
-                   relief="flat", padx=2)
-    lbl.pack(side="left", padx=(2, 0))
+    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
+    #lbl.pack(side="left", padx=(2, 5))
     tip_window = [None]
     def show(e):
         x = lbl.winfo_rootx() + 20
@@ -653,12 +651,11 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=text, justify="left",
-                 bg=COLORS["bg2"], fg=COLORS["text"],
-                 relief="flat", bd=1,
-                 font=("Arial", 8), padx=6, pady=4).pack()
+        tw.configure(bg="#333333") # Ciemne tło dla okienka tooltipa
+        ttk.Label(tw, text=text, justify="left", background="#333333").pack(padx=5, pady=2)
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
     lbl.bind("<Enter>", show)
     lbl.bind("<Leave>", hide)
+    return lbl

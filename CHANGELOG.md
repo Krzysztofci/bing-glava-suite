@@ -1,19 +1,100 @@
-# Changelog
+Changelog
 
-All notable changes to this project are documented here.  
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+All notable changes to this project are documented here.Format based on Keep a Changelog.
 
----
+## [0.5.0] — 2026‑05‑05
+This release is a major architectural overhaul that replaces manual configuration with a modular Master Panel, giving you real-time, surgical control over every shader parameter through a polished GUI.
 
-## [Unreleased]
+### Added
 
-### Planned: Module profiles
+- Advanced geometry engine (multi‑panel detection)Geometry detection now identifies taskbars and desktop panels on all four screen edges (top, bottom, left, right).Modules automatically adjust their available workspace and default positions based on the detected panel layout.
+- Per‑module geometry systemEach module (bars, graph, circle, radial, wave) stores its own geometry (X/Y/W/H) independently.Geometry is no longer global — every shader remembers its own layout and restores it when selected.
+- Modular GUI architectureEvery GLava module now has a dedicated configuration tab with its own parameters:
+- Shape & Dynamics
+- Position & Rotation
+- Switches
+- Smoothing
+- Shader Profiles
+- Unified Smoothing sectionGravity, smoothing, average frames, FFT scale and bass cutoff are now:
+- globally consistent,
+- shared across all shaders,
+- saved inside each module’s profile.
+- Per‑module shader profilesEach module supports its own preset system:
+- Apply
+- Save new
+- Delete
+- Reset shader
+- Simple JSON‑based localization systemAdding a new language requires translating a single JSON file and placing it in the language directory.The application automatically detects and loads new languages — no code changes required.
+- Full internationalization (i18n)
+- Complete English and Polish translations
+- All module tabs fully localized
+- Language switching in the GUI
+- Enhanced shader setUpdated and extended versions of GLava shaders with:
+- additional parameters,
+- improved dynamics,
+- corrected upstream issues,
+- better gradient handling,
+- more consistent FFT behavior.
+- New GUI theme systemForest‑dark theme with consistent styling across all widgets.
+- Diagnostics tools
+- View daemon logs
+- Test panel detection
 
-A module profile bundles everything that defines a GLava layout into a single
-named preset: the visualizer module, its colors, and its screen geometry.
+### Changed
+- Geometry system completely redesigned
+- Previously: simple resolution detection with fixed offsets
+- Now: full multi‑panel detection, per‑module geometry memory, and precise control over position & rotation
+- Modules no longer share geometry — each one behaves independently
+- Color and gradient handling improved
+- More stable RGB/HSV switching
+- Corrected HSV_MODE behavior
+- Better synchronization with shader state
+- GUI overhaul
+- Fully redesigned layout
+- Clearer structure and workflow
+- Better separation of module‑specific and global settings
+- Improved ergonomics and visual consistency
+- Shader performance and stability
+- Corrected t calculations across modules
+- Improved FFT scaling
+- More stable amplitude handling
+- Better visual consistency between modules
 
-One click switches all three at once — no separate steps for module, colors,
-and position.
+### Installer improvements
+- Numerous fixes accumulated over 1.5 months
+- More reliable file copying
+- Corrected permissions and systemd logic
+- Cleaner directory structure and safer operations
+
+### Fixed
+- Dozens of shader fixes across all modules
+- Geometry detection and auto‑geometry stability
+- i18n issues in PL/EN
+- Profile loading/saving logic
+- Manual mode color handling
+- Wallpaper lock/unlock logic
+- Installer bugs (chown, systemd, missing files)
+- Edge cases in gradient and HSV mode switching
+
+### Removed
+- Old global geometry system
+- Legacy GUI components from 0.2.x
+- Deprecated shader files
+- Unused code paths and obsolete logic
+
+### Migration notes
+- Profiles from 0.2.x are not compatible with 0.5.0.
+- Each module requires initial configuration and profile save.
+- Geometry is now per‑module — old XYWH settings are ignored.
+- Localization files are fully modular: adding a new language requires only translating one JSON file and placing it in internal_lang/.
+
+### Highlights
+- Modular GUI with per‑module profiles
+- Advanced geometry engine with multi‑panel detection
+- Enhanced shaders with new parameters
+- Full EN/PL localization
+- Fully themed gui - dark/light versions
+- 1.5 months of continuous refactoring and improvements
 
 ---
 

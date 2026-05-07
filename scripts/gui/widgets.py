@@ -1,18 +1,57 @@
-# =============================================================================
 # gui/widgets.py
-# Współdzielone widgety GUI — używane przez wszystkie moduły.
+# AccelSlider — wrapper wokół ttk.Scale z Forest-ttk-theme.
 # =============================================================================
 import tkinter as tk
+from tkinter import ttk
 import math
+import os
 from .theme import COLORS
 
+_THEMES_DIR = os.path.join(os.path.dirname(__file__), "themes")
 
-class AccelSlider(tk.Frame):
+
+def _ensure_shift_style(root):
+    """Tworzy styl Shift.Horizontal.TScale z hover-thumbem. Wywołaj po apply_theme()."""
+    style = ttk.Style(root)
+    theme = style.theme_use()
+    theme_dir = os.path.join(_THEMES_DIR, theme)
+
+    # Nie twórz drugi raz dla tego samego motywu
+    key = f"_shift_style_created_{theme}"
+    if getattr(root, key, False):
+        return
+    setattr(root, key, True)
+
+    hover_png  = os.path.join(theme_dir, "thumb-hor-hover.png")
+    accent_png = os.path.join(theme_dir, "thumb-hor-accent.png")
+    png_path   = hover_png if os.path.exists(hover_png) else accent_png
+
+    try:
+        img = tk.PhotoImage(file=png_path, master=root)
+        if not hasattr(root, "_shift_thumb_imgs"):
+            root._shift_thumb_imgs = []
+        root._shift_thumb_imgs.append(img)
+
+        style.element_create("ShiftThumb.slider", "image", img,
+                              ("pressed", img), ("disabled", img))
+        style.layout("Shift.Horizontal.TScale", [
+            ("Horizontal.Scale.trough", {
+                "sticky": "ew",
+                "children": [("ShiftThumb.slider", {"side": "left", "sticky": ""})]
+            })
+        ])
+        style.configure("Shift.Horizontal.TScale")
+    except Exception:
+        # Fallback — identyczny jak bazowy
+        style.configure("Shift.Horizontal.TScale")
+
+
+class AccelSlider(ttk.Frame):
     """
     Suwak z przyspieszeniem kwadratowym i trybem precyzji (Shift).
 
-    Shift działa tylko gdy canvas ma focus — brak globalnego bind_all.
-    Kolor niebieski = tryb precyzji, zielony = normalny.
+    Wygląd pochodzi w całości z ttk.Scale Forest-ttk-theme.
+    Shift: zmienia styl na Shift.Horizontal.TScale (hover thumb jako wyróżnik).
 
     Parametry:
         vmin, vmax   — zakres wartości
@@ -22,25 +61,13 @@ class AccelSlider(tk.Frame):
         decimals     — miejsca po przecinku
         on_change    — callback(value)
         accel        — wykładnik przyspieszenia (domyślnie 2.0)
-        tooltip      — tekst dymku (bez wzmianki o Shift — dodawana auto)
-        label_width  — szerokość etykiety (domyślnie 0 = brak etykiety)
+        tooltip      — tekst dymku
     """
-
-    COLOR_NORMAL   = "#4a7c59"
-    COLOR_SHIFT    = "#1565c0"
-    COLOR_TRACK    = "#d0d0d0"
-    COLOR_TRACK_BD = "#aaaaaa"
-    HANDLE_W       = 10   # szerokość uchwytu w px
 
     def __init__(self, parent, vmin=0, vmax=100, value=0, step=1,
                  is_float=False, decimals=2, on_change=None,
                  accel=2.0, tooltip=None, **kwargs):
         super().__init__(parent, **kwargs)
-
-        self.COLOR_NORMAL   = COLORS["slider_fill"]
-        self.COLOR_SHIFT    = COLORS["slider_fill_sh"]
-        self.COLOR_TRACK    = COLORS["slider_track"]
-        self.COLOR_TRACK_BD = COLORS["slider_border"]
 
         self.vmin      = float(vmin)
         self.vmax      = float(vmax)
@@ -55,90 +82,54 @@ class AccelSlider(tk.Frame):
         self._drag_v   = None
         self._dragging = False
 
-        # Ramka focusa wokół canvasa — zamiast highlightthickness
-        self._canvas_h = 14
-        self._frame = tk.Frame(self, bd=0, relief="flat",
-                               bg=self.COLOR_TRACK_BD,
-                               highlightthickness=1,
-                               highlightbackground=self.COLOR_TRACK_BD)
-        self._frame.pack(side="left", fill="x", expand=True)
-        self._canvas = tk.Canvas(self._frame, height=self._canvas_h,
-                                 width=58,
-                                 bg=self.COLOR_TRACK,
-                                 highlightthickness=0,
-                                 cursor="sb_h_double_arrow")
-        self._canvas.pack(fill="both", expand=True)
+        # ttk.Scale: zakres 0..1 (mapujemy sami)
+        self._scale_var = tk.DoubleVar(value=self._to_norm(float(value)))
 
-        # Pole tekstowe — stała szerokość, zawsze widoczne
+        self._scale = ttk.Style() # (jeśli potrzebujesz stylu)
+        self._scale = ttk.Scale(
+        
+            self,
+            orient="horizontal",
+            from_=self.vmin, # Ustawiamy realne wartości zamiast 0..1
+            to=self.vmax,
+            variable=self._scale_var,
+            style="Horizontal.TScale",
+            command=self._on_scale_cmd
+        )
+        self._scale.pack(side="left", fill="x", expand=True)
+
         self._entry_var = tk.StringVar()
-        self._entry = tk.Entry(self, textvariable=self._entry_var,
-                               width=6, font=("Arial", 9), justify="right",
-                               bg=COLORS["bg2"], fg=COLORS["text"],
-                               insertbackground=COLORS["text"],
-                               relief="flat", bd=0,
-                               highlightthickness=1,
-                               highlightbackground=COLORS["border2"],
-                               highlightcolor=COLORS["red"])
-        self._entry.pack(side="right", padx=(3, 0))
+        self._entry = ttk.Entry(self, textvariable=self._entry_var,
+                                width=7, justify="right")
+        self._entry.pack(side="right", padx=(4, 0))
 
-        # Bindowania na canvas — tylko lokalne, bez bind_all
-        c = self._canvas
-        c.bind("<ButtonPress-1>",   self._on_press)
-        c.bind("<B1-Motion>",        self._on_drag)
-        c.bind("<ButtonRelease-1>", self._on_release)
-        c.bind("<FocusIn>",         self._on_focus_in)
-        c.bind("<FocusOut>",        self._on_focus_out)
-        # Shift przez root — ale tylko gdy canvas aktywny
-        c.bind("<KeyPress-Shift_L>",   self._on_shift_on)
-        c.bind("<KeyPress-Shift_R>",   self._on_shift_on)
-        c.bind("<KeyRelease-Shift_L>", self._on_shift_off)
-        c.bind("<KeyRelease-Shift_R>", self._on_shift_off)
+        # Drag z przyspieszeniem — nadpisuje domyślny ruch Scale
+        #self._scale.bind("<ButtonPress-1>",   self._on_press)
+        #self._scale.bind("<B1-Motion>",        self._on_drag)
+        #self._scale.bind("<ButtonRelease-1>", self._on_release)
+        #self._scale.bind("<KeyPress-Shift_L>", lambda e: self._set_shift(True))
+        #self._scale.bind("<KeyRelease-Shift_L>", lambda e: self._set_shift(False))
+        self._scale.bind("<Button-1>", self._smart_click)
 
-        # Shift przez okno rodzica — ale sprawdzamy focus
-        self._root = None
-        self._shift_binds = []
+        # Shift przez okno
         self.after(100, self._bind_shift_to_root)
 
         self._entry.bind("<Return>",   self._on_entry)
         self._entry.bind("<FocusOut>", self._on_entry)
 
-        # Tooltip
-        tip_lines = []
-        if tooltip:
-            tip_lines.append(tooltip)
-        tip_lines.append("Shift+przeciąganie = precyzja (krok 1)")
-        self._setup_tooltip("\n".join(tip_lines))
+        self._setup_tooltip()
 
-        # Inicjalny rysunek
         self.set(value)
 
-    def _bind_shift_to_root(self):
-        """Rejestruje Shift na oknie głównym — tylko raz na widget."""
-        try:
-            root = self.winfo_toplevel()
-            if root:
-                self._root = root
-                b1 = root.bind("<KeyPress-Shift_L>",
-                               self._on_shift_root, add="+")
-                b2 = root.bind("<KeyPress-Shift_R>",
-                               self._on_shift_root, add="+")
-                b3 = root.bind("<KeyRelease-Shift_L>",
-                               self._on_shift_root_off, add="+")
-                b4 = root.bind("<KeyRelease-Shift_R>",
-                               self._on_shift_root_off, add="+")
-        except Exception:
-            pass
+    # ── Normalizacja ──────────────────────────────────────────────────────────
 
-    def _on_shift_root(self, e):
-        """Shift na poziomie okna — aktywuje tylko jeśli ten canvas ma focus."""
-        focused = self.focus_get()
-        if focused is self._canvas:
-            self._on_shift_on(e)
+    def _to_norm(self, v):
+        if self.vmax == self.vmin:
+            return 0.0
+        return max(0.0, min(1.0, (v - self.vmin) / (self.vmax - self.vmin)))
 
-    def _on_shift_root_off(self, e):
-        focused = self.focus_get()
-        if focused is self._canvas or self._shift:
-            self._on_shift_off(e)
+    def _from_norm(self, t):
+        return self.vmin + t * (self.vmax - self.vmin)
 
     # ── Publiczne API ─────────────────────────────────────────────────────────
 
@@ -147,74 +138,47 @@ class AccelSlider(tk.Frame):
 
     def set(self, value):
         self._value = self._clamp(float(value))
-        self._redraw()
+        # ZMIANA: Wysyłamy realną wartość, a nie wynik _to_norm
+        self._scale_var.set(self._value) 
         self._update_entry()
 
     def set_range(self, vmin, vmax):
         self.vmin = float(vmin)
         self.vmax = float(vmax)
         self._value = self._clamp(self._value)
-        self._redraw()
+        # ZMIANA: Tutaj też realna wartość
+        self._scale_var.set(self._value) 
         self._update_entry()
 
-    # ── Rysowanie ─────────────────────────────────────────────────────────────
+    # ── Scale callback (kliknięcie bez drag) ──────────────────────────────────
 
-    def _redraw(self):
-        c = self._canvas
-        c.update_idletasks()
-        w = c.winfo_width()
-        if w < 2:
-            w = 100
-        h = self._canvas_h
-
-        c.delete("all")
-
-        # Tło toru
-        c.create_rectangle(0, 0, w, h,
-                            fill=self.COLOR_TRACK, outline="")
-
-        # Pozycja uchwytu (liniowa)
-        t = ((self._value - self.vmin) / (self.vmax - self.vmin)
-             if self.vmax != self.vmin else 0.0)
-        t = max(0.0, min(1.0, t))
-        handle_x = int(t * (w - self.HANDLE_W))
-
-        # Wypełnienie po lewej od uchwytu
-        color = self.COLOR_SHIFT if self._shift else self.COLOR_NORMAL
-        if handle_x > 0:
-            c.create_rectangle(0, 0, handle_x, h,
-                                fill=color, outline="")
-
-        # Uchwyt — jaśniejszy odcień koloru wypełnienia
-        handle_color = "#ef5350" if not self._shift else "#90caf9"
-        c.create_rectangle(handle_x, 1, handle_x + self.HANDLE_W, h - 1,
-                            fill=handle_color, outline="", width=0)
-
-        # Wartość tekstowa — wyśrodkowana na torze
-        c.create_text(w // 2, h // 2, text=self._fmt(),
-                      font=("Arial", 8), fill="#333333")
-
-    def _fmt(self):
+    def _on_scale_cmd(self, val):
+        # Pobieramy surową wartość z suwaka
+        v = float(val)
+        
+        # Wymuszamy zaokrąglenie do Twojego kroku (np. 0.001)
+        # To sprawi, że nawet jeśli suwak "chce" skoczyć o 1, 
+        # my natychmiast korygujemy to do wielokrotności stepu.
+        if self.step > 0:
+            v = round(v / self.step) * self.step
+            
+        # Ograniczamy do zakresu i zaokrąglamy dla floatów
+        self._value = max(self.vmin, min(self.vmax, v))
         if self.is_float:
-            return f"{self._value:.{self.decimals}f}"
-        return str(int(round(self._value)))
+            self._value = round(self._value, self.decimals)
 
-    # ── Focus ─────────────────────────────────────────────────────────────────
-
-    def _on_focus_in(self, e):
-        self._frame.config(bg="#1565c0")
-
-    def _on_focus_out(self, e):
-        self._shift = False
-        self._frame.config(bg=self.COLOR_TRACK_BD)
-        self._redraw()
-
-    # ── Przeciąganie ──────────────────────────────────────────────────────────
+        # Klucz: Wymuszamy na suwaku, by wrócił na "dobrą" drogę
+        self._scale_var.set(self._value)
+        self._update_entry()
+        
+        if self.on_change:
+            self.on_change(self._value)
+    # ── Drag z przyspieszeniem ────────────────────────────────────────────────
 
     def _on_press(self, e):
-        self._canvas.focus_set()
-        self._drag_x   = e.x
-        self._drag_v   = self._value
+        self._scale.focus_set()
+        self._drag_x = e.x
+        self._drag_v = self._value
         self._dragging = False
 
     def _on_drag(self, e):
@@ -223,41 +187,100 @@ class AccelSlider(tk.Frame):
         dx = e.x - self._drag_x
         if abs(dx) > 2:
             self._dragging = True
-
         if not self._dragging:
             return
 
-        if self._shift:
-            # Tryb precyzji: krok per piksel, aktualizuj punkt startowy
-            delta = dx * self.step
-            new_val = self._drag_v + delta
-            # Nie aktualizujemy _drag_x — wartość rośnie liniowo od punktu startu
-        else:
-            t = dx / max(self._canvas.winfo_width(), 1)
-            t_acc = math.copysign(abs(t) ** self.accel, t)
-            delta = t_acc * (self.vmax - self.vmin)
-            new_val = self._drag_v + delta
+        w = max(self._scale.winfo_width(), 1)
 
-        self.set(new_val)
+        if self._shift:
+            # TRYB PRECYZYJNY: Ruch myszy o całą szerokość suwaka 
+            # zmienia wartość tylko o 5% zakresu (bardzo wolno)
+            span = self.vmax - self.vmin
+            new_val = self._drag_v + (dx / w) * (span * 0.05) 
+        else:
+            # TRYB NORMALNY: Liniowy 1:1
+            ratio = dx / w
+            new_val = self._drag_v + ratio * (self.vmax - self.vmin)
+
+        self._value = self._clamp(new_val)
+        self._scale_var.set(self._to_norm(self._value))
+        self._update_entry()
         if self.on_change:
             self.on_change(self._value)
 
     def _on_release(self, e):
-        self._drag_x   = None
-        self._drag_v   = None
+        self._drag_x = None
+        self._drag_v = None
         self._dragging = False
 
-    def _on_shift_on(self, e):
-        if not self._shift:
-            self._shift = True
-            self._redraw()
+    # ── Zakres chwytu i kroki──────────────────────────────────────────────────
 
-    def _on_shift_off(self, e):
-        if self._shift:
-            self._shift = False
-            self._redraw()
+    def _smart_click(self, event):
+        # coords() zwraca [x, y] lewego górnego rogu uchwytu
+        slider_coords = self._scale.coords()
+        handle_x_left = slider_coords[0]
+        
+        # Przyjmujemy standardową szerokość uchwytu dla motywu (ok. 16-20px)
+        # Możesz to dostosować, ale 8-10px przesunięcia zazwyczaj trafia w środek
+        handle_center_x = handle_x_left + 10 
+        
+        click_x = event.x
+        
+        # Margines musi być teraz mierzony od środka
+        margin = 16 
+        dist = abs(click_x - handle_center_x)
 
-    # ── Pole tekstowe ─────────────────────────────────────────────────────────
+        # Jeśli klik w obrębie uchwytu (środek +/- margines) — pozwól na standardowy drag
+        if dist <= margin:
+            return
+
+        # Klik w tor → wymuszamy Twój krokowy ruch z bars.py
+        direction = 1 if click_x > handle_center_x else -1
+        new_val = self._value + (direction * self.step)
+
+        # Clamp + zaokrąglenie (zgodnie z Twoją logiką)
+        new_val = max(self.vmin, min(self.vmax, new_val))
+        if self.is_float:
+            new_val = round(new_val, self.decimals)
+        else:
+            new_val = int(round(new_val))
+
+        self.set(new_val)
+
+        if self.on_change:
+            self.on_change(new_val)
+
+        return "break"
+
+    # ── Shift ─────────────────────────────────────────────────────────────────
+
+    def _bind_shift_to_root(self):
+        try:
+            root = self.winfo_toplevel()
+            if root:
+                root.bind("<KeyPress-Shift_L>",   self._shift_root_on,  add="+")
+                root.bind("<KeyPress-Shift_R>",   self._shift_root_on,  add="+")
+                root.bind("<KeyRelease-Shift_L>", self._shift_root_off, add="+")
+                root.bind("<KeyRelease-Shift_R>", self._shift_root_off, add="+")
+        except Exception:
+            pass
+
+    def _shift_root_on(self, e):
+        # Usuwamy sprawdzanie focusu - jeśli okno widzi Shift, suwak też ma go widzieć
+        self._set_shift(True)
+
+    def _shift_root_off(self, e):
+        # Wyłączamy tryb precyzji po puszczeniu klawisza
+        self._set_shift(False)
+
+    def _set_shift(self, on):
+        if self._shift == on:
+            return
+        self._shift = on
+        style = "Shift.Horizontal.TScale" if on else "Horizontal.TScale"
+        self._scale.configure(style=style)
+
+    # ── Entry ─────────────────────────────────────────────────────────────────
 
     def _on_entry(self, e):
         try:
@@ -273,23 +296,53 @@ class AccelSlider(tk.Frame):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
+    def _fmt(self):
+        if self.is_float:
+            return f"{self._value:.{self.decimals}f}"
+        return str(int(round(self._value)))
+
     def _clamp(self, v):
         return max(self.vmin, min(self.vmax, v))
 
-    def _setup_tooltip(self, text):
-        tip = [None]
-        def show(e):
-            x = self._canvas.winfo_rootx() + 20
-            y = self._canvas.winfo_rooty() + 20
-            tip[0] = tk.Toplevel(self._canvas)
-            tip[0].wm_overrideredirect(True)
-            tip[0].wm_geometry(f"+{x}+{y}")
-            tk.Label(tip[0], text=text, justify="left",
-                     bg="#ffffcc", relief="solid", bd=1,
-                     font=("Arial", 8), padx=4, pady=2).pack()
+    def _setup_tooltip(self, text=None):
+        tip_window = [None]
+        label_ref = [None]  # Referencja do etykiety, by zmieniać jej tekst
+
+        def update_tip(e):
+            current_val = self._fmt()
+            
+            if not tip_window[0]:
+                tip_window[0] = tw = tk.Toplevel(self._scale)
+                tw.wm_overrideredirect(True)
+                tw.attributes("-topmost", True)
+                
+                # Używamy ttk.Label - pobierze styl domyślny programu
+                label_ref[0] = ttk.Label(tw, text=str(current_val), padding=(8, 4))
+                label_ref[0].pack()
+            
+            x = e.x_root + 15
+            y = e.y_root + 15
+            tip_window[0].wm_geometry(f"+{x}+{y}")
+            
+            if label_ref[0]:
+                label_ref[0].config(text=str(current_val))
+            
+            # 2. Aktualizuj pozycję (podążanie za kursorem)
+            # e.x_root i e.y_root to aktualna pozycja myszy na ekranie
+            x = e.x_root + 15
+            y = e.y_root + 15
+            tip_window[0].wm_geometry(f"+{x}+{y}")
+            
+            # 3. Aktualizuj wartość "na żywo"
+            if label_ref[0]:
+                label_ref[0].config(text=str(current_val))
+
         def hide(e):
-            if tip[0]:
-                tip[0].destroy()
-                tip[0] = None
-        self._canvas.bind("<Enter>", show)
-        self._canvas.bind("<Leave>", hide)
+            if tip_window[0]:
+                tip_window[0].destroy()
+                tip_window[0] = None
+                label_ref[0] = None
+
+        # Bindujemy pod ruch myszy, żeby dymek "żył" podczas przesuwania
+        self._scale.bind("<Motion>", update_tip)
+        self._scale.bind("<Leave>", hide)

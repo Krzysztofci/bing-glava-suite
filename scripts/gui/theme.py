@@ -1,360 +1,224 @@
 # gui/theme.py
-# Centralny motyw GUI — Dark Carbon / Flat Remix Red.
+# Motyw GUI — Forest-ttk-theme (rdbende, MIT License)
+# https://github.com/rdbende/Forest-ttk-theme
 #
-# Użycie:
-#   from ..theme import COLORS, T_FRAME, T_LF, T_LABEL, T_BTN
-#   from ..theme import BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET
-#   from ..theme import themed_frame, themed_lf, themed_label, apply_theme
+# Zamiast budować własny motyw od zera, używamy Forest-dark jako bazy.
+# Jedyna niestandardowa warstwa to AccelSlider (canvas), który motyw TTK
+# nie może obsłużyć — tam używamy kolorów wyekstrahowanych z Forest-dark.
+#
+# Dostępne motywy: "forest-dark", "forest-light"
+# Przyszłe motywy: dodaj plik .tcl + katalog z PNG do gui/themes/
 # =============================================================================
+import os
 import tkinter as tk
 from tkinter import ttk
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Paleta
+# Ścieżka do katalogu z motywami
 # ─────────────────────────────────────────────────────────────────────────────
-COLORS = {
-    "bg0":        "#252525",
-    "bg1":        "#2f2f2f",
-    "bg2":        "#383838",
-    "bg3":        "#424242",
-    "border":     "#1e1e1e",
-    "border2":    "#4a4a4a",
-    "red":        "#e53935",
-    "red_h":      "#ef5350",
-    "red_dim":    "#b71c1c",
-    "text":       "#eeeeee",
-    "text2":      "#9e9e9e",
-    "text3":      "#757575",
-    "green":      "#43a047",
-    "green_dim":  "#1b5e20",
-    "blue":       "#42a5f5",
-    "amber":      "#ffa726",
-    "amber_dim":  "#3e2a00",
-    "brown":      "#5d3a2a",
-    "brown_dim":  "#2a1a10",
-    "slider_fill":    "#e53935",
-    "slider_fill_sh": "#1565c0",
-    "slider_track":   "#383838",
-    "slider_border":  "#4a4a4a",
-    "slider_focus":   "#e53935",
+_THEMES_DIR = os.path.join(os.path.dirname(__file__), "themes")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rejestr dostępnych motywów
+# { nazwa_ttk: ścieżka_do_.tcl }
+# ─────────────────────────────────────────────────────────────────────────────
+AVAILABLE_THEMES = {
+    "forest-dark":         os.path.join(_THEMES_DIR, "forest-dark.tcl"),
+    "forest-light":        os.path.join(_THEMES_DIR, "forest-light.tcl"),
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Słowniki kwargs dla widgetów — rozpakuj przez **
+# Paleta kolorów dla widgetów canvas (AccelSlider) i tk.* widgetów,
+# które TTK nie stylizuje. Wyekstrahowane z Forest-dark/light.
 # ─────────────────────────────────────────────────────────────────────────────
-
-# Frame
-T_FRAME = {"bg": COLORS["bg1"]}
-T_FRAME0 = {"bg": COLORS["bg0"]}   # dla ramek najwyższego poziomu
-
-# LabelFrame
-T_LF = {
-    "bg":                   COLORS["bg1"],
-    "fg":                   COLORS["text2"],
-    "relief":               "flat",
-    "highlightbackground":  COLORS["border2"],
-    "highlightthickness":   1,
+_PALETTE = {
+    "forest-dark": {
+        "bg":           "#313131",
+        "bg_entry":     "#313131",
+        "fg":           "#eeeeee",
+        "fg2":          "#aaaaaa",
+        "fg3":          "#777777",
+        "select_bg":    "#217346",
+        "select_fg":    "#ffffff",
+        "border":       "#4a4a4a",
+        # AccelSlider — canvas
+        "slider_fill":       "#217346",
+        "slider_fill_shift": "#e6a817",
+        "slider_track":      "#3d3d3d",
+        "slider_border":     "#4a4a4a",
+        "slider_handle":     "#43a047",
+        "slider_handle_sh":  "#f5c518",
+        "slider_text":       "#cccccc",
+        # ── Aliasy kompatybilności — stary kod używający COLORS["bg1"] itp. ──
+        "bg0":      "#252525",
+        "bg1":      "#313131",
+        "bg2":      "#3d3d3d",
+        "bg3":      "#4a4a4a",
+        "text":     "#eeeeee",
+        "text2":    "#aaaaaa",
+        "text3":    "#777777",
+        "red":      "#e53935",
+        "red_h":    "#ef5350",
+        "red_dim":  "#1b3a2a",
+        "green":    "#43a047",
+        "green_dim":"#1b5e20",
+        "blue":     "#42a5f5",
+        "amber":    "#ffa726",
+        "amber_dim":"#3e2a00",
+        "border2":  "#4a4a4a",
+    },
+    "forest-light": {
+        "bg":           "#ffffff",
+        "bg_entry":     "#ffffff",
+        "fg":           "#000000",
+        "fg2":          "#555555",
+        "fg3":          "#888888",
+        "select_bg":    "#217346",
+        "select_fg":    "#ffffff",
+        "border":       "#cccccc",
+        # AccelSlider — canvas
+        "slider_fill":       "#217346",
+        "slider_fill_shift": "#e6a817",
+        "slider_track":      "#e0e0e0",
+        "slider_border":     "#cccccc",
+        "slider_handle":     "#43a047",
+        "slider_handle_sh":  "#f5c518",
+        "slider_text":       "#333333",
+        # ── Aliasy kompatybilności ──
+        "bg0":      "#f0f0f0",
+        "bg1":      "#ffffff",
+        "bg2":      "#e8e8e8",
+        "bg3":      "#d8d8d8",
+        "text":     "#000000",
+        "text2":    "#444444",
+        "text3":    "#888888",
+        "red":      "#c62828",
+        "red_h":    "#e53935",
+        "red_dim":  "#1a3d2a",
+        "green":    "#2e7d32",
+        "green_dim":"#1b5e20",
+        "blue":     "#1565c0",
+        "amber":    "#e65100",
+        "amber_dim":"#fff3e0",
+        "border2":  "#cccccc",
+    },
 }
 
-# Label
-T_LABEL = {"bg": COLORS["bg1"], "fg": COLORS["text2"]}
-T_LABEL2 = {"bg": COLORS["bg1"], "fg": COLORS["text3"]}  # hint / jednostka
+# Aktywna paleta — aktualizowana przez apply_theme()
+COLORS: dict = dict(_PALETTE["forest-dark"])
 
-# Checkbutton
-T_CHECK = {
-    "bg":              COLORS["bg1"],
-    "fg":              COLORS["text2"],
-    "activebackground":COLORS["bg2"],
-    "activeforeground":COLORS["text"],
-    "selectcolor":     COLORS["bg2"],
-    "relief":          "flat",
-    "bd":              0,
-}
+# Aktywna nazwa motywu
+ACTIVE_THEME: str = "forest-dark"
 
-# Entry
-T_ENTRY = {
-    "bg":                   COLORS["bg2"],
-    "fg":                   COLORS["text"],
-    "insertbackground":     COLORS["text"],
-    "relief":               "flat",
-    "highlightbackground":  COLORS["border2"],
-    "highlightthickness":   1,
-    "bd":                   0,
-}
-
-# Przyciski
-BTN_APPLY = {
-    "bg":              COLORS["green_dim"],
-    "fg":              "#a5d6a7",
-    "activebackground":"#2e7d32",
-    "activeforeground":"#c8e6c9",
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 8),
-    "cursor":          "hand2",
-}
-BTN_SAVE = {
-    "bg":              COLORS["bg2"],
-    "fg":              COLORS["text2"],
-    "activebackground":COLORS["bg3"],
-    "activeforeground":COLORS["text"],
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 8),
-    "cursor":          "hand2",
-}
-BTN_DELETE = {
-    "bg":              COLORS["red_dim"],
-    "fg":              "#ef9a9a",
-    "activebackground":"#c62828",
-    "activeforeground":"#ffcdd2",
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 8),
-    "cursor":          "hand2",
-}
-BTN_RESET = {
-    "bg":              COLORS["brown_dim"],
-    "fg":              "#a1887f",
-    "activebackground":"#3a2010",
-    "activeforeground":"#bcaaa4",
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 8),
-    "cursor":          "hand2",
-}
-BTN_TOGGLE = {
-    "bg":              COLORS["bg2"],
-    "fg":              COLORS["text"],
-    "activebackground":COLORS["bg3"],
-    "activeforeground":COLORS["text"],
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 9),
-    "cursor":          "hand2",
-}
-BTN_FETCH = {
-    "bg":              "#1a2a3a",
-    "fg":              "#90caf9",
-    "activebackground":"#1e3a5f",
-    "activeforeground":"#bbdefb",
-    "relief":          "flat",
-    "bd":              0,
-    "font":            ("Arial", 8),
-    "cursor":          "hand2",
-}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fabryki widgetów — używaj zamiast tk.Frame/LabelFrame/Label
+# apply_theme — ładuje Forest-ttk-theme i ustawia paletę canvas
 # ─────────────────────────────────────────────────────────────────────────────
+
+def apply_theme(root: tk.Tk, theme: str = "forest-dark"):
+    """
+    Ładuje wybrany motyw Forest-ttk-theme i aktywuje go.
+
+    Parametry:
+        root   — okno główne tk.Tk
+        theme  — "forest-dark" (domyślnie) lub "forest-light"
+    """
+    global COLORS, ACTIVE_THEME
+
+    if theme not in AVAILABLE_THEMES:
+        theme = "forest-dark"
+
+    tcl_path = AVAILABLE_THEMES[theme]
+    if not os.path.exists(tcl_path):
+        raise FileNotFoundError(
+            f"Plik motywu nie istnieje: {tcl_path}\n"
+            f"Upewnij się, że katalog gui/themes/ zawiera pliki Forest-ttk-theme."
+        )
+
+    # Załaduj plik .tcl motywu
+    root.tk.call("source", tcl_path)
+    style = ttk.Style(root)
+    style.theme_use(theme)
+
+    # Zaktualizuj globalną paletę canvas
+    COLORS = dict(_PALETTE.get(theme, _PALETTE["forest-dark"]))
+    ACTIVE_THEME = theme
+
+
+def get_theme_names() -> list:
+    """Zwraca listę załadowanych nazw motywów."""
+    return list(AVAILABLE_THEMES.keys())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fabryki widgetów — cienkie wrappery nad ttk.*
+# Używaj ich zamiast tk.Frame / tk.Label itp. dla spójności z motywem.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Opcje tk.* których ttk.* NIE obsługuje — filtrowane w fabrykach
+_TTK_UNSUPPORTED = frozenset([
+    'bg', 'fg', 'background', 'foreground',
+    'activebackground', 'activeforeground',
+    'disabledforeground', 'selectcolor',
+    'highlightbackground', 'highlightcolor', 'highlightthickness',
+    'insertbackground', 'relief', 'bd', 'font', 'cursor',
+    'padx', 'pady', 'ipadx', 'ipady',
+])
+
+def _ttk_kw(kw):
+    """Usuwa opcje nieobsługiwane przez ttk.* z przekazanych kwargs."""
+    return {k: v for k, v in kw.items() if k not in _TTK_UNSUPPORTED}
+
 
 def TFrame(parent, level=1, **kw):
-    """Frame z tłem motywu. level=0=bg0, 1=bg1(default), 2=bg2."""
-    bg = {0: COLORS["bg0"], 1: COLORS["bg1"], 2: COLORS["bg2"]}.get(level, COLORS["bg1"])
-    return tk.Frame(parent, bg=bg, **kw)
+    """ttk.Frame — ignoruje 'level' (zachowany dla kompatybilności)."""
+    return ttk.Frame(parent, **_ttk_kw(kw))
 
 
 def TLabelFrame(parent, text="", **kw):
-    """LabelFrame z motywem — zawsze ciemne tło i jasna etykieta."""
-    return tk.LabelFrame(
-        parent, text=text,
-        bg=COLORS["bg1"], fg=COLORS["text2"],
-        relief="flat",
-        highlightbackground=COLORS["border2"],
-        highlightcolor=COLORS["border2"],
-        highlightthickness=1,
-        **kw
-    )
-    # Tytuł sekcji
-    tk.Label(outer, text=text, font=font,
-             bg=COLORS["bg1"], fg=COLORS["text2"],
-             anchor="w").pack(fill="x", padx=padx, pady=(pady, 2))
-    # Zwróć inner frame — do niego trafiają dzieci jak do LabelFrame
-    inner = tk.Frame(outer, bg=COLORS["bg1"])
-    inner.pack(fill="both", expand=True, padx=padx, pady=(0, pady))
-    # Zachowaj referencję do outer żeby pack() działał na właściwym widgecie
-    inner._outer = outer
-    # Nadpisz pack/grid/place żeby działały na outer
-    _orig_pack = inner.pack
-
-    def _pack(**kw2):
-        outer.pack(**kw2)
-    def _grid(**kw2):
-        outer.grid(**kw2)
-    def _place(**kw2):
-        outer.place(**kw2)
-
-    inner.pack  = _pack   # type: ignore
-    inner.grid  = _grid   # type: ignore
-    inner.place = _place  # type: ignore
-
-    return inner
+    """ttk.LabelFrame z motywem — filtruje opcje tk.LabelFrame.
+    Domyślnie padding=(8, 6) jak w przykładzie Forest."""
+    kw.setdefault("padding", (8, 6))
+    return ttk.LabelFrame(parent, text=text, **_ttk_kw(kw))
 
 
 def TLabel(parent, text="", secondary=False, **kw):
-    """Label z motywem."""
-    fg = COLORS["text3"] if secondary else COLORS["text2"]
-    return tk.Label(parent, text=text,
-                    bg=COLORS["bg1"], fg=fg, **kw)
+    """ttk.Label z motywem — filtruje opcje tk.Label."""
+    return ttk.Label(parent, text=text, **_ttk_kw(kw))
 
 
 def TCheckbutton(parent, **kw):
-    """Checkbutton z motywem."""
-    return tk.Checkbutton(
-        parent,
-        bg=COLORS["bg1"], fg=COLORS["text2"],
-        activebackground=COLORS["bg2"],
-        activeforeground=COLORS["text"],
-        selectcolor=COLORS["red_dim"],
-        relief="flat", bd=0,
-        **kw
-    )
+    """ttk.Checkbutton z motywem."""
+    return ttk.Checkbutton(parent, **_ttk_kw(kw))
 
 
 def TEntry(parent, **kw):
-    """Entry z motywem."""
-    return tk.Entry(
-        parent,
-        bg=COLORS["bg2"], fg=COLORS["text"],
-        insertbackground=COLORS["text"],
-        relief="flat",
-        highlightbackground=COLORS["border2"],
-        highlightthickness=1,
-        bd=0,
-        **kw
-    )
+    """ttk.Entry z motywem."""
+    return ttk.Entry(parent, **_ttk_kw(kw))
 
 
-def TSeparator(parent, **kw):
-    """Poziomy separator."""
-    return tk.Frame(parent, bg=COLORS["bg0"], height=1, **kw)
+def TSeparator(parent, orient="horizontal", **kw):
+    """ttk.Separator."""
+    return ttk.Separator(parent, orient=orient, **_ttk_kw(kw))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# apply_theme — minimalna wersja: tylko okno główne i ttk
+# Style przycisków — konwencja: przekaż style= do ttk.Button
 # ─────────────────────────────────────────────────────────────────────────────
+#
+# Forest-dark oferuje dwa style przycisków:
+#   ""              — standardowy (szary)
+#   "Accent.TButton"— akcentowany (zielony)
+#
+# Definiujemy stałe dla czytelności kodu w modułach.
+BTN_STYLE_DEFAULT = ""
+BTN_STYLE_ACCENT  = "Accent.TButton"
 
-def apply_theme(root: tk.Tk):
-    """
-    Ustaw tło okna głównego, globalne opcje tk i style ttk.
-    option_add musi być wywołane PRZED tworzeniem widgetów.
-    """
-    root.configure(bg=COLORS["bg0"])
-
-    # Globalne opcje — działają dla widgetów tworzonych PO tym wywołaniu
-    root.option_add("*Background",                COLORS["bg1"])
-    root.option_add("*Foreground",                COLORS["text2"])
-    root.option_add("*activeBackground",          COLORS["bg2"])
-    root.option_add("*activeForeground",          COLORS["text"])
-    root.option_add("*selectBackground",          COLORS["red_dim"])
-    root.option_add("*selectForeground",          COLORS["text"])
-    root.option_add("*highlightBackground",       COLORS["border2"])
-    root.option_add("*highlightColor",            COLORS["red"])
-    root.option_add("*highlightThickness",        "0")
-    root.option_add("*insertBackground",          COLORS["text"])
-    root.option_add("*troughColor",               COLORS["bg2"])
-    root.option_add("*relief",                    "flat")
-    root.option_add("*bd",                        "0")
-
-    # Entry
-    root.option_add("*Entry.Background",          COLORS["bg2"])
-    root.option_add("*Entry.Foreground",          COLORS["text"])
-    root.option_add("*Entry.insertBackground",    COLORS["text"])
-    root.option_add("*Entry.highlightThickness",  "1")
-    root.option_add("*Entry.highlightBackground", COLORS["border2"])
-    root.option_add("*Entry.highlightColor",      COLORS["red"])
-    root.option_add("*Entry.relief",              "flat")
-    root.option_add("*Entry.bd",                  "0")
-
-    # Label
-    root.option_add("*Label.Background",          COLORS["bg1"])
-    root.option_add("*Label.Foreground",          COLORS["text2"])
-    root.option_add("*Label.relief",              "flat")
-    root.option_add("*Label.bd",                  "0")
-
-    # Button
-    root.option_add("*Button.Background",         COLORS["bg2"])
-    root.option_add("*Button.Foreground",         COLORS["text2"])
-    root.option_add("*Button.activeBackground",   COLORS["bg3"])
-    root.option_add("*Button.activeForeground",   COLORS["text"])
-    root.option_add("*Button.highlightThickness", "0")
-    root.option_add("*Button.highlightBackground",COLORS["bg2"])
-    root.option_add("*Button.relief",             "flat")
-    root.option_add("*Button.bd",                 "0")
-
-    # Checkbutton
-    root.option_add("*Checkbutton.Background",          COLORS["bg1"])
-    root.option_add("*Checkbutton.Foreground",          COLORS["text2"])
-    root.option_add("*Checkbutton.activeBackground",    COLORS["bg1"])
-    root.option_add("*Checkbutton.activeForeground",    COLORS["text"])
-    root.option_add("*Checkbutton.selectColor",         COLORS["bg2"])
-    root.option_add("*Checkbutton.highlightThickness",  "0")
-    root.option_add("*Checkbutton.relief",              "flat")
-    root.option_add("*Checkbutton.bd",                  "0")
-
-    # LabelFrame
-    root.option_add("*LabelFrame.Background",           COLORS["bg1"])
-    root.option_add("*LabelFrame.Foreground",           COLORS["text2"])
-    root.option_add("*LabelFrame.highlightBackground",  COLORS["border2"])
-    root.option_add("*LabelFrame.highlightColor",        COLORS["border2"])
-    root.option_add("*LabelFrame.highlightThickness",   "1")
-    root.option_add("*LabelFrame.relief",               "flat")
-    root.option_add("*LabelFrame.bd",                   "0")
-
-    # Frame
-    root.option_add("*Frame.Background",          COLORS["bg1"])
-    root.option_add("*Frame.highlightThickness",  "0")
-    root.option_add("*Frame.relief",              "flat")
-    root.option_add("*Frame.bd",                  "0")
-
-    # Scale (legacy)
-    root.option_add("*Scale.Background",          COLORS["bg1"])
-    root.option_add("*Scale.troughColor",         COLORS["bg2"])
-    root.option_add("*Scale.highlightThickness",  "0")
-
-    style = ttk.Style()
-    try:
-        style.theme_use("clam")
-    except Exception:
-        pass
-
-    # Combobox
-    style.configure("TCombobox",
-        fieldbackground=COLORS["bg2"],
-        background=COLORS["bg2"],
-        foreground=COLORS["text"],
-        selectbackground=COLORS["red_dim"],
-        selectforeground=COLORS["text"],
-        arrowcolor=COLORS["text2"],
-        bordercolor=COLORS["border2"],
-        darkcolor=COLORS["border"],
-        lightcolor=COLORS["border2"],
-        relief="flat",
-        padding=3,
-    )
-    style.map("TCombobox",
-        fieldbackground=[("readonly", COLORS["bg2"]),
-                         ("focus",    COLORS["bg2"])],
-        foreground=[("readonly", COLORS["text"])],
-        background=[("readonly", COLORS["bg2"]),
-                    ("active",   COLORS["bg3"])],
-    )
-    # Dropdown lista
-    root.option_add("*TCombobox*Listbox.background",        COLORS["bg2"])
-    root.option_add("*TCombobox*Listbox.foreground",        COLORS["text"])
-    root.option_add("*TCombobox*Listbox.selectBackground",  COLORS["red_dim"])
-    root.option_add("*TCombobox*Listbox.selectForeground",  COLORS["text"])
-    root.option_add("*TCombobox*Listbox.relief",            "flat")
-    root.option_add("*TCombobox*Listbox.bd",                "0")
-    root.option_add("*TCombobox*Listbox.highlightThickness","1")
-    root.option_add("*TCombobox*Listbox.highlightBackground", COLORS["border2"])
-    root.option_add("*TCombobox*Listbox.highlightColor",    COLORS["border2"])
-
-    # Scrollbar
-    style.configure("TScrollbar",
-        background=COLORS["bg2"],
-        troughcolor=COLORS["bg1"],
-        arrowcolor=COLORS["text3"],
-        bordercolor=COLORS["border"],
-        relief="flat",
-    )
+# Aliasy dla wstecznej kompatybilności z kodem który importował słowniki BTN_*
+# Każdy z nich to kwargs do ttk.Button — jedyna zmiana to style= zamiast bg/fg
+BTN_APPLY  = {"style": "Accent.TButton"}
+BTN_SAVE   = {"style": ""}
+BTN_DELETE = {"style": "Accent.TButton"}   # nadpisz style w kodzie jeśli chcesz inny
+BTN_RESET  = {"style": ""}
+BTN_TOGGLE = {"style": ""}
+BTN_FETCH  = {"style": "Accent.TButton"}
