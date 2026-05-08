@@ -651,8 +651,8 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="#333333") # Ciemne tło dla okienka tooltipa
-        ttk.Label(tw, text=text, justify="left", background="#333333").pack(padx=5, pady=2)
+        tw.configure(bg="") # Ciemne tło dla okienka tooltipa
+        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
         tip_window[0] = tw
     def hide(e):
         if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
