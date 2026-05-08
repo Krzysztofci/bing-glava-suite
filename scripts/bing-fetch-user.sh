@@ -28,7 +28,7 @@ if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 fi
 # Sprawdź blokadę tapety
-WALLPAPER_LOCK="$HOME/.config/bing-glava/wallpaper.lock"
+WALLPAPER_LOCK="$HOME/.config/GlavaMP/wallpaper.lock"
 if [ -f "$WALLPAPER_LOCK" ]; then
     echo "Tapeta zablokowana — pomijam pobieranie."
     exit 0
