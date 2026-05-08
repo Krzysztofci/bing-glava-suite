@@ -38,7 +38,7 @@ done
 
 # --- Ścieżki ---
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-LOCK_FILE="$TARGET_HOME/.config/bing-glava/wallpaper.lock"
+LOCK_FILE="$TARGET_HOME/.config/GlavaMP/wallpaper.lock"
 if [ -f "$LOCK_FILE" ]; then
     exit 0
 fi
