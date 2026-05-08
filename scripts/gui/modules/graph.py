@@ -383,7 +383,7 @@ def _tip(parent, label, text):
         tw = tk.Toplevel(lbl)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="#333333")
+        tw.configure(bg="")
         ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
         tip_window[0] = tw
     def hide(e):

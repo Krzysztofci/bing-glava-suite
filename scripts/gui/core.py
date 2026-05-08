@@ -22,7 +22,7 @@ BIN_DIR        = os.path.join(USER_HOME, ".local/bin")
 RC_GLSL        = os.path.join(GLAVA_DIR, "rc.glsl")
 FLAG_RED       = os.path.join(GLAVA_DIR, "red.shift")
 FLAG_MANUAL    = os.path.join(GLAVA_DIR, "manual.shift")
-WALLPAPER_LOCK = os.path.join(BINGCONF_DIR, "wallpaper.lock")
+WALLPAPER_LOCK = os.path.join(CONFIG_DIR, "wallpaper.lock")
 ACTIVE_MODULE_FILE = os.path.join(GLAVA_DIR, "active_module")
 
 BINGCONF_FILE  = os.path.join(BINGCONF_DIR, "config")
@@ -142,7 +142,7 @@ def read_bing_config():
 
 def write_bing_config(cfg):
     os.makedirs(BINGCONF_DIR, exist_ok=True)
-    lines = ["# bing-glava — konfiguracja użytkownika\n"]
+    lines = ["# glava-master-panel — konfiguracja tapety\n"]
     for key, val in cfg.items():
         lines.append(f"{key}={val}\n")
     with open(BINGCONF_FILE, "w") as f:
@@ -226,7 +226,7 @@ def load_shader_profiles():
 
 
 def save_shader_profiles(profiles):
-    os.makedirs(BINGCONF_DIR, exist_ok=True)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
     with open(PROFILES_FILE, "w") as f:
         json.dump(profiles, f, indent=4, ensure_ascii=False)
 
@@ -255,3 +255,4 @@ def delete_shader_profile_for_module(module, name):
         save_shader_profiles(all_profiles)
         return True
     return False
+
