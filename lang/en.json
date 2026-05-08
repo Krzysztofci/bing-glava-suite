@@ -220,6 +220,7 @@
     "tooltip_samplerate": "Audio sample rate\n22050 Hz = standard\n44100 Hz = high quality",
     "tooltip_samplesize": "256=172UPS 512=86UPS 1024=43UPS 2048=21UPS\nAlways <= audio buffer",
     "tooltip_smooth_factor": "Frequency smoothing. Lower values ​​result in faster response, higher values ​​result in smoother movement.",
+    "tooltip_smooth_post": "Post-processing image smoothing.\nOnly works with opacity: x root",    
     "tooltip_swap_lr": "Swaps the left and right channel signals.",
     "tooltip_vertical_bar": "Rotates the visualization 90 degrees (Bars grow from the side of the screen)",
     "warn_no_plugin": "Plugin unavailable",

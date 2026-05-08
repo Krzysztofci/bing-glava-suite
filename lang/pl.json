@@ -220,6 +220,7 @@
     "tooltip_samplerate": "Częstotliwość próbkowania audio\n22050 Hz = standardowa\n44100 Hz = wysoka jakość",
     "tooltip_samplesize": "256=172UPS 512=86UPS 1024=43UPS 2048=21UPS\nZawsze <= bufor audio",
     "tooltip_smooth_factor": "Wygładzanie częstotliwości. Mniejsze wartości dają szybszą reakcję, większe - płynniejszy ruch.",
+    "tooltip_smooth_post": "Wygładzanie obrazu post-processing.\nDziała tylko z opacity: x root",
     "tooltip_swap_lr": "Zamienia sygnał lewego kanału z prawym.",
     "tooltip_vertical_bar": "Obraca wizualizację o 90 stopni (słupki wyrastają z boku ekranu).",
     "warn_no_plugin": "Plugin niedostępny",
