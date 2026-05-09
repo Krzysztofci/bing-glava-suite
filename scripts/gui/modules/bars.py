@@ -102,35 +102,18 @@ def reset_shader(app):
 
 class BarsParamWidget(BaseParamWidget):
     MODULE_NAME = "bars"
-    def __init__(self, parent, app, T):
-        self.parent = parent
-        self.app    = app
-        self.T      = T
-        self.vars   = {}
+
+    def _init_extra(self):
         self._buf_cb    = None
         self._sample_cb = None
 
-    def build(self):
-        current = collect_params(self.app)
+    def build_left(self, parent, current):
+        self._build_shape(parent, current)
+        self._build_flags(parent, current)
 
-        left  = TFrame(self.parent, level=0)
-        right = TFrame(self.parent, level=0)
-        left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        self.parent.columnconfigure(0, weight=1, uniform="bc")
-        self.parent.columnconfigure(1, weight=1, uniform="bc")
-        self.parent.rowconfigure(0, weight=1)
-
-        # Lewa: Kształt + Przełączniki + Audio
-        self._build_shape(left, current)
-        self._build_flags(left, current)
-        
-        # Prawa: Wygładzanie + Profile szadera
-        self._build_smooth(right, current)
-        self._build_profiles(right)
-
-    # ── Kształt ──────────────────────────────────────────────────────────────
-
+    def build_right(self, parent, current):
+        self._build_smooth(parent, current)
+        self._build_profiles(parent)
     def _build_shape(self, parent, current):
         lf = ttk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py

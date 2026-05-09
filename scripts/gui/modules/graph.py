@@ -80,30 +80,14 @@ def reset_shader(app):
 
 class GraphParamWidget(BaseParamWidget):
     MODULE_NAME = "graph"
-    def __init__(self, parent, app, T):
-        self.parent = parent
-        self.app    = app
-        self.T      = T
-        self.vars   = {}
 
-    def build(self):
-        current = collect_params(self.app)
+    def build_left(self, parent, current):
+        self._build_shape(parent, current)
+        self._build_flags(parent, current)
 
-        left  = ttk.Frame(self.parent)
-        right = ttk.Frame(self.parent)
-        left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        self.parent.columnconfigure(0, weight=1, uniform="gc")
-        self.parent.columnconfigure(1, weight=1, uniform="gc")
-        self.parent.rowconfigure(0, weight=1)
-
-        self._build_shape(left, current)
-        self._build_flags(left, current)
-        self._build_smooth(right, current)
-        self._build_profiles(right)
-
-    # ── Kształt ──────────────────────────────────────────────────────────────
-
+    def build_right(self, parent, current):
+        self._build_smooth(parent, current)
+        self._build_profiles(parent)
     def _build_shape(self, parent, current):
         lf = ttk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"),
                             padding=(15, 10))

@@ -1,10 +1,11 @@
 # =============================================================================
 # gui/modules/base.py
 # Klasa bazowa dla wszystkich *ParamWidget.
-# Zawiera boilerplate: __init__, _schedule_restart, _apply_profile,
+# Zawiera boilerplate: __init__, build(), _schedule_restart, _apply_profile,
 # _save_profile, _delete_profile, _refresh_cb, _expert.
 # =============================================================================
 
+import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
 
 from ..core import (
@@ -21,10 +22,12 @@ class BaseParamWidget:
     Klasa bazowa dla BarsParamWidget, CircleParamWidget itd.
 
     Podklasa MUSI zdefiniować:
-        MODULE_NAME: str  — np. "bars", "circle"
+        MODULE_NAME: str       — np. "bars", "circle"
+        build_left(left, current)
+        build_right(right, current)
 
     Podklasa MOŻE nadpisać:
-        build(self)       — buduje UI
+        _init_extra()          — dodatkowa inicjalizacja (screen info itp.)
         _reset_shader(self)
     """
 
@@ -35,6 +38,37 @@ class BaseParamWidget:
         self.app    = app
         self.T      = T
         self.vars   = {}
+        self._init_extra()
+
+    def _init_extra(self):
+        """Hook dla podklas — dodatkowa inicjalizacja w __init__."""
+        pass
+
+    # ── Szkielet UI ───────────────────────────────────────────────────────────
+
+    def build(self):
+        import importlib
+        mod = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
+        current = mod.collect_params(self.app)
+
+        left  = ttk.Frame(self.parent)
+        right = ttk.Frame(self.parent)
+        left.grid( row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
+        self.parent.columnconfigure(0, weight=1, uniform="col")
+        self.parent.columnconfigure(1, weight=1, uniform="col")
+        self.parent.rowconfigure(0, weight=1)
+
+        self.build_left(left, current)
+        self.build_right(right, current)
+
+    def build_left(self, parent, current):
+        """Nadpisz w podklasie — lewa kolumna."""
+        raise NotImplementedError
+
+    def build_right(self, parent, current):
+        """Nadpisz w podklasie — prawa kolumna."""
+        raise NotImplementedError
 
     # ── Restart GLava ─────────────────────────────────────────────────────────
 

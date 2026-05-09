@@ -11,6 +11,7 @@ import os, re, subprocess
 
 from .core import BIN_DIR, RC_GLSL
 from .geometry import get_screen_info
+from .modules import glsl_io
 
 
 def build_tab_advanced(parent, app):
@@ -181,7 +182,7 @@ class TabAdvanced:
         fps_row.pack(fill="x", pady=2)
         ttk.Label(fps_row, text=T.get("label_fps_limit", "Limit FPS"),
                   width=16, anchor="w").pack(side="left")
-        t = _tip(fps_row, "?", T.get("tooltip_fps_limit",
+        t = glsl_io.tip(fps_row, "?", T.get("tooltip_fps_limit",
                  "Maksymalna liczba klatek na sekundę"))
         if t: t.pack(side="left", padx=(2, 0))
 
@@ -227,7 +228,7 @@ class TabAdvanced:
             tip_key = label_key.replace("label_", "tooltip_")
             t_text = T.get(tip_key, "")
             if t_text:
-                t = _tip(brow, "?", t_text)
+                t = glsl_io.tip(brow, "?", t_text)
                 if t: t.pack(side="left", padx=(2, 0))
 
     # ── Rendering / compositor ────────────────────────────────────────────────
@@ -340,7 +341,7 @@ class TabAdvanced:
         if tooltip_key:
             t_text = self.T.get(tooltip_key, "")
             if t_text:
-                t = _tip(row, "?", t_text)
+                t = glsl_io.tip(row, "?", t_text)
                 if t: t.pack(side="left", padx=(2, 0))
 
         cb = ttk.Combobox(row, textvariable=current_var,
@@ -444,23 +445,3 @@ class TabAdvanced:
                             "\n".join(lines))
 
 
-# ─── _tip ────────────────────────────────────────────────────────────────────
-
-def _tip(parent, label, text):
-    if not text: return None
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="#333333")
-        ttk.Label(tw, text=text, justify="left", background="#333333").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl

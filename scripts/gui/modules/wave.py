@@ -80,11 +80,8 @@ def reset_shader(app):
 
 class WaveParamWidget(BaseParamWidget):
     MODULE_NAME = "wave"
-    def __init__(self, parent, app, T):
-        self.parent = parent
-        self.app    = app
-        self.T      = T
-        self.vars   = {}
+
+    def _init_extra(self):
         self._accel_sliders = {}
         try:
             from ..geometry import get_screen_info
@@ -97,24 +94,13 @@ class WaveParamWidget(BaseParamWidget):
             self._half_x = 800
             self._half_y = 450
 
-    def build(self):
-        current = collect_params(self.app)
+    def build_left(self, parent, current):
+        self._build_shape(parent, current)
+        self._build_position(parent, current)
 
-        left  = ttk.Frame(self.parent)
-        right = ttk.Frame(self.parent)
-        left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        self.parent.columnconfigure(0, weight=1, uniform="wc")
-        self.parent.columnconfigure(1, weight=1, uniform="wc")
-        self.parent.rowconfigure(0, weight=1)
-
-        self._build_shape(left, current)
-        self._build_position(left, current)
-        self._build_smooth(right, current)
-        self._build_profiles(right)
-
-    # ── Kształt ───────────────────────────────────────────────────────────────
-
+    def build_right(self, parent, current):
+        self._build_smooth(parent, current)
+        self._build_profiles(parent)
     def _build_shape(self, parent, current):
         lf = ttk.LabelFrame(parent,
                             text=self.T.get("section_shape", "Kształt i dynamika"),
