@@ -13,12 +13,9 @@ from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
-from ..core import (
-    get_shader_profiles_for_module,
-    save_shader_profile_for_module,
-    delete_shader_profile_for_module,
-)
 from . import glsl_io
+from ..core import get_shader_profiles_for_module
+from .base import BaseParamWidget
 
 def _graph_glsl():  return os.path.join(GLAVA_DIR, "graph.glsl")
 def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -81,7 +78,8 @@ def reset_shader(app):
     glsl_io.write_flag_defines(_graph_glsl(), defaults, FLAG_PARAMS)
 
 
-class GraphParamWidget:
+class GraphParamWidget(BaseParamWidget):
+    MODULE_NAME = "graph"
     def __init__(self, parent, app, T):
         self.parent = parent
         self.app    = app
@@ -306,49 +304,6 @@ class GraphParamWidget:
     def _debounce_smooth(self, key, value):
         glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
-
-    def _schedule_restart(self):
-        if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from gui.glava import glava_restart
-        self._rjob = self.app.root.after(
-            300, lambda: glava_restart(
-                "graph",
-                extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                after_fn=self.app.update_status))
-
-    def _apply_profile(self):
-        name = self.profile_var.get()
-        if not name: return
-        profiles = get_shader_profiles_for_module("graph")
-        if name not in profiles: return
-        apply_params(profiles[name], self.app)
-        self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart("graph", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                      after_fn=self.app.update_status)
-
-    def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil",
-                                      self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
-        save_shader_profile_for_module("graph", name, collect_params(self.app))
-        self._refresh_cb()
-        self.profile_var.set(name)
-
-    def _delete_profile(self):
-        name = self.profile_var.get()
-        if name and messagebox.askyesno(
-                "", self.T.get("dialog_delete_confirm",
-                               "Are you sure you want to delete profile") + f" '{name}'?"):
-            delete_shader_profile_for_module("graph", name)
-            self._refresh_cb()
-
-    def _refresh_cb(self):
-        names = sorted(get_shader_profiles_for_module("graph").keys())
-        self.profile_cb["values"] = names
-        if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
         if messagebox.askyesno(self.T.get("section_reset", "Reset"),

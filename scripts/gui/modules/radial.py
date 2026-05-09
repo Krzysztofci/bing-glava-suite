@@ -13,13 +13,10 @@ from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
-from ..core import (
-    get_shader_profiles_for_module,
-    save_shader_profile_for_module,
-    delete_shader_profile_for_module,
-)
 from ..geometry import get_screen_info
 from . import glsl_io
+from ..core import get_shader_profiles_for_module
+from .base import BaseParamWidget
 
 def _radial_glsl():  return os.path.join(GLAVA_DIR, "radial.glsl")
 def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -118,7 +115,8 @@ def reset_shader(app):
 
 # ─── Widget ───────────────────────────────────────────────────────────────────
 
-class RadialParamWidget:
+class RadialParamWidget(BaseParamWidget):
+    MODULE_NAME = "radial"
     def __init__(self, parent, app, T):
         self.parent = parent
         self.app    = app
@@ -442,57 +440,6 @@ class RadialParamWidget:
         glsl_io.write_define_int(_radial_glsl(), key, 1 if var.get() else 0)
         self._schedule_restart()
 
-    def _schedule_restart(self):
-        if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from gui.glava import glava_restart
-        self._rjob = self.app.root.after(
-            300, lambda: glava_restart(
-                "radial",
-                extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                after_fn=self.app.update_status))
-
-    def _apply_profile(self):
-        name = self.profile_var.get()
-        if not name: return
-        profiles = get_shader_profiles_for_module("radial")
-        if name not in profiles: return
-        apply_params(profiles[name], self.app)
-        self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart("radial", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                      after_fn=self.app.update_status)
-
-    def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil"),
-            self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
-        existing = get_shader_profiles_for_module("radial")
-        if name in existing:
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
-        save_shader_profile_for_module("radial", name, collect_params(self.app))
-        self._refresh_cb()
-        self.profile_var.set(name)
-
-    def _delete_profile(self):
-        name = self.profile_var.get()
-        if name and messagebox.askyesno(
-                "", self.T.get("dialog_delete_confirm",
-                               "Are you sure you want to delete profile") + f" '{name}'?"):
-            delete_shader_profile_for_module("radial", name)
-            self._refresh_cb()
-
-    def _refresh_cb(self):
-        names = sorted(get_shader_profiles_for_module("radial").keys())
-        self.profile_cb["values"] = names
-        if names: self.profile_cb.current(0)
-
     def _reset_shader(self):
         if messagebox.askyesno(
                 self.T.get("section_reset", "Reset"),
@@ -502,7 +449,6 @@ class RadialParamWidget:
             from gui.glava import glava_restart
             glava_restart("radial", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                           after_fn=self.app.update_status)
-
 
 
 # ─── Helpers (rotation) ─────────────────────────────────────────────────────

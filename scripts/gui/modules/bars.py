@@ -17,12 +17,9 @@ from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
 from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
                      COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
-from ..core import (
-    get_shader_profiles_for_module,
-    save_shader_profile_for_module,
-    delete_shader_profile_for_module,
-)
 from . import glsl_io
+from ..core import get_shader_profiles_for_module
+from .base import BaseParamWidget
 
 # ─── Ścieżki ─────────────────────────────────────────────────────────────────
 
@@ -103,7 +100,8 @@ def reset_shader(app):
 
 # ─── Widget GUI ───────────────────────────────────────────────────────────────
 
-class BarsParamWidget:
+class BarsParamWidget(BaseParamWidget):
+    MODULE_NAME = "bars"
     def __init__(self, parent, app, T):
         self.parent = parent
         self.app    = app
@@ -111,13 +109,6 @@ class BarsParamWidget:
         self.vars   = {}
         self._buf_cb    = None
         self._sample_cb = None
-
-    def _expert(self):
-        """Odczytuje stan trybu expert z głównego okna."""
-        try:
-            return self.app.expert_mode.get()
-        except AttributeError:
-            return False
 
     def build(self):
         current = collect_params(self.app)
@@ -398,39 +389,6 @@ class BarsParamWidget:
         # Pusta etykieta dla wyrównania do jednostek z sekcji Shape
         ttk.Label(parent, text=" ", width=4).grid(row=row_idx, column=3)
 
-    # ── Profile szadera — callbacki ──────────────────────────────────────────
-
-    def _apply_profile(self):
-        name = self.profile_var.get()
-        if not name: return
-        profiles = get_shader_profiles_for_module("bars")
-        if name not in profiles: return
-        apply_params(profiles[name], self.app)
-        # Odśwież widgety
-        self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
-
-    def _save_profile(self):
-        name = simpledialog.askstring("Nowy profil szadera", self.T.get("dialog_profile_name", "Enter profile name:"))
-        if not name: return
-        params = collect_params(self.app)
-        save_shader_profile_for_module("bars", name, params)
-        self._refresh_profile_cb()
-        self.profile_var.set(name)
-
-    def _delete_profile(self):
-        name = self.profile_var.get()
-        if not name: return
-        if messagebox.askyesno("", self.T.get("dialog_delete_confirm", "Are you sure you want to delete profile") + f" '{name}'?"):
-            delete_shader_profile_for_module("bars", name)
-            self._refresh_profile_cb()
-
-    def _refresh_profile_cb(self):
-        names = sorted(get_shader_profiles_for_module("bars").keys())
-        self.profile_cb["values"] = names
-        if names: self.profile_cb.current(0)
-
     def _reset_shader(self):
         if not messagebox.askyesno(self.T.get("btn_reset_shader", "Reset shader"),
                 self.T.get("confirm_reset_bars", "Restore default bars shader?") +
@@ -482,13 +440,3 @@ class BarsParamWidget:
         elif target == "rc":
             glsl_io.write_int_req(RC_GLSL, key, int(value))
         self._schedule_restart()
-
-    def _schedule_restart(self):
-        if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from gui.glava import glava_restart
-        self._rjob = self.app.root.after(
-            300, lambda: glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status))
-
-

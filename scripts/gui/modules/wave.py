@@ -8,13 +8,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..core import (
-    get_shader_profiles_for_module,
-    save_shader_profile_for_module,
-    delete_shader_profile_for_module,
-)
 from ..widgets import AccelSlider
 from . import glsl_io
+from ..core import get_shader_profiles_for_module
+from .base import BaseParamWidget
 
 def _wave_glsl():   return os.path.join(GLAVA_DIR, "wave.glsl")
 def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -81,7 +78,8 @@ def reset_shader(app):
     glsl_io.write_define_raw(_wave_glsl(), "ROTATE", "0.000000")
 
 
-class WaveParamWidget:
+class WaveParamWidget(BaseParamWidget):
+    MODULE_NAME = "wave"
     def __init__(self, parent, app, T):
         self.parent = parent
         self.app    = app
@@ -377,57 +375,6 @@ class WaveParamWidget:
     def _debounce_smooth(self, key, value):
         glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
-
-    def _schedule_restart(self):
-        if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from gui.glava import glava_restart
-        self._rjob = self.app.root.after(
-            300, lambda: glava_restart(
-                "wave",
-                extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                after_fn=self.app.update_status))
-
-    def _apply_profile(self):
-        name = self.profile_var.get()
-        if not name: return
-        profiles = get_shader_profiles_for_module("wave")
-        if name not in profiles: return
-        apply_params(profiles[name], self.app)
-        self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                      after_fn=self.app.update_status)
-
-    def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil"),
-            self.T.get("dialog_profile_name", "Podaj nazwę profilu:"))
-        if not name: return
-        existing = get_shader_profiles_for_module("wave")
-        if name in existing:
-            if not messagebox.askyesno(
-                    self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
-                    self.T.get("dialog_overwrite_msg",
-                               "Profil '{}' już istnieje. Nadpisać?").format(name)):
-                return
-        save_shader_profile_for_module("wave", name, collect_params(self.app))
-        self._refresh_cb()
-        self.profile_var.set(name)
-
-    def _delete_profile(self):
-        name = self.profile_var.get()
-        if name and messagebox.askyesno(
-                "", self.T.get("dialog_delete_confirm",
-                               "Czy na pewno usunąć profil") + f" '{name}'?"):
-            delete_shader_profile_for_module("wave", name)
-            self._refresh_cb()
-
-    def _refresh_cb(self):
-        names = sorted(get_shader_profiles_for_module("wave").keys())
-        self.profile_cb["values"] = names
-        if names: self.profile_cb.current(0)
 
     def _reset_shader(self):
         if messagebox.askyesno(
