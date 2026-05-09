@@ -3,17 +3,18 @@
 #
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
-import os, re
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
+from . import glsl_io
 
 def _circle_glsl():  return os.path.join(GLAVA_DIR, "circle.glsl")
 def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -31,18 +32,6 @@ SHAPE_PARAMS = [
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
-SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
-     "Szybkość opadania po szczycie"),
-    ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
-     "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
-     "Liczba klatek do uśredniania"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
-     "Skala częstotliwości FFT"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
-     "Odcięcie najniższych częstotliwości FFT"),
-]
 
 # C_SMOOTH niezaimplementowane w shaderze — ukryte do czasu wdrożenia
 _UNIMPLEMENTED = {"C_SMOOTH"}
@@ -66,27 +55,28 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(_read_defines(_circle_glsl(), SHAPE_PARAMS))
-    p.update(_read_flag_defines(_circle_glsl()))
-    p.update(_read_smooth(_smooth_glsl()))
-    rotate_raw = _read_raw_define(_circle_glsl(), "ROTATE") or "(PI / 2)"
+    p.update(glsl_io.read_defines(_circle_glsl(), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(_circle_glsl(), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
+    raw = glsl_io.read_raw(_circle_glsl())
+    rotate_raw = raw.get("ROTATE", "(PI / 2)")
     p["ROTATE_DEG"] = _rotate_to_deg(rotate_raw)
-    try:    p["CENTER_OFFSET_X"] = int(_read_raw_define(_circle_glsl(), "CENTER_OFFSET_X") or 0)
+    try:    p["CENTER_OFFSET_X"] = int(raw.get("CENTER_OFFSET_X", 0))
     except: p["CENTER_OFFSET_X"] = 0
-    try:    p["CENTER_OFFSET_Y"] = int(_read_raw_define(_circle_glsl(), "CENTER_OFFSET_Y") or 0)
+    try:    p["CENTER_OFFSET_Y"] = int(raw.get("CENTER_OFFSET_Y", 0))
     except: p["CENTER_OFFSET_Y"] = 0
     return p
 
 
 def apply_params(params, app):
-    _write_defines(_circle_glsl(), params, SHAPE_PARAMS)
-    _write_flag_defines(_circle_glsl(), params)
-    _write_smooth(_smooth_glsl(), params)
+    glsl_io.write_defines(_circle_glsl(), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_circle_glsl(), params, FLAG_PARAMS)
+    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
     if "ROTATE_DEG" in params:
-        _write_raw_define(_circle_glsl(), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
+        glsl_io.write_define_raw(_circle_glsl(), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
     for key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
         if key in params:
-            _write_raw_define(_circle_glsl(), key, int(params[key]))
+            glsl_io.write_define_raw(_circle_glsl(), key, int(params[key]))
 
 
 def reset_shader(app):
@@ -99,11 +89,11 @@ def reset_shader(app):
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
     defaults["C_SMOOTH"] = 1
-    _write_defines(_circle_glsl(), defaults, SHAPE_PARAMS)
-    _write_flag_defines(_circle_glsl(), defaults)
-    _write_raw_define(_circle_glsl(), "ROTATE", "(PI / 2)")
-    _write_raw_define(_circle_glsl(), "CENTER_OFFSET_X", 0)
-    _write_raw_define(_circle_glsl(), "CENTER_OFFSET_Y", 0)
+    glsl_io.write_defines(_circle_glsl(), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_circle_glsl(), defaults, FLAG_PARAMS)
+    glsl_io.write_define_raw(_circle_glsl(), "ROTATE", "(PI / 2)")
+    glsl_io.write_define_raw(_circle_glsl(), "CENTER_OFFSET_X", 0)
+    glsl_io.write_define_raw(_circle_glsl(), "CENTER_OFFSET_Y", 0)
 
 
 class CircleParamWidget:
@@ -174,7 +164,7 @@ class CircleParamWidget:
         ttk.Label(lf, text=self.T.get("label_rotation", "Rotation"),
                   width=12, anchor="w").grid(
             row=0, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(lf, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
+        t = glsl_io.tip(lf, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
         if t: t.grid(row=0, column=1, padx=5, pady=5)
 
         def on_rot(v):
@@ -210,7 +200,7 @@ class CircleParamWidget:
             ttk.Label(lf, text=self.T.get(lk, key),
                       width=12, anchor="w").grid(
                 row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-            t = _tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"),
+            t = glsl_io.tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"),
                      f"Przesuwa środek wizualizacji\nZakres: ±{max_val}px"))
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
@@ -261,7 +251,7 @@ class CircleParamWidget:
 #                row, text=display_label, variable=var,
 #                command=lambda k=key, v=var: self._write_flag(k, v)
 #            ).pack(side="left")
-#            _tip(row, "?", display_tip)
+#            glsl_io.tip(row, "?", display_tip)
         for idx, (key, label, tooltip) in enumerate(FLAG_PARAMS):
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
@@ -285,7 +275,7 @@ class CircleParamWidget:
             # Pytajnik ląduje w kolumnie 1. 
             # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
             if translated_tip:
-                t = _tip(lf, "?", translated_tip)
+                t = glsl_io.tip(lf, "?", translated_tip)
                 if t:
                     # padx=(0, 5) przyciąga go do tekstu po lewej
                     t.grid(row=idx, column=1, sticky="w", padx=(0, 5), pady=2)
@@ -360,7 +350,7 @@ class CircleParamWidget:
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -374,13 +364,13 @@ class CircleParamWidget:
             row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
 
     def _float_slider_row(self, parent, key, label, vmin, vmax, value, step, tooltip, row_idx):
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
         var = tk.DoubleVar(value=value)
         self.vars[key] = var
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -398,26 +388,26 @@ class CircleParamWidget:
 
     def _write_rotate(self):
         deg = self.rotate_var.get()
-        _write_rotate(_circle_glsl(), _deg_to_rotate(deg))
+        glsl_io.write_define_raw(_circle_glsl(), "ROTATE", _deg_to_rotate(deg))
         self._schedule_restart()
 
     def _write_flag(self, key, var):
-        _write_flag_defines(_circle_glsl(), {key: 1 if var.get() else 0})
+        glsl_io.write_flag_defines(_circle_glsl(), {key: 1 if var.get() else 0}, FLAG_PARAMS)
         self._schedule_restart()
 
     def _debounce(self, key, value):
-        _write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
+        glsl_io.write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _debounce_int(self, key, value):
         if key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
-            _write_raw_define(_circle_glsl(), key, int(value))
+            glsl_io.write_define_raw(_circle_glsl(), key, int(value))
         else:
-            _write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
+            glsl_io.write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _debounce_smooth(self, key, value):
-        _write_smooth(_smooth_glsl(), {key: value})
+        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
 
     def _schedule_restart(self):
@@ -481,33 +471,8 @@ class CircleParamWidget:
                           after_fn=self.app.update_status)
 
 
-# ─── _tip ────────────────────────────────────────────────────────────────────
 
-def _tip(parent, label, text):
-    if not text: return None
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="")
-        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl
-
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _decimals(step):
-    s = str(step)
-    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
+# ─── Helpers (rotation) ─────────────────────────────────────────────────────
 
 def _rotate_to_deg(raw):
     sym = {"0": 0, "(PI / 2)": 90, "PI": 180, "(3 * PI / 2)": 270}
@@ -525,103 +490,3 @@ def _deg_to_rotate(deg):
 
 # ─── I/O ─────────────────────────────────────────────────────────────────────
 
-def _read_defines(path, param_defs):
-    result = {p[0]: p[4] for p in param_defs}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in param_defs:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_rotate(path, rad):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    val = str(rad)
-    content = re.sub(r'^#define\s+ROTATE\s+.*$\n?', '',
-                     content, flags=re.MULTILINE)
-    content = content.rstrip() + f"\n#define ROTATE {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _write_defines(path, params, param_defs):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in param_defs}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_flag_defines(path):
-    result = {p[0]: 0 for p in FLAG_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in FLAG_PARAMS:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_flag_defines(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in FLAG_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_raw_define(path, key):
-    if not os.path.exists(path): return None
-    with open(path) as f: content = f.read()
-    m = re.search(rf'^#define\s+{key}\s+(.+)$', content, re.MULTILINE)
-    return m.group(1).strip() if m else None
-
-def _write_raw_define(path, key, val):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^#define\s+{key}\s+.*$\n?', '', content, flags=re.MULTILINE)
-    m = list(re.finditer(r'^#define\s+\w+', content, re.MULTILINE))
-    if m:
-        insert_pos = m[-1].end()
-        rest = content[insert_pos:]
-        eol = rest.find('\n')
-        insert_pos += eol + 1 if eol >= 0 else len(rest)
-        content = content[:insert_pos] + f"#define {key} {val}\n" + content[insert_pos:]
-    else:
-        content = content.rstrip() + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_smooth(path):
-    result = {p[0]: p[4] for p in SMOOTH_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in SMOOTH_PARAMS:
-        m = re.search(rf'^#request\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try:
-                result[p[0]] = int(m.group(1)) if p[0] == "setavgframes" \
-                    else float(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_smooth(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        dec = _decimals(p[6])
-        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        content = re.sub(rf'^#request\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#request {key} {sv}\n"
-    with open(path, "w") as f: f.write(content)

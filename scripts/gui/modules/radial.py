@@ -7,11 +7,11 @@
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
 
-import os, re, math
+import os, math
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
 from ..core import (
     get_shader_profiles_for_module,
@@ -19,6 +19,7 @@ from ..core import (
     delete_shader_profile_for_module,
 )
 from ..geometry import get_screen_info
+from . import glsl_io
 
 def _radial_glsl():  return os.path.join(GLAVA_DIR, "radial.glsl")
 def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -50,18 +51,6 @@ SHAPE_FLOAT_PARAMS = [
 ]
 
 # (klucz, etykieta, min, max, domyślna, krok, tooltip)
-SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",     0.1, 20.0,  4.2, 0.1,
-     "Szybkość opadania słupków po szczycie"),
-    ("setsmoothfactor", "Wygładzanie",  0.001,  0.1, 0.025, 0.001,
-     "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    "Klatek avg",      1,   16,     5, 1,
-     "Liczba klatek do uśredniania"),
-    ("setfftscale",     "Skala FFT",     1.0, 30.0,  10.2, 0.1,
-     "Skala częstotliwości FFT"),
-    ("setfftcutoff",    "Odcięcie basów", 0.0,  1.0,   0.3, 0.01,
-     "Odcięcie najniższych częstotliwości FFT"),
-]
 
 FLAG_PARAMS = [
     ("INVERT", "Zamień kanały L/R",
@@ -76,7 +65,7 @@ def build_params(parent, app, T):
 
 
 def collect_params(app):
-    raw = _read_raw(_radial_glsl())
+    raw = glsl_io.read_raw(_radial_glsl())
     p = {}
     for key, _, _, _, default, _, _ in SHAPE_INT_PARAMS:
         try:    p[key] = int(raw.get(key, default))
@@ -90,8 +79,8 @@ def collect_params(app):
     except: p["CENTER_OFFSET_X"] = 0
     try:    p["CENTER_OFFSET_Y"] = int(raw.get("CENTER_OFFSET_Y", 0))
     except: p["CENTER_OFFSET_Y"] = 0
-    p.update(_read_flags(_radial_glsl()))
-    p.update(_read_smooth(_smooth_glsl()))
+    p.update(glsl_io.read_flag_defines(_radial_glsl(), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
     return p
 
 
@@ -99,17 +88,16 @@ def apply_params(params, app):
     int_keys = {p[0] for p in SHAPE_INT_PARAMS} | {"CENTER_OFFSET_X", "CENTER_OFFSET_Y"}
     for key, val in params.items():
         if key in int_keys:
-            _write_define_int(_radial_glsl(), key, int(val))
+            glsl_io.write_define_int(_radial_glsl(), key, int(val))
     float_keys = {p[0] for p in SHAPE_FLOAT_PARAMS}
     for key, val in params.items():
         if key in float_keys:
             step = next(p[5] for p in SHAPE_FLOAT_PARAMS if p[0] == key)
-            _write_define_float(_radial_glsl(), key, float(val), step)
+            glsl_io.write_define_float(_radial_glsl(), key, float(val), step)
     if "ROTATE_DEG" in params:
-        glsl_val = _deg_to_rotate(int(params["ROTATE_DEG"]))
-        _write_define_raw(_radial_glsl(), "ROTATE", glsl_val)
-    _write_flags(_radial_glsl(), params)
-    _write_smooth(_smooth_glsl(), params)
+        glsl_io.write_define_raw(_radial_glsl(), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
+    glsl_io.write_flag_defines(_radial_glsl(), params, FLAG_PARAMS)
+    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
@@ -119,13 +107,13 @@ def reset_shader(app):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     for key, _, _, _, default, _, _ in SHAPE_INT_PARAMS:
-        _write_define_int(_radial_glsl(), key, default)
+        glsl_io.write_define_int(_radial_glsl(), key, default)
     for key, _, _, _, default, step, _ in SHAPE_FLOAT_PARAMS:
-        _write_define_float(_radial_glsl(), key, default, step)
-    _write_define_raw(_radial_glsl(), "ROTATE", "(PI / 2)")
-    _write_define_int(_radial_glsl(), "CENTER_OFFSET_X", 0)
-    _write_define_int(_radial_glsl(), "CENTER_OFFSET_Y", 0)
-    _write_flags(_radial_glsl(), {p[0]: 0 for p in FLAG_PARAMS})
+        glsl_io.write_define_float(_radial_glsl(), key, default, step)
+    glsl_io.write_define_raw(_radial_glsl(), "ROTATE", "(PI / 2)")
+    glsl_io.write_define_int(_radial_glsl(), "CENTER_OFFSET_X", 0)
+    glsl_io.write_define_int(_radial_glsl(), "CENTER_OFFSET_Y", 0)
+    glsl_io.write_flag_defines(_radial_glsl(), {p[0]: 0 for p in FLAG_PARAMS}, FLAG_PARAMS)
 
 
 # ─── Widget ───────────────────────────────────────────────────────────────────
@@ -205,7 +193,7 @@ class RadialParamWidget:
         ttk.Label(lf, text=self.T.get("label_rotation", "Rotation"),
                   width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(lf, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
+        t = glsl_io.tip(lf, "?", self.T.get("tooltip_rotate", "Obrót wizualizacji"))
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_rot_change(v):
@@ -244,7 +232,7 @@ class RadialParamWidget:
 
             ttk.Label(lf, text=label_text, width=12, anchor="w").grid(
                 row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-            t = _tip(lf, "?", tooltip_text)
+            t = glsl_io.tip(lf, "?", tooltip_text)
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
             def on_change(v, k=key, sv=var):
@@ -292,7 +280,7 @@ class RadialParamWidget:
             # Pytajnik ląduje w kolumnie 1. 
             # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
             if translated_tip:
-                t = _tip(lf, "?", translated_tip)
+                t = glsl_io.tip(lf, "?", translated_tip)
                 if t:
                     # padx=(0, 5) przyciąga go do tekstu po lewej
                     t.grid(row=idx, column=1, sticky="w", padx=(0, 5), pady=2)
@@ -319,7 +307,7 @@ class RadialParamWidget:
             lang_key = mapping.get(p[0])
             if lang_key:
                 p_list[1] = self.T.get(lang_key, p[1])
-                p_list[6] = self.T.get(lang_key.replace("label_", "tooltip_"), p[6])
+                p_list[7] = self.T.get(lang_key.replace("label_", "tooltip_"), p[7])
             self._smooth_row(lf, tuple(p_list), current, idx)
 
     # ── Profile ───────────────────────────────────────────────────────────────
@@ -367,7 +355,7 @@ class RadialParamWidget:
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -385,11 +373,11 @@ class RadialParamWidget:
         cur = float(current.get(key, default))
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -404,16 +392,16 @@ class RadialParamWidget:
             row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
 
     def _smooth_row(self, parent, param_def, current, row_idx):
-        key, label, vmin, vmax, default, step, tooltip = param_def
+        key, label, vmin, vmax, default, unit, step, tooltip = param_def
         try:    cur = float(current.get(key, default))
         except: cur = float(default)
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -430,29 +418,28 @@ class RadialParamWidget:
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _debounce_int(self, key, value):
-        _write_define_int(_radial_glsl(), key, int(value))
+        glsl_io.write_define_int(_radial_glsl(), key, int(value))
         self._schedule_restart()
 
     def _debounce_float(self, key, value, step):
-        _write_define_float(_radial_glsl(), key, value, step)
+        glsl_io.write_define_float(_radial_glsl(), key, value, step)
         self._schedule_restart()
 
     def _debounce_smooth(self, key, value):
         p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        step = p[5]
-        dec = _decimals(step)
+        step = p[6]
+        dec = glsl_io.decimals(step)
         sv = str(int(value)) if key == "setavgframes" else f"{value:.{dec}f}"
-        _write_request(_smooth_glsl(), key, sv)
+        glsl_io.write_request(_smooth_glsl(), key, sv)
         self._schedule_restart()
 
     def _write_rotate(self):
         deg = int(self.rotate_var.get())
-        glsl_val = f"{deg * 3.14159265359 / 180.0:.6f}"
-        _write_define_raw(_radial_glsl(), "ROTATE", glsl_val)
+        glsl_io.write_define_raw(_radial_glsl(), "ROTATE", _deg_to_rotate(deg))
         self._schedule_restart()
 
     def _write_flag(self, key, var):
-        _write_define_int(_radial_glsl(), key, 1 if var.get() else 0)
+        glsl_io.write_define_int(_radial_glsl(), key, 1 if var.get() else 0)
         self._schedule_restart()
 
     def _schedule_restart(self):
@@ -517,7 +504,8 @@ class RadialParamWidget:
                           after_fn=self.app.update_status)
 
 
-# ─── Helpers ROTATE ──────────────────────────────────────────────────────────
+
+# ─── Helpers (rotation) ─────────────────────────────────────────────────────
 
 def _rotate_to_deg(glsl_val):
     v = glsl_val.strip().replace(" ", "")
@@ -532,110 +520,3 @@ def _rotate_to_deg(glsl_val):
 def _deg_to_rotate(deg):
     return f"{deg * 3.14159265359 / 180.0:.6f}"
 
-def _decimals(step):
-    s = str(step)
-    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
-
-
-# ─── _tip ────────────────────────────────────────────────────────────────────
-
-def _tip(parent, label, text):
-    if not text: return None
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="")
-        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl
-
-
-# ─── I/O ─────────────────────────────────────────────────────────────────────
-
-def _read_raw(path):
-    result = {}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for m in re.finditer(r'^#define\s+(\w+)\s+(.+)', content, re.MULTILINE):
-        key = m.group(1)
-        if key not in result:
-            result[key] = m.group(2).strip()
-    return result
-
-def _write_define_int(path, key, val):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^#define\s+{key}\s+\S+[ \t]*\n?', '',
-                     content, flags=re.MULTILINE)
-    content = content.rstrip() + f'\n#define {key} {val}\n'
-    with open(path, "w") as f: f.write(content)
-
-def _write_define_float(path, key, val, step):
-    dec = _decimals(step)
-    _write_define_raw(path, key, f"{val:.{dec}f}")
-
-def _write_define_raw(path, key, val_str):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^#define\s+{key}\s+.+\n?', '',
-                     content, flags=re.MULTILINE)
-    content = content.rstrip() + f'\n#define {key} {val_str}\n'
-    with open(path, "w") as f: f.write(content)
-
-def _read_flags(path):
-    result = {p[0]: 0 for p in FLAG_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in FLAG_PARAMS:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_flags(path, params):
-    for key, _, _ in FLAG_PARAMS:
-        if key in params:
-            _write_define_int(path, key, int(params[key]))
-
-def _read_smooth(path):
-    result = {p[0]: p[4] for p in SMOOTH_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in SMOOTH_PARAMS:
-        m = re.search(rf'^#request\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try:
-                result[p[0]] = int(m.group(1)) if p[0] == "setavgframes" \
-                               else float(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_smooth(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        dec = _decimals(p[5])
-        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                         content, flags=re.MULTILINE)
-    with open(path, "w") as f: f.write(content)
-
-def _write_request(path, key, val_str):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{val_str}',
-                     content, flags=re.MULTILINE)
-    with open(path, "w") as f: f.write(content)

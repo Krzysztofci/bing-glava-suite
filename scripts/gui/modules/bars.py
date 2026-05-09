@@ -9,11 +9,11 @@
 # Tryb expert: odczytywany z app.expert_mode (BooleanVar w glava-gui.py)
 # =============================================================================
 
-import os, re
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
 from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
                      COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
@@ -22,6 +22,7 @@ from ..core import (
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
+from . import glsl_io
 
 # ─── Ścieżki ─────────────────────────────────────────────────────────────────
 
@@ -63,22 +64,6 @@ FLAG_PARAMS = [
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
-SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
-     "Szybkość opadania słupków po szczycie\nWiększe = szybszy zanik"),
-    ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
-     "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne\n"
-     "Większe = płynniejsze ale wolniejsze"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
-     "Liczba klatek do uśredniania\nWiększe = płynniejsze ale z opóźnieniem\n"
-     "Na T420/Intel HD3000 max ~10 bez spadku FPS"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
-     "Skala częstotliwości FFT\nNiższe = więcej miejsca na niskie częstotliwości"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
-     "Odcięcie najniższych częstotliwości FFT\n"
-     "Efekt widoczny przy niskim wygładzaniu\n"
-     "0 = brak odcięcia, 1 = odcięcie wszystkiego"),
-]
 
 ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {p[0] for p in FLAG_PARAMS}
 ALL_SMOOTH_KEYS = {p[0] for p in SMOOTH_PARAMS}
@@ -92,16 +77,16 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(_read_defines(_bars_glsl(), SHAPE_PARAMS))
-    p.update(_read_flag_defines(_bars_glsl()))
-    p.update(_read_smooth(_smooth_glsl()))
+    p.update(glsl_io.read_defines(_bars_glsl(), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(_bars_glsl(), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
     # Usunięto odczyt bufsize, samplesize, setmirror i setinterpolate
     return p
 
 def apply_params(params, app):
-    _write_defines(_bars_glsl(), params, SHAPE_PARAMS)
-    _write_flag_defines(_bars_glsl(), params)
-    _write_smooth(_smooth_glsl(), params)
+    glsl_io.write_defines(_bars_glsl(), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_bars_glsl(), params, FLAG_PARAMS)
+    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
     # Usunięto zapisywanie parametrów do RC_GLSL
 
 def reset_shader(app):
@@ -112,8 +97,8 @@ def reset_shader(app):
         shutil.copy2(tmpl, live)
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
-    _write_defines(_bars_glsl(), defaults, SHAPE_PARAMS)
-    _write_flag_defines(_bars_glsl(), defaults)
+    glsl_io.write_defines(_bars_glsl(), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_bars_glsl(), defaults, FLAG_PARAMS)
 
 
 # ─── Widget GUI ───────────────────────────────────────────────────────────────
@@ -221,7 +206,7 @@ class BarsParamWidget:
             # Pytajnik ląduje w kolumnie 1. 
             # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
             if translated_tip:
-                t = _tip(lf, "?", translated_tip)
+                t = glsl_io.tip(lf, "?", translated_tip)
                 if t:
                     # padx=(0, 5) przyciąga go do tekstu po lewej
                     t.grid(row=idx, column=1, sticky="w", padx=(0, 5), pady=2)
@@ -307,7 +292,7 @@ class BarsParamWidget:
                           values=[str(v) for v in values],
                           width=6, state="readonly")
         cb.pack(side="left")
-        _tip(row, "?", tooltip)
+        glsl_io.tip(row, "?", tooltip)
 
         def on_select(e, k=key):
             try:
@@ -352,7 +337,7 @@ class BarsParamWidget:
         )       
         
         if tooltip:
-            t = _tip(parent, "?", tooltip)
+            t = glsl_io.tip(parent, "?", tooltip)
             if t: 
                 t.grid(row=row_idx, column=1, padx=5, pady=5)
 
@@ -384,7 +369,7 @@ class BarsParamWidget:
         
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
 
         parent.columnconfigure(2, weight=1)
 
@@ -394,7 +379,7 @@ class BarsParamWidget:
         )
 
         if tooltip:
-            t = _tip(parent, "?", tooltip)
+            t = glsl_io.tip(parent, "?", tooltip)
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         # POPRAWKA: Funkcja on_change z bezpiecznikiem
@@ -460,7 +445,7 @@ class BarsParamWidget:
 
     def _write_flag(self, key, var):
         val = 1 if var.get() else 0
-        _write_flag_defines(_bars_glsl(), {key: val})
+        glsl_io.write_flag_defines(_bars_glsl(), {key: val}, FLAG_PARAMS)
         if key in ("FLIP", "MIRROR_YX"):
             self._update_geometry()
         self._schedule_restart()
@@ -471,7 +456,7 @@ class BarsParamWidget:
             from ..geometry import get_screen_info, calc_geometry, write_geometry
             from ..core import RC_GLSL
             # Odczytaj aktualne wartości flag z pliku
-            current = _read_flag_defines(_bars_glsl())
+            current = glsl_io.read_flag_defines(_bars_glsl(), FLAG_PARAMS)
             flipped   = bool(current.get("FLIP", 0))
             mirror_yx = bool(current.get("MIRROR_YX", 0))
             si = get_screen_info()
@@ -486,16 +471,16 @@ class BarsParamWidget:
             pass
 
     def _write_bool_rc(self, key, var):
-        _write_bool_req(RC_GLSL, key, var.get())
+        glsl_io.write_bool_req(RC_GLSL, key, var.get())
         self._schedule_restart()
 
     def _debounce(self, key, value, target):
         if target == "bars_glsl":
-            _write_defines(_bars_glsl(), {key: value}, SHAPE_PARAMS)
+            glsl_io.write_defines(_bars_glsl(), {key: value}, SHAPE_PARAMS)
         elif target == "smooth":
-            _write_smooth(_smooth_glsl(), {key: value})
+            glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         elif target == "rc":
-            _write_int_req(RC_GLSL, key, int(value))
+            glsl_io.write_int_req(RC_GLSL, key, int(value))
         self._schedule_restart()
 
     def _schedule_restart(self):
@@ -507,155 +492,3 @@ class BarsParamWidget:
             300, lambda: glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status))
 
 
-def _decimals(step):
-    s = str(step)
-    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
-
-
-# ─── I/O: bars.glsl ──────────────────────────────────────────────────────────
-
-def _read_defines(path, param_defs):
-    result = {p[0]: p[4] for p in param_defs}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in param_defs:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_defines(path, params, param_defs):
-    """
-    Zapisuje #define do pliku .glsl.
-    Usuwa wszystkie duplikaty danego klucza, zostawia jeden czysty wpis.
-    Jeśli klucz nie istnieje w pliku — dopisuje na końcu.
-    """
-    if not os.path.exists(path): return
-    keys = {p[0] for p in param_defs}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        pattern = rf'^#define\s+{key}\s+\S+[ \t]*$'
-        matches = re.findall(pattern, content, re.MULTILINE)
-        if matches:
-            # Usuń wszystkie wystąpienia, wstaw jedno na miejscu pierwszego
-            first_pos = re.search(pattern, content, re.MULTILINE).start()
-            content = re.sub(pattern, '', content, flags=re.MULTILINE)
-            # Wyczyść wielokrotne puste linie
-            content = re.sub(r'\n{3,}', '\n\n', content)
-            # Wstaw nową definicję na początku bloku konfiguracyjnego
-            content = content[:first_pos] + f'#define {key} {val}\n' + content[first_pos:]
-        else:
-            content = content.rstrip() + f'\n#define {key} {val}\n'
-    with open(path, "w") as f: f.write(content)
-
-def _read_flag_defines(path):
-    result = {p[0]: 0 for p in FLAG_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in FLAG_PARAMS:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_flag_defines(path, params):
-    """Jak _write_defines ale dla FLAG_PARAMS — ta sama logika deduplikacji."""
-    if not os.path.exists(path): return
-    keys = {p[0] for p in FLAG_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        pattern = rf'^#define\s+{key}\s+\S+[ \t]*$'
-        matches = re.findall(pattern, content, re.MULTILINE)
-        if matches:
-            first_pos = re.search(pattern, content, re.MULTILINE).start()
-            content = re.sub(pattern, '', content, flags=re.MULTILINE)
-            content = re.sub(r'\n{3,}', '\n\n', content)
-            content = content[:first_pos] + f'#define {key} {val}\n' + content[first_pos:]
-        else:
-            content = content.rstrip() + f'\n#define {key} {val}\n'
-    with open(path, "w") as f: f.write(content)
-
-
-# ─── I/O: smooth_parameters.glsl ─────────────────────────────────────────────
-
-def _read_smooth(path):
-    result = {p[0]: p[4] for p in SMOOTH_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in SMOOTH_PARAMS:
-        m = re.search(rf'^#request\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try:
-                result[p[0]] = int(m.group(1)) if p[0] == "setavgframes" \
-                               else float(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_smooth(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        dec = _decimals(p[6])
-        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                         content, flags=re.MULTILINE)
-    with open(path, "w") as f: f.write(content)
-
-
-# ─── I/O: rc.glsl ────────────────────────────────────────────────────────────
-
-def _read_int_req(path, key, default):
-    if not os.path.exists(path): return {key: default}
-    with open(path) as f: content = f.read()
-    m = re.search(rf'^#request\s+{key}\s+(\S+)', content, re.MULTILINE)
-    try: return {key: int(m.group(1))} if m else {key: default}
-    except ValueError: return {key: default}
-
-def _write_int_req(path, key, val):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-    with open(path, "w") as f: f.write(content)
-
-def _read_bool_req(path, key):
-    if not os.path.exists(path): return {key: False}
-    with open(path) as f: content = f.read()
-    m = re.search(rf'^#request\s+{key}\s+(\S+)', content, re.MULTILINE)
-    return {key: (m.group(1) == "true")} if m else {key: False}
-
-def _write_bool_req(path, key, val):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    sv = "true" if val else "false"
-    content = re.sub(rf'^(#request\s+{key}\s+)\S+', rf'\g<1>{sv}',
-                     content, flags=re.MULTILINE)
-    with open(path, "w") as f: f.write(content)
-
-def _tip(parent, label, text):
-    import tkinter as tk
-    if not text: return
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    #lbl.pack(side="left", padx=(2, 5))
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="") # Ciemne tło dla okienka tooltipa
-        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl

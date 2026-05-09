@@ -7,17 +7,18 @@
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
 
-import os, re
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..widgets import AccelSlider
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
+from . import glsl_io
 
 def _graph_glsl():  return os.path.join(GLAVA_DIR, "graph.glsl")
 def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -33,18 +34,6 @@ SHAPE_PARAMS = [
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
-SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
-     "Szybkość opadania po szczycie"),
-    ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
-     "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
-     "Liczba klatek do uśredniania"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
-     "Skala częstotliwości FFT"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
-     "Odcięcie najniższych częstotliwości FFT"),
-]
 
 # (klucz, etykieta, domyślna, tooltip)
 FLAG_PARAMS = [
@@ -65,16 +54,16 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(_read_defines(_graph_glsl(), SHAPE_PARAMS))
-    p.update(_read_flag_defines(_graph_glsl()))
-    p.update(_read_smooth(_smooth_glsl()))
+    p.update(glsl_io.read_defines(_graph_glsl(), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(_graph_glsl(), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
     return p
 
 
 def apply_params(params, app):
-    _write_defines(_graph_glsl(), params, SHAPE_PARAMS)
-    _write_flag_defines(_graph_glsl(), params)
-    _write_smooth(_smooth_glsl(), params)
+    glsl_io.write_defines(_graph_glsl(), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_graph_glsl(), params, FLAG_PARAMS)
+    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
@@ -88,8 +77,8 @@ def reset_shader(app):
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
     defaults["DIRECTION"] = 1
     defaults["DRAW_HIGHLIGHT"] = 1
-    _write_defines(_graph_glsl(), defaults, SHAPE_PARAMS)
-    _write_flag_defines(_graph_glsl(), defaults)
+    glsl_io.write_defines(_graph_glsl(), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(_graph_glsl(), defaults, FLAG_PARAMS)
 
 
 class GraphParamWidget:
@@ -180,7 +169,7 @@ class GraphParamWidget:
             
             # Rysowanie pytajnika z tooltipem
             if translated_tip:
-                t = _tip(lf, "?", translated_tip)
+                t = glsl_io.tip(lf, "?", translated_tip)
                 if t:
                     t.grid(row=idx, column=1, sticky="w", padx=(0, 5), pady=2)
 
@@ -253,7 +242,7 @@ class GraphParamWidget:
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -272,11 +261,11 @@ class GraphParamWidget:
         except: cur = float(default)
         var = tk.DoubleVar(value=cur)
         self.vars[key] = var
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v, k=key):
@@ -294,7 +283,7 @@ class GraphParamWidget:
 
     def _write_flag(self, key, var):
         val = 1 if var.get() else (-1 if key == "DIRECTION" else 0)
-        _write_flag_defines(_graph_glsl(), {key: val})
+        glsl_io.write_flag_defines(_graph_glsl(), {key: val}, FLAG_PARAMS)
         if key == "INVERT":
             self._update_geometry_for_flip(bool(val))
         self._schedule_restart()
@@ -311,11 +300,11 @@ class GraphParamWidget:
             pass
 
     def _debounce(self, key, value):
-        _write_defines(_graph_glsl(), {key: value}, SHAPE_PARAMS)
+        glsl_io.write_defines(_graph_glsl(), {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _debounce_smooth(self, key, value):
-        _write_smooth(_smooth_glsl(), {key: value})
+        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
 
     def _schedule_restart(self):
@@ -371,104 +360,3 @@ class GraphParamWidget:
                           after_fn=self.app.update_status)
 
 
-# ─── _tip ────────────────────────────────────────────────────────────────────
-
-def _tip(parent, label, text):
-    if not text: return None
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="")
-        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl
-
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _decimals(step):
-    s = str(step)
-    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
-
-
-# ─── I/O ─────────────────────────────────────────────────────────────────────
-
-def _read_defines(path, param_defs):
-    result = {p[0]: p[4] for p in param_defs}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in param_defs:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_defines(path, params, param_defs):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in param_defs}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_flag_defines(path):
-    result = {p[0]: 0 for p in FLAG_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in FLAG_PARAMS:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_flag_defines(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in FLAG_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        new = re.sub(rf'^(#define\s+{key}\s+)\S+', rf'\g<1>{val}',
-                     content, flags=re.MULTILINE)
-        content = new if new != content else content + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_smooth(path):
-    result = {p[0]: p[4] for p in SMOOTH_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in SMOOTH_PARAMS:
-        m = re.search(rf'^#request\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try:
-                result[p[0]] = int(m.group(1)) if p[0] == "setavgframes" \
-                    else float(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_smooth(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        dec = _decimals(p[6])
-        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        content = re.sub(rf'^#request\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#request {key} {sv}\n"
-    with open(path, "w") as f: f.write(content)

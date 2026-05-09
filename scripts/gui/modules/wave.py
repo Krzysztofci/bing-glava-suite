@@ -3,17 +3,18 @@
 #
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
-import os, re, math
+import os, math
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL
+from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
 )
 from ..widgets import AccelSlider
+from . import glsl_io
 
 def _wave_glsl():   return os.path.join(GLAVA_DIR, "wave.glsl")
 def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
@@ -31,18 +32,6 @@ SHAPE_PARAMS = [
 ]
 
 # (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
-SMOOTH_PARAMS = [
-    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
-     "Szybkość opadania po szczycie"),
-    ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
-     "Rozmiar jądra wygładzającego FFT"),
-    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
-     "Liczba klatek do uśredniania"),
-    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
-     "Skala częstotliwości FFT"),
-    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
-     "Odcięcie najniższych częstotliwości FFT"),
-]
 
 FLAG_PARAMS = []
 ALL_DEFINE_KEYS = {p[0] for p in SHAPE_PARAMS} | {
@@ -54,23 +43,28 @@ def build_params(parent, app, T):
 
 
 def collect_params(app):
-    p = _read_defines(_wave_glsl(), SHAPE_PARAMS)
-    p["WAVE_LENGTH"]     = _read_int(_wave_glsl(), "WAVE_LENGTH", 0)
-    p["CENTER_OFFSET_X"] = _read_int(_wave_glsl(), "CENTER_OFFSET_X", 0)
-    p["CENTER_OFFSET_Y"] = _read_int(_wave_glsl(), "CENTER_OFFSET_Y", 0)
-    p["ROTATE"]          = _read_rotate(_wave_glsl())
-    p.update(_read_smooth(_smooth_glsl()))
+    p = glsl_io.read_defines(_wave_glsl(), SHAPE_PARAMS)
+    raw = glsl_io.read_raw(_wave_glsl())
+    try:    p["WAVE_LENGTH"]     = int(raw.get("WAVE_LENGTH", 0))
+    except: p["WAVE_LENGTH"]     = 0
+    try:    p["CENTER_OFFSET_X"] = int(raw.get("CENTER_OFFSET_X", 0))
+    except: p["CENTER_OFFSET_X"] = 0
+    try:    p["CENTER_OFFSET_Y"] = int(raw.get("CENTER_OFFSET_Y", 0))
+    except: p["CENTER_OFFSET_Y"] = 0
+    try:    p["ROTATE"]          = float(raw.get("ROTATE", "0.0"))
+    except: p["ROTATE"]          = 0.0
+    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
     return p
 
 
 def apply_params(params, app):
-    _write_defines(_wave_glsl(), params, SHAPE_PARAMS)
+    glsl_io.write_defines(_wave_glsl(), params, SHAPE_PARAMS)
     for key in ("WAVE_LENGTH", "CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
         if key in params:
-            _write_int(_wave_glsl(), key, int(params[key]))
+            glsl_io.write_define_int(_wave_glsl(), key, int(params[key]))
     if "ROTATE" in params:
-        _write_rotate(_wave_glsl(), float(params["ROTATE"]))
-    _write_smooth(_smooth_glsl(), params)
+        glsl_io.write_define_raw(_wave_glsl(), "ROTATE", f"{float(params['ROTATE']):.6f}")
+    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
@@ -81,10 +75,10 @@ def reset_shader(app):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
-    _write_defines(_wave_glsl(), defaults, SHAPE_PARAMS)
+    glsl_io.write_defines(_wave_glsl(), defaults, SHAPE_PARAMS)
     for key in ("WAVE_LENGTH", "CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
-        _write_int(_wave_glsl(), key, 0)
-    _write_rotate(_wave_glsl(), 0.0)
+        glsl_io.write_define_int(_wave_glsl(), key, 0)
+    glsl_io.write_define_raw(_wave_glsl(), "ROTATE", "0.000000")
 
 
 class WaveParamWidget:
@@ -150,7 +144,7 @@ class WaveParamWidget:
         ttk.Label(lf, text=self.T.get("label_wave_length", "Długość fali"),
                   width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(lf, "?", self.T.get("tooltip_wave_length",
+        t = glsl_io.tip(lf, "?", self.T.get("tooltip_wave_length",
                  "Długość fali w pikselach. 0 = pełna szerokość ekranu."))
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
@@ -163,7 +157,7 @@ class WaveParamWidget:
         self._accel_sliders["WAVE_LENGTH"] = wl_slider
 
     def _on_wave_length(self, val):
-        _write_int(_wave_glsl(), "WAVE_LENGTH", int(val))
+        glsl_io.write_define_int(_wave_glsl(), "WAVE_LENGTH", int(val))
         self._schedule_restart()
 
     # ── Pozycja i rotacja ─────────────────────────────────────────────────────
@@ -176,13 +170,13 @@ class WaveParamWidget:
         lf.columnconfigure(2, weight=1)
 
         # ROTATE
-        cur_deg = int(round(math.degrees(_read_rotate(_wave_glsl()))))
+        cur_deg = int(round(math.degrees(float(glsl_io.read_raw(_wave_glsl()).get("ROTATE", "0.0")))))
         cur_deg = max(-180, min(180, cur_deg))
 
         ttk.Label(lf, text=self.T.get("label_rotation", "Obrót"),
                   width=12, anchor="w").grid(
             row=0, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(lf, "?", self.T.get("tooltip_rotate_wave",
+        t = glsl_io.tip(lf, "?", self.T.get("tooltip_rotate_wave",
                  "Obrót fali. -180 = zgodnie ze wskazówkami zegara, +180 = przeciwnie."))
         if t: t.grid(row=0, column=1, padx=5, pady=5)
 
@@ -203,7 +197,7 @@ class WaveParamWidget:
             ttk.Label(lf, text=self.T.get(lk, key),
                       width=12, anchor="w").grid(
                 row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-            t = _tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"), ""))
+            t = glsl_io.tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"), ""))
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
             slider = AccelSlider(lf, vmin=-max_val, vmax=max_val,
@@ -225,15 +219,15 @@ class WaveParamWidget:
         #    variable=self._unlock_var,
         #    command=self._on_unlock_toggle,
         #).pack(side="left")
-        #_tip(unlock_row, "?", self.T.get("tooltip_unlock_range",
+        #glsl_io.tip(unlock_row, "?", self.T.get("tooltip_unlock_range",
         #     "Rozszerza zakres długości fali 3× i offsetów do przekątnej ekranu"))
 
     def _on_rotate(self, val):
-        _write_rotate(_wave_glsl(), math.radians(float(val)))
+        glsl_io.write_define_raw(_wave_glsl(), "ROTATE", f"{math.radians(float(val)):.6f}")
         self._schedule_restart()
 
     def _on_offset(self, key, val):
-        _write_int(_wave_glsl(), key, int(val))
+        glsl_io.write_define_int(_wave_glsl(), key, int(val))
         self._schedule_restart()
 
     def _on_unlock_toggle(self):
@@ -321,7 +315,7 @@ class WaveParamWidget:
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v):
@@ -337,13 +331,13 @@ class WaveParamWidget:
         self._accel_sliders[key] = slider
 
     def _float_row(self, parent, key, label, vmin, vmax, value, step, tooltip, row_idx):
-        dec = _decimals(step)
+        dec = glsl_io.decimals(step)
         var = tk.DoubleVar(value=value)
         self.vars[key] = var
 
         ttk.Label(parent, text=label, width=12, anchor="w").grid(
             row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = _tip(parent, "?", tooltip)
+        t = glsl_io.tip(parent, "?", tooltip)
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
         def on_change(v):
@@ -359,36 +353,29 @@ class WaveParamWidget:
         self._accel_sliders[key] = slider
 
     def _clamp_thickness(self, key, value):
-        # MIN nie może przekroczyć MAX
         if key == "MIN_THICKNESS" and "MAX_THICKNESS" in self.vars:
             mx = self.vars["MAX_THICKNESS"].get()
             if value > mx:
-                # aktualizuj zmienną
                 self.vars["MAX_THICKNESS"].set(value)
-                # aktualizuj suwak
                 self._accel_sliders["MAX_THICKNESS"].set(value)
-                # zapisz do GLSL
-                _write_defines(_wave_glsl(), {"MAX_THICKNESS": value}, SHAPE_PARAMS)
-
-        # MAX nie może spaść poniżej MIN
+                glsl_io.write_defines(_wave_glsl(), {"MAX_THICKNESS": value}, SHAPE_PARAMS)
         elif key == "MAX_THICKNESS" and "MIN_THICKNESS" in self.vars:
             mn = self.vars["MIN_THICKNESS"].get()
             if value < mn:
                 self.vars["MIN_THICKNESS"].set(value)
                 self._accel_sliders["MIN_THICKNESS"].set(value)
-                _write_defines(_wave_glsl(), {"MIN_THICKNESS": value}, SHAPE_PARAMS)
-
+                glsl_io.write_defines(_wave_glsl(), {"MIN_THICKNESS": value}, SHAPE_PARAMS)
         return value
 
 
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _write_shape(self, key, value):
-        _write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
+        glsl_io.write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _debounce_smooth(self, key, value):
-        _write_smooth(_smooth_glsl(), {key: value})
+        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
 
     def _schedule_restart(self):
@@ -451,135 +438,3 @@ class WaveParamWidget:
             from gui.glava import glava_restart
             glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                           after_fn=self.app.update_status)
-
-
-# ─── _tip ────────────────────────────────────────────────────────────────────
-
-def _tip(parent, label, text):
-    if not text: return None
-    lbl = ttk.Label(parent, text=label, cursor="question_arrow")
-    tip_window = [None]
-    def show(e):
-        x = lbl.winfo_rootx() + 20
-        y = lbl.winfo_rooty() + 20
-        tw = tk.Toplevel(lbl)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tw.configure(bg="")
-        ttk.Label(tw, text=text, justify="left").pack(padx=5, pady=2)
-        tip_window[0] = tw
-    def hide(e):
-        if tip_window[0]: tip_window[0].destroy(); tip_window[0] = None
-    lbl.bind("<Enter>", show)
-    lbl.bind("<Leave>", hide)
-    return lbl
-
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _decimals(step):
-    s = str(step)
-    return len(s.rstrip("0").split(".")[-1]) if "." in s else 0
-
-
-# ─── I/O ─────────────────────────────────────────────────────────────────────
-
-def _read_defines(path, param_defs):
-    result = {p[0]: p[4] for p in param_defs}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in param_defs:
-        m = re.search(rf'^#define\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try: result[p[0]] = int(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_defines(path, params, param_defs):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in param_defs}
-    with open(path) as f: content = f.read()
-    for key, val in params.items():
-        if key not in keys: continue
-        content = re.sub(rf'^#define\s+{key}\s+\S+\n?', '',
-                         content, flags=re.MULTILINE)
-        content = content.rstrip() + f"\n#define {key} {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_int(path, key, default=0):
-    if not os.path.exists(path): return default
-    with open(path) as f: content = f.read()
-    m = re.search(rf'^#define\s+{key}\s+(-?\d+)', content, re.MULTILINE)
-    if m:
-        try: return int(m.group(1))
-        except ValueError: pass
-    return default
-
-def _write_int(path, key, value):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    content = re.sub(rf'^#define\s+{key}\s+-?\d+\n?', '',
-                     content, flags=re.MULTILINE)
-    content = content.rstrip() + f"\n#define {key} {int(value)}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_rotate(path):
-    if not os.path.exists(path): return 0.0
-    with open(path) as f: content = f.read()
-    m = re.search(r'^#define\s+ROTATE\s+([0-9.eE+\-]+)', content, re.MULTILINE)
-    if m:
-        try: return float(m.group(1))
-        except ValueError: pass
-    return 0.0
-
-def _write_rotate(path, rad):
-    if not os.path.exists(path): return
-    with open(path) as f: content = f.read()
-    val = f"{rad:.6f}"
-    content = re.sub(r'^#define\s+ROTATE\s+[0-9.eE+\-]+\n?', '',
-                     content, flags=re.MULTILINE)
-    content = content.rstrip() + f"\n#define ROTATE {val}\n"
-    with open(path, "w") as f: f.write(content)
-
-def _read_smooth(path):
-    result = {p[0]: p[4] for p in SMOOTH_PARAMS}
-    if not os.path.exists(path): return result
-    with open(path) as f: content = f.read()
-    for p in SMOOTH_PARAMS:
-        m = re.search(rf'^#request\s+{p[0]}\s+(\S+)', content, re.MULTILINE)
-        if m:
-            try:
-                result[p[0]] = int(m.group(1)) if p[0] == "setavgframes" \
-                    else float(m.group(1))
-            except ValueError: pass
-    return result
-
-def _write_smooth(path, params):
-    if not os.path.exists(path): return
-    keys = {p[0] for p in SMOOTH_PARAMS}
-    with open(path, "r") as f: 
-        content = f.read()
-    
-    modified = False
-    for key, val in params.items():
-        if key not in keys: continue
-        
-        p = next(x for x in SMOOTH_PARAMS if x[0] == key)
-        dec = _decimals(p[6])
-        sv = str(int(val)) if key == "setavgframes" else f"{float(val):.{dec}f}"
-        
-        # Poprawiony wzorzec: szuka #request, potem klucza, potem dowolnych znaków do końca linii
-        pattern = rf'^#request\s+{key}\s+.*$'
-        replacement = f"#request {key} {sv}"
-        
-        if re.search(pattern, content, flags=re.MULTILINE):
-            # Jeśli klucz istnieje, podmień go
-            content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
-        else:
-            # Jeśli klucza nie ma, dodaj go na końcu
-            content = content.rstrip() + f"\n{replacement}\n"
-        modified = True
-
-    if modified:
-        with open(path, "w") as f: 
-            f.write(content)

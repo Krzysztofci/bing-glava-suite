@@ -256,3 +256,27 @@ def delete_shader_profile_for_module(module, name):
         return True
     return False
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wspólne parametry wygładzania audio (smooth_parameters.glsl)
+# Format 8-krotki: (klucz, etykieta, min, max, domyślna, jednostka, krok, tooltip)
+# Używane przez wszystkie moduły GUI.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SMOOTH_PARAMS = [
+    ("setgravitystep",  "Grawitacja",      0.1, 20.0,  4.2, "",   0.1,
+     "Szybkość opadania słupków po szczycie\nWiększe = szybszy zanik"),
+    ("setsmoothfactor", "Wygładzanie",   0.001,  0.1, 0.025, "", 0.001,
+     "Rozmiar jądra wygładzającego FFT\nMniejsze = bardziej responsywne\n"
+     "Większe = płynniejsze ale wolniejsze"),
+    ("setavgframes",    "Klatek avg",        1,   16,     5, "",     1,
+     "Liczba klatek do uśredniania\nWiększe = płynniejsze ale z opóźnieniem\n"
+     "Na T420/Intel HD3000 max ~10 bez spadku FPS"),
+    ("setfftscale",     "Skala FFT",       1.0, 30.0,  10.2, "",   0.1,
+     "Skala częstotliwości FFT\nNiższe = więcej miejsca na niskie częstotliwości"),
+    ("setfftcutoff",    "Odcięcie basów",  0.0,  1.0,   0.3, "",  0.01,
+     "Odcięcie najniższych częstotliwości FFT\n"
+     "Efekt widoczny przy niskim wygładzaniu\n"
+     "0 = brak odcięcia, 1 = odcięcie wszystkiego"),
+]
+
