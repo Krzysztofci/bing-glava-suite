@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# install.sh — Instalator bing-glava-suite
+# install.sh — Glava Master Panel installer
 # =============================================================================
 set -e
 
@@ -16,7 +16,7 @@ error()   { echo -e "${RED}[✗]${RST} $*"; exit 1; }
 section() { echo -e "\n${BLD}═══ $* ═══${RST}"; }
 
 # =============================================================================
-# KROK 0: Sprawdzenia
+# STEP 0: Pre-checks
 # =============================================================================
 section "Checking environment"
 
@@ -36,7 +36,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # =============================================================================
-# KROK 1: Użytkownik docelowy
+# STEP 1: Target user
 # =============================================================================
 section "User configuration"
 
@@ -54,7 +54,7 @@ fi
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 TARGET_UID=$(id -u "$TARGET_USER")
 
-# Ścieżki instalacji
+# Installation paths
 BIN_DIR="$TARGET_HOME/.local/bin"
 GLAVAMP_DIR="$TARGET_HOME/.local/bin/GlavaMP"
 GLAVAMP_CONF_DIR="$TARGET_HOME/.config/GlavaMP"
@@ -69,7 +69,7 @@ ACTIVE_MODULE_FILE="$GLAVA_CONFIG/active_module"
 info "Installing for user: $TARGET_USER ($TARGET_HOME)"
 
 # =============================================================================
-# KROK 2: Interwał crona
+# STEP 2: Cron interval
 # =============================================================================
 section "Cron configuration"
 
@@ -90,7 +90,7 @@ fi
 info "Interval: every $INPUT_CRON minutes"
 
 # =============================================================================
-# KROK 3: Zależności
+# STEP 3: Dependencies
 # =============================================================================
 section "Installing dependencies"
 
@@ -98,7 +98,7 @@ APT_PACKAGES=(curl wget jq inotify-tools python3 python3-pil
               python3-sklearn python3-numpy python3-tk x11-utils
               libgl1 libglx0 libglx-mesa0 libgl1-mesa-dev libglvnd0)
 
-# --- Pasek postępu (ASCII, czytelny w każdym terminalu) ---
+# --- Progress bar (ASCII, works in any terminal) ---
 _progress_bar() {
     local current=$1 total=$2 label=$3
     local filled=$(( current * 30 / total ))
@@ -109,7 +109,7 @@ _progress_bar() {
     printf "\r  [%s] %2d/%d  %-28s" "$bar" "$current" "$total" "$label"
 }
 
-# --- Sprawdzanie pakietów krok po kroku ---
+# --- Checking packages step by step ---
 echo ""
 TOTAL=${#APT_PACKAGES[@]}
 MISSING=()
@@ -172,7 +172,7 @@ else
 fi
 
 # =============================================================================
-# KROK 4: Katalogi
+# STEP 4: Directories
 # =============================================================================
 section "Creating directories"
 
@@ -208,7 +208,7 @@ chown -R "$TARGET_USER:$TARGET_USER" \
 info "Directories ready."
 
 # =============================================================================
-# KROK 5: Systemowy skrypt pobierania tapet
+# STEP 5: System wallpaper downloader script
 # =============================================================================
 section "Installing wallpaper downloader script"
 
@@ -218,7 +218,7 @@ chown root:root /usr/local/bin/bing-downloader.sh
 info "Installed: /usr/local/bin/bing-downloader.sh"
 
 # =============================================================================
-# KROK 6: Skrypty użytkownika → ~/.local/bin/
+# STEP 6: User scripts → ~/.local/bin/
 # =============================================================================
 section "Installing user scripts"
 
@@ -234,15 +234,15 @@ for script in glava-colorswitch glava-toggle glava-colors-auto \
 done
 
 # =============================================================================
-# KROK 7: GUI Python → ~/.local/bin/GlavaMP/
+# STEP 7: Python GUI → ~/.local/bin/GlavaMP/
 # =============================================================================
 section "Installing GUI"
 
-# Główny plik GUI
+# Main GUI file
 cp "$SCRIPT_DIR/scripts/glava-gui.py" "$GLAVAMP_DIR/glava-gui.py"
 chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 
-# Moduły gui/
+# GUI modules
 for pyfile in core.py colors.py geometry.py glava.py \
               tab_main.py tab_module.py tab_advanced.py \
               theme.py widgets.py color_button.py; do
@@ -252,7 +252,7 @@ for pyfile in core.py colors.py geometry.py glava.py \
 done
 touch "$GLAVAMP_DIR/gui/__init__.py"
 
-# Motywy Forest-ttk-theme
+# Forest-ttk-theme
 if [ -d "$SCRIPT_DIR/scripts/gui/themes" ]; then
     cp -r "$SCRIPT_DIR/scripts/gui/themes/"* "$GLAVAMP_DIR/gui/themes/"
     info "Installed: gui/themes/ (Forest-ttk-theme)"
@@ -260,7 +260,7 @@ else
     error "Missing directory: $SCRIPT_DIR/scripts/gui/themes"
 fi
 
-# Pluginy modułów
+# Module plugins
 for mod_plugin in "$SCRIPT_DIR/scripts/gui/modules/"*.py; do
     fname="$(basename "$mod_plugin")"
     [ "$fname" = "__init__.py" ] && continue
@@ -269,7 +269,7 @@ for mod_plugin in "$SCRIPT_DIR/scripts/gui/modules/"*.py; do
 done
 touch "$GLAVAMP_DIR/gui/modules/__init__.py"
 
-# Ikona
+# Icon
 cp -r "$SCRIPT_DIR/scripts/icon/"* "$GLAVAMP_DIR/icon/"
 cp "$SCRIPT_DIR/scripts/icon/glava-gui.png" \
     "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
@@ -279,7 +279,7 @@ chown -R "$TARGET_USER:$TARGET_USER" "$GLAVAMP_DIR/gui/"
 chown "$TARGET_USER:$TARGET_USER" \
     "$TARGET_HOME/.local/share/icons/hicolor/48x48/apps/glava-gui.png"
 
-# Wrapper wykonywalny → ~/.local/bin/glava-gui
+# Executable wrapper → ~/.local/bin/glava-gui
 cat > "$BIN_DIR/glava-gui" << WRAPPER
 #!/bin/bash
 exec python3 "$GLAVAMP_DIR/glava-gui.py" "\$@"
@@ -289,7 +289,7 @@ chown "$TARGET_USER:$TARGET_USER" "$BIN_DIR/glava-gui"
 info "Installed: GUI (GlavaMP)"
 
 # =============================================================================
-# KROK 8: Profile i pliki językowe
+# STEP 8: Presets and language files
 # =============================================================================
 section "Installing presets and language files"
 
@@ -313,9 +313,9 @@ chown -R "$TARGET_USER:$TARGET_USER" "$SHARE_DIR/lang"
 info "Installed: language files"
 
 # =============================================================================
-# KROK 9: Konfiguracja Bing
+# STEP 9: Wallpaper configuration
 # =============================================================================
-section "Bing configuration"
+section "Wallpaper configuration"
 
 if [ ! -f "$BING_CONF" ]; then
     cp "$SCRIPT_DIR/config/bing-glava.conf" "$BING_CONF"
@@ -326,7 +326,7 @@ else
 fi
 
 # =============================================================================
-# KROK 10: Konfiguracja GLava
+# STEP 10: GLava configuration
 # =============================================================================
 section "GLava configuration"
 
@@ -338,7 +338,7 @@ backup_file() {
     [ -f "$1" ] && cp "$1" "$BACKUP_DIR/$(basename "$1").bak" || true
 }
 
-# Pliki z repozytorium — zawsze instaluj (z backupem)
+# Repo files — always install (with backup)
 for f in rc.glsl smooth_parameters.glsl \
          bars.glsl circle.glsl wave.glsl radial.glsl graph.glsl; do
     src="$SCRIPT_DIR/glava-config/$f"
@@ -351,13 +351,13 @@ for f in rc.glsl smooth_parameters.glsl \
     fi
 done
 
-# util/ — zawsze instaluj z repozytorium
+# util/ — always install from repo
 rm -rf "$GLAVA_CONFIG/util"
 cp -r "$SCRIPT_DIR/glava-config/util" "$GLAVA_CONFIG/util"
 chown -R "$TARGET_USER:$TARGET_USER" "$GLAVA_CONFIG/util"
 info "Installed: util/"
 
-# Brakujące pliki systemowe GLava — dociągnij z /etc/xdg/glava
+# Missing GLava system files — pull from /etc/xdg/glava
 for f in /etc/xdg/glava/*.glsl; do
     [ -f "$f" ] || continue
     fname="$(basename "$f")"
@@ -369,7 +369,7 @@ for f in /etc/xdg/glava/*.glsl; do
     fi
 done
 
-# Katalogi modułów — dociągnij z /etc/xdg/glava jeśli nie istnieją
+# Module dirs — pull from /etc/xdg/glava if missing
 for module in bars circle wave radial graph; do
     dst_dir="$GLAVA_CONFIG/$module"
     if [ ! -d "$dst_dir" ]; then
@@ -385,7 +385,7 @@ for module in bars circle wave radial graph; do
     fi
 done
 
-# Szablony kolorów (*_colors.frag) — zapytaj o nadpisanie
+# Color shader templates (*_colors.frag) — ask about overwrite
 echo -e "\nOverwrite existing color shader files (*_colors.frag)?"
 echo -e "[Y]es (recommended) / [n]o / [a]sk for each"
 read -rp "Choice: " OVERWRITE_CHOICE
@@ -420,7 +420,7 @@ done
 
 chown -R "$TARGET_USER:$TARGET_USER" "$BACKUP_DIR"
 
-# Domyślny aktywny moduł
+# Default active module
 if [ ! -f "$ACTIVE_MODULE_FILE" ]; then
     echo "bars" > "$ACTIVE_MODULE_FILE"
     chown "$TARGET_USER:$TARGET_USER" "$ACTIVE_MODULE_FILE"
@@ -428,7 +428,7 @@ if [ ! -f "$ACTIVE_MODULE_FILE" ]; then
 fi
 
 # =============================================================================
-# SYNCHRONIZACJA PLIKÓW ROBOCZYCH
+# LIVE SHADER SYNC
 # =============================================================================
 info "Synchronizing live shaders with templates..."
 
@@ -436,17 +436,17 @@ for module in bars circle wave radial graph; do
     template="$GLAVA_CONFIG/${module}_colors.frag"
     live_file="$GLAVA_CONFIG/$module/1.frag"
     
-    # Kopiujemy szablon, jako plik roboczy GLava (Fix na RGB Only)
+    # Copy template as GLava working file (RGB Only fix)
     if [ -f "$template" ]; then
-        # Zrób backup oryginalnego pliku 1.frag (jeśli istnieje)
+        # Backup original 1.frag (if exists)
         if [ -f "$live_file" ]; then
             backup_file "$live_file"
         else
-            # Upewnij się, że katalog modułu istnieje (na wypadek błędu w poprzednich krokach)
+            # Ensure module dir exists (in case previous steps failed)
             mkdir -p "$GLAVA_CONFIG/$module"
         fi
         
-        # Kopiuj szablon jako aktywny shader
+        # Copy template as active shader
         cp "$template" "$live_file"
         chown "$TARGET_USER:$TARGET_USER" "$live_file"
         
@@ -455,7 +455,7 @@ for module in bars circle wave radial graph; do
 done
 
 # =============================================================================
-# KROK 11: Auto-konfiguracja geometrii GLava
+# STEP 11: GLava geometry auto-configuration
 # =============================================================================
 section "Auto-configuring GLava geometry"
 
@@ -518,7 +518,7 @@ case "$ACTIVE_MOD" in
 esac
 
 # =============================================================================
-# KROK 12: Skróty w menu aplikacji
+# STEP 12: Application menu shortcuts
 # =============================================================================
 section "Application menu shortcuts"
 
@@ -532,7 +532,7 @@ done
 sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || true
 
 # =============================================================================
-# KROK 13: Autostart GLava
+# STEP 13: GLava autostart
 # =============================================================================
 section "GLava autostart"
 
@@ -557,13 +557,13 @@ else
 fi
 
 # =============================================================================
-# KROK 14: Usługa systemd
+# STEP 14: Systemd service
 # =============================================================================
 section "Color daemon (systemd service)"
 cp "$SCRIPT_DIR/systemd/glava-color-daemon.service" "$SYSTEMD_DIR/glava-color-daemon.service"
 chown -R "$TARGET_USER:$TARGET_USER" "$SYSTEMD_DIR"
 
-# Sprawdź czy linger był już włączony przed instalacją
+# Check if linger was already enabled before installation
 _linger_was_enabled=false
 if loginctl show-user "$TARGET_USER" 2>/dev/null | grep -q "Linger=yes"; then
     _linger_was_enabled=true
@@ -585,25 +585,25 @@ else
     warn "No active session — service will start on next login."
 fi
 
-# Jeśli linger był wyłączony — wyłącz ponownie po konfiguracji
+# If linger was disabled — disable again after configuration
 if [ "$_linger_was_enabled" = false ]; then
     loginctl disable-linger "$TARGET_USER"
     info "Linger disabled (was not active before installation)."
 fi
 
 # =============================================================================
-# KROK 15: Cron
+# STEP 15: Cron
 # =============================================================================
 section "Wallpaper download schedule"
 
 CRON_LINE="$CRON_SCHEDULE /usr/local/bin/bing-downloader.sh $TARGET_USER >> $LOG_DIR/bing-downloader.log 2>&1"
-CRON_MARKER="# bing-glava-suite:$TARGET_USER"
+CRON_MARKER="# glava-master-panel:$TARGET_USER"
 EXISTING=$(crontab -l 2>/dev/null || true)
 
 if echo "$EXISTING" | grep -q "bing-downloader.sh $TARGET_USER"; then
     NEW_CRON=$(echo "$EXISTING" \
         | grep -v "bing-downloader.sh $TARGET_USER" \
-        | grep -v "# bing-glava-suite:$TARGET_USER")
+        | grep -v "# glava-master-panel:$TARGET_USER")
     (echo "$NEW_CRON"; echo "$CRON_MARKER"; echo "$CRON_LINE") | crontab -
     info "Updated wallpaper download schedule."
 else
@@ -612,7 +612,7 @@ else
 fi
 
 # =============================================================================
-# KROK 16: Pierwsze pobranie tapety
+# STEP 16: First wallpaper download
 # =============================================================================
 section "First wallpaper download"
 
@@ -626,13 +626,13 @@ if [[ "$RUN_NOW" =~ ^[Yy]$ ]]; then
 fi
 
 # =============================================================================
-# PODSUMOWANIE
+# SUMMARY
 # =============================================================================
 section "Installation complete"
 echo ""
 echo -e "  GUI:                 ${BLD}glava-gui${RST}"
 echo -e "  GUI modules:         ${BLD}$GLAVAMP_DIR/${RST}"
-echo -e "  Bing configuration:  ${BLD}$BING_CONF${RST}"
+echo -e "  Wallpaper config:    ${BLD}$BING_CONF${RST}"
 echo -e "  Wallpapers:          ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Logs:                ${BLD}$LOG_DIR/${RST}"
 echo ""

@@ -115,10 +115,9 @@ class BarsParamWidget(BaseParamWidget):
         self._build_smooth(parent, current)
         self._build_profiles(parent)
     def _build_shape(self, parent, current):
-        lf = ttk.LabelFrame(parent, text=self.T.get("section_shape", "Kształt"), padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py
+        title = self.T.get("section_shape", "Kształt")
+        lf = self._detachable_lf(parent, title, self._build_shape, current)
 
-        # MAPA: Co ma zostać podmienione
         mapping = {
             "BAR_WIDTH": "label_bar_width",
             "BAR_GAP": "label_bar_gap",
@@ -127,26 +126,20 @@ class BarsParamWidget(BaseParamWidget):
             "AMPLIFY": "label_gain"
         }
 
-        for idx, p in enumerate (SHAPE_PARAMS):
+        for idx, p in enumerate(SHAPE_PARAMS):
             p_list = list(p)
             json_key = mapping.get(p[0])
-            
             if json_key:
-                # Etykieta
                 p_list[1] = self.T.get(json_key, p[1])
-                # Tooltip - klucz w JSON musi istnieć jako np. "tooltip_bar_width"
                 tk_key = json_key.replace("label_", "tooltip_")
                 p_list[6] = self.T.get(tk_key, p[6])
-            
             self._slider_row(lf, tuple(p_list), current, "bars_glsl", idx)
 
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = ttk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"), padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10)
-
-        # Konfiguracja kolumn, żeby pasowały do tych z suwaków
+        title = self.T.get("section_switches", "Przełączniki")
+        lf = self._detachable_lf(parent, title, self._build_flags, current)
         lf.columnconfigure(2, weight=1)
 
         mapping_flags = {
@@ -188,8 +181,8 @@ class BarsParamWidget(BaseParamWidget):
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = ttk.LabelFrame(parent, text=self.T.get("section_smoothing", "Wygładzanie"), padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10) # pady=10 zapewni odstępy między sekcjami jak w example.py
+        title = self.T.get("section_smoothing", "Wygładzanie")
+        lf = self._detachable_lf(parent, title, self._build_smooth, current)
 
         mapping = {
             "setgravitystep": "label_gravity",

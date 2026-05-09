@@ -102,9 +102,8 @@ class WaveParamWidget(BaseParamWidget):
         self._build_smooth(parent, current)
         self._build_profiles(parent)
     def _build_shape(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("section_shape", "Kształt i dynamika"),
-                            padding=(15, 10))
+        title = self.T.get("section_shape", "Kształt")
+        lf = self._detachable_lf(parent, title, self._build_shape, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 
@@ -147,9 +146,8 @@ class WaveParamWidget(BaseParamWidget):
     # ── Pozycja i rotacja ─────────────────────────────────────────────────────
 
     def _build_position(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("label_wave_position", "Pozycja i obrót"),
-                            padding=(15, 10))
+        title = self.T.get("section_position", "Pozycja")
+        lf = self._detachable_lf(parent, title, self._build_position, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 
@@ -229,9 +227,8 @@ class WaveParamWidget(BaseParamWidget):
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("section_smoothing", "Wygładzanie"),
-                            padding=(15, 10))
+        title = self.T.get("section_smoothing", "Wygładzanie")
+        lf = self._detachable_lf(parent, title, self._build_smooth, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 

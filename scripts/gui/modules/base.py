@@ -5,6 +5,7 @@
 # _save_profile, _delete_profile, _refresh_cb, _expert.
 # =============================================================================
 
+import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
 
@@ -156,3 +157,85 @@ class BaseParamWidget:
             return self.app.expert_mode.get()
         except AttributeError:
             return False
+
+    # ── Detachable sections ───────────────────────────────────────────────────
+
+    def _detachable_lf(self, parent, title, build_fn, current):
+        return make_detachable_lf(parent, title, build_fn, current,
+                                  self.app.root, self._on_detach_close)
+
+    def _on_detach_close(self, tw):
+        _close_detached(tw, self.app, rebuild_fn=self.app.rebuild_module_tab)
+
+
+# =============================================================================
+# Funkcje modułowe — dostępne dla klas spoza hierarchii BaseParamWidget
+# (np. TabMain)
+# =============================================================================
+
+def make_detachable_lf(parent, title, build_fn, current, root, on_close_fn):
+    """
+    Tworzy ttk.LabelFrame z ikoną ⊞ w prawym górnym rogu.
+    on_close_fn(tw) — callback wywoływany po zamknięciu okna.
+    Zwraca lf — caller wypełnia go normalnie.
+    """
+    lf = ttk.LabelFrame(parent, text=title, padding=(15, 10))
+    lf.pack(fill="x", padx=10, pady=10)
+
+    def _place_icon(event=None):
+        btn = ttk.Label(lf, text=" ⊞ ", cursor="hand2")
+        btn.place(relx=1.0, x=-4, y=-30, anchor="ne")
+        btn.bind("<Button-1>",
+                 lambda e: detach_section(title, build_fn, current,
+                                          root, on_close_fn))
+        lf.unbind("<Map>")
+
+    lf.bind("<Map>", _place_icon)
+    return lf
+
+
+def detach_section(title, build_fn, current, root, on_close_fn):
+    """
+    Odpina sekcję do Toplevel topmost, minimalizuje root.
+    """
+    try:
+        root.iconify()
+    except Exception:
+        pass
+
+    tw = tk.Toplevel(root)
+    tw.title(title)
+    tw.resizable(True, True)
+    tw.attributes("-topmost", True)
+
+    frame = ttk.Frame(tw, padding=(8, 8))
+    frame.pack(fill="both", expand=True)
+    build_fn(frame, current)
+
+    btn_frame = ttk.Frame(tw)
+    btn_frame.pack(fill="x", padx=8, pady=(0, 8))
+    ttk.Button(btn_frame, text="✕  Close",
+               command=lambda: on_close_fn(tw)).pack(side="right")
+
+    tw.update_idletasks()
+    sw = tw.winfo_screenwidth()
+    tw.geometry(f"+{sw - tw.winfo_width() - 20}+40")
+    tw.protocol("WM_DELETE_WINDOW", lambda: on_close_fn(tw))
+
+
+def _close_detached(tw, app, rebuild_fn=None):
+    """Zamyka okno, przywraca root, opcjonalnie przebudowuje zakładkę."""
+    try:
+        tw.destroy()
+    except Exception:
+        pass
+    try:
+        app.root.deiconify()
+        app.root.lift()
+    except Exception:
+        pass
+    if rebuild_fn:
+        try:
+            rebuild_fn()
+        except Exception:
+            pass

@@ -134,9 +134,8 @@ class RadialParamWidget(BaseParamWidget):
         self._build_flags(parent, current)
         self._build_profiles(parent)
     def _build_shape(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("section_shape", "Shape & dynamics"),
-                            padding=(15, 10))
+        title = self.T.get("section_shape", "Kształt")
+        lf = self._detachable_lf(parent, title, self._build_shape, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 
@@ -194,9 +193,8 @@ class RadialParamWidget(BaseParamWidget):
     # ── Pozycja ───────────────────────────────────────────────────────────────
 
     def _build_position(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("section_position", "Screen position"),
-                            padding=(15, 10))
+        title = self.T.get("section_position", "Pozycja")
+        lf = self._detachable_lf(parent, title, self._build_position, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 
@@ -233,7 +231,8 @@ class RadialParamWidget(BaseParamWidget):
     # ── Przełączniki ──────────────────────────────────────────────────────────
 
     def _build_flags(self, parent, current):
-        lf = ttk.LabelFrame(parent, text=self.T.get("section_switches", "Przełączniki"), padding=(15, 10))
+        title = self.T.get("section_switches", "Przełączniki")
+        lf = self._detachable_lf(parent, title, self._build_flags, current)
         lf.pack(fill="x", padx=10, pady=10)
 
         # Konfiguracja kolumn, żeby pasowały do tych z suwaków
@@ -269,9 +268,8 @@ class RadialParamWidget(BaseParamWidget):
     # ── Wygładzanie ───────────────────────────────────────────────────────────
 
     def _build_smooth(self, parent, current):
-        lf = ttk.LabelFrame(parent,
-                            text=self.T.get("section_smoothing", "Smoothing"),
-                            padding=(15, 10))
+        title = self.T.get("section_smoothing", "Wygładzanie")
+        lf = self._detachable_lf(parent, title, self._build_smooth, current)
         lf.pack(fill="x", padx=10, pady=10)
         lf.columnconfigure(2, weight=1)
 
