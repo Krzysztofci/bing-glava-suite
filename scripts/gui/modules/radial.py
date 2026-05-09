@@ -50,7 +50,7 @@ SHAPE_FLOAT_PARAMS = [
 # (klucz, etykieta, min, max, domyślna, krok, tooltip)
 
 FLAG_PARAMS = [
-    ("INVERT", "Zamień kanały L/R",
+    ("INVERT", "Zamień kanały L/R", "label_swap_lr",
      "Zamienia lewy i prawy kanał audio"),
 ]
 
@@ -239,17 +239,14 @@ class RadialParamWidget(BaseParamWidget):
         # Konfiguracja kolumn, żeby pasowały do tych z suwaków
         lf.columnconfigure(2, weight=1)
 
-        mapping_flags = {"INVERT": "label_swap_lr"}
-
-        for idx, (key, label, tooltip) in enumerate(FLAG_PARAMS):
+        for idx, (key, label, lang_key, tooltip) in enumerate(FLAG_PARAMS):
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
-            
-            json_key = mapping_flags.get(key)
-            translated_label = self.T.get(json_key, label) if json_key else label
-            tip_key = json_key.replace("label_", "tooltip_") if json_key else None
-            translated_tip = self.T.get(tip_key, tooltip) if tip_key else tooltip
+
+            translated_label = self.T.get(lang_key, label)
+            tip_key = lang_key.replace("label_", "tooltip_")
+            translated_tip = self.T.get(tip_key, tooltip)
 
             # Checkbox ląduje TYLKO w kolumnie 0. 
             # Ustawiamy width=20, żeby był tak samo szeroki jak etykiety suwaków wyżej.
