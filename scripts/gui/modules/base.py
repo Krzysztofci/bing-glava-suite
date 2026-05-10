@@ -196,14 +196,11 @@ def make_detachable_lf(parent, title, build_fn, current, root, on_close_fn):
 
 def detach_section(title, build_fn, current, root, on_close_fn):
     """
-    Odpina sekcję do Toplevel topmost, minimalizuje root.
+    Odpina sekcję do Toplevel topmost.
+    iconify() PO deiconify(tw) — unikamy 2s blokady animacji Cinnamon.
     """
-    try:
-        root.iconify()
-    except Exception:
-        pass
-
     tw = tk.Toplevel(root)
+    tw.withdraw()
     tw.title(title)
     tw.resizable(True, True)
     tw.attributes("-topmost", True)
@@ -219,8 +216,17 @@ def detach_section(title, build_fn, current, root, on_close_fn):
 
     tw.update_idletasks()
     sw = tw.winfo_screenwidth()
-    tw.geometry(f"+{sw - tw.winfo_width() - 20}+40")
+    sh = tw.winfo_screenheight()
+    ww = tw.winfo_reqwidth()
+    wh = tw.winfo_reqheight()
+    x = sw - ww - 20
+    y = max(40, (sh - wh) // 2)
+    tw.geometry(f"{ww}x{wh}+{x}+{y}")
+    tw.deiconify()
+    tw.update()
     tw.protocol("WM_DELETE_WINDOW", lambda: on_close_fn(tw))
+
+    root.after(0, root.iconify)
 
 
 def _close_detached(tw, app, rebuild_fn=None):
