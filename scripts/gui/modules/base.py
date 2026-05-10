@@ -35,7 +35,8 @@ class BaseParamWidget:
         _reset_shader(self)
     """
 
-    MODULE_NAME: str = ""
+    MODULE_NAME:  str  = ""
+    SHAPE_PARAMS: list = None  # podklasa ustawia własną listę; radial używa SHAPE_INT/FLOAT_PARAMS
 
     def __init__(self, parent, app, T):
         self.parent = parent
@@ -96,6 +97,8 @@ class BaseParamWidget:
     # ── Zapis GLSL ───────────────────────────────────────────────────────────
     def _debounce(self, key, value, target="module"):
         if target == "module":
+            if self.SHAPE_PARAMS is None:
+                raise NotImplementedError(f"{self.__class__.__name__} must define SHAPE_PARAMS")
             glsl_io.write_defines(self._module_glsl, {key: value}, self.SHAPE_PARAMS)
         elif target == "smooth":
             glsl_io.write_smooth(self._smooth_glsl, {key: value}, SMOOTH_PARAMS)
