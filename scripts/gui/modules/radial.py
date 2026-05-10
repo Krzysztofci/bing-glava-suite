@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..widgets import AccelSlider
+from ..widgets import AccelSlider, SimpleSlider
 from ..geometry import get_screen_info
 from . import glsl_io
 from ..core import get_shader_profiles_for_module
@@ -183,7 +183,7 @@ class RadialParamWidget(BaseParamWidget):
             self.rotate_var.set(int(round(v)))
             self._write_rotate()
 
-        rot_slider = AccelSlider(lf, vmin=0, vmax=360,
+        rot_slider = SimpleSlider(lf, vmin=0, vmax=360,
                                  value=cur_rot, step=1,
                                  on_change=on_rot_change)
         rot_slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
@@ -221,7 +221,7 @@ class RadialParamWidget(BaseParamWidget):
                 sv.set(int(round(v)))
                 self._debounce_int(k, int(round(v)))
 
-            slider = AccelSlider(lf, vmin=-max_val, vmax=max_val,
+            slider = SimpleSlider(lf, vmin=-max_val, vmax=max_val,
                                  value=cur, step=1,
                                  on_change=on_change)
             slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
@@ -341,7 +341,7 @@ class RadialParamWidget(BaseParamWidget):
             var.set(int(round(v)))
             self._debounce_int(k, int(round(v)))
 
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
+        slider = SimpleSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=1, on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
         ttk.Label(parent, text=unit if unit else " ", width=4).grid(
@@ -363,7 +363,7 @@ class RadialParamWidget(BaseParamWidget):
             var.set(v)
             self._debounce_float(k, float(v), step)
 
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
+        slider = SimpleSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=step, is_float=True, decimals=dec,
                              on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
@@ -387,7 +387,7 @@ class RadialParamWidget(BaseParamWidget):
             var.set(v)
             self._debounce_smooth(k, float(v))
 
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
+        slider = SimpleSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=step, is_float=True, decimals=dec,
                              on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")

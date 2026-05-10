@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..widgets import AccelSlider
+from ..widgets import AccelSlider, SimpleSlider
 from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
@@ -132,7 +132,7 @@ class WaveParamWidget(BaseParamWidget):
                  "Długość fali w pikselach. 0 = pełna szerokość ekranu."))
         if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
-        wl_slider = AccelSlider(lf, vmin=0, vmax=self._diag,
+        wl_slider = SimpleSlider(lf, vmin=0, vmax=self._diag,
                                 value=wl_val, step=1,
                                 on_change=self._on_wave_length)
         wl_slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
@@ -163,7 +163,7 @@ class WaveParamWidget(BaseParamWidget):
                  "Obrót fali. -180 = zgodnie ze wskazówkami zegara, +180 = przeciwnie."))
         if t: t.grid(row=0, column=1, padx=5, pady=5)
 
-        rot_slider = AccelSlider(lf, vmin=-180, vmax=180,
+        rot_slider = SimpleSlider(lf, vmin=-180, vmax=180,
                                  value=cur_deg, step=1,
                                  on_change=self._on_rotate)
         rot_slider.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
@@ -183,7 +183,7 @@ class WaveParamWidget(BaseParamWidget):
             t = glsl_io.tip(lf, "?", self.T.get(lk.replace("label_", "tooltip_"), ""))
             if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
 
-            slider = AccelSlider(lf, vmin=-max_val, vmax=max_val,
+            slider = SimpleSlider(lf, vmin=-max_val, vmax=max_val,
                                  value=cur, step=1,
                                  on_change=lambda v, k=key: self._on_offset(k, v))
             slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
@@ -305,7 +305,7 @@ class WaveParamWidget(BaseParamWidget):
             var.set(v)
             self._write_shape(key, v)
 
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
+        slider = SimpleSlider(parent, vmin=vmin, vmax=vmax, value=value,
                              step=1, on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
         ttk.Label(parent, text=unit if unit else " ", width=4).grid(
@@ -326,7 +326,7 @@ class WaveParamWidget(BaseParamWidget):
             var.set(v)
             self._debounce(key, v, "smooth")
 
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
+        slider = SimpleSlider(parent, vmin=vmin, vmax=vmax, value=value,
                              step=step, is_float=True, decimals=dec,
                              on_change=on_change)
         slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
