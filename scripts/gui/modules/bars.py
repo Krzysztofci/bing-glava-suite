@@ -134,7 +134,7 @@ class BarsParamWidget(BaseParamWidget):
                 p_list[1] = self.T.get(json_key, p[1])
                 tk_key = json_key.replace("label_", "tooltip_")
                 p_list[6] = self.T.get(tk_key, p[6])
-            self._slider_row(lf, tuple(p_list), current, "module", idx)
+            self._slider_row(lf, tuple(p_list), current, idx)
 
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
@@ -266,7 +266,7 @@ class BarsParamWidget(BaseParamWidget):
             try:
                 v = int(var.get())
                 self._validate_buf_sample(k, v)
-                _write_int_req(RC_GLSL, k, int(self.vars[k].get()))
+                glsl_io.write_int_req(RC_GLSL, k, int(self.vars[k].get()))
                 self._schedule_restart()
             except ValueError:
                 pass
@@ -283,88 +283,10 @@ class BarsParamWidget(BaseParamWidget):
         if changed == "setbufsize" and sample > new_val:
             valid = max(v for v in svals if v <= new_val)
             self.vars["setsamplesize"].set(str(valid))
-            _write_int_req(RC_GLSL, "setsamplesize", valid)
+            glsl_io.write_int_req(RC_GLSL, "setsamplesize", valid)
         elif changed == "setsamplesize" and new_val > buf:
             valid = max(v for v in svals if v <= buf)
             self.vars["setsamplesize"].set(str(valid))
-
-    # ── Wiersz suwaka int — etykieta(stała) + ? + suwak + wartość + jednostka ─
-
-    def _slider_row(self, parent, param_def, current, target, row_idx):
-        key, label, vmin, vmax, default, unit, tooltip = param_def
-        cur = int(current.get(key, default))
-        var = tk.IntVar(value=cur)
-        self.vars[key] = var
-
-        # Konfigurujemy kolumnę z suwakiem, aby była elastyczna
-        parent.columnconfigure(index=2, weight=1)
-
-        # 1. Etykieta (Kolumna 0)
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w"
-        )       
-        
-        if tooltip:
-            t = glsl_io.tip(parent, "?", tooltip)
-            if t: 
-                t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        def on_change(v, k=key, tgt=target):
-            iv = int(round(v))
-            var.set(iv)
-            self._debounce(k, iv, tgt)
-
-        # 3. Suwak (Kolumna 2)
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
-                             step=1, on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-
-        # 4. Jednostka (Kolumna 3) - TERAZ JEST W DOBREJ LINII
-        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
-            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e"
-        )
-
-    # ── Wiersz suwaka float ───────────────────────────────────────────────────
-
-    def _float_slider_row(self, parent, param_def, current, row_idx):
-        # Rozpakowanie 8 elementów (bezpieczne, bo to pętla dedykowana dla Smooth)
-        key, label, vmin, vmax, default, unit, step, tooltip = param_def
-    
-        try:
-            cur = float(current.get(key, default))
-        except (ValueError, TypeError):
-            cur = float(default)
-        
-        var = tk.DoubleVar(value=cur)
-        self.vars[key] = var
-        dec = glsl_io.decimals(step)
-
-        parent.columnconfigure(2, weight=1)
-
-    # Etykieta - zwiększamy szerokość do 18, żeby pasowała do flag!
-        ttk.Label(parent, text=label, width=18, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w"
-        )
-
-        if tooltip:
-            t = glsl_io.tip(parent, "?", tooltip)
-            if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        # POPRAWKA: Funkcja on_change z bezpiecznikiem
-        def on_change(v, k=key, mi=vmin, ma=vmax):
-            # Bezpiecznik: nie pozwól wartości wyjść poza min/max
-            val = max(mi, min(ma, float(v)))
-            var.set(val)
-            self._debounce(k, val, "smooth")
-
-        # Tworzenie suwaka
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
-                             step=step, is_float=True, decimals=dec,
-                         on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-
-        # Pusta etykieta dla wyrównania do jednostek z sekcji Shape
-        ttk.Label(parent, text=" ", width=4).grid(row=row_idx, column=3)
 
     def _reset_shader(self):
         if not messagebox.askyesno(self.T.get("btn_reset_shader", "Reset shader"),

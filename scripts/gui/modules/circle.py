@@ -284,9 +284,7 @@ class CircleParamWidget(BaseParamWidget):
             jk = mapping.get(p[0])
             label   = self.T.get(jk, p[1]) if jk else p[1]
             tooltip = self.T.get(jk.replace("label_", "tooltip_"), p[7]) if jk else p[7]
-            self._float_slider_row(lf, p[0], label, p[2], p[3],
-                                   float(current.get(p[0], p[4])),
-                                   p[6], tooltip, idx)
+            self._float_slider_row(lf, (p[0], label, p[2], p[3], p[4], p[5], p[6], tooltip), current, idx)
 
     # ── Profile ───────────────────────────────────────────────────────────────
 
@@ -322,52 +320,6 @@ class CircleParamWidget(BaseParamWidget):
         ttk.Button(lf, text=self.T.get("btn_reset_shader_circle", "Reset circle shader"),
                    command=self._reset_shader,
                    style="Accent.TButton").pack(fill="x", pady=(4, 0))
-
-    # ── Wiersze suwaków (grid) ────────────────────────────────────────────────
-
-    def _slider_row(self, parent, param_def, current, row_idx):
-        key, label, vmin, vmax, default, unit, tooltip = param_def
-        cur = int(current.get(key, default))
-        var = tk.IntVar(value=cur)
-        self.vars[key] = var
-
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = glsl_io.tip(parent, "?", tooltip)
-        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        def on_change(v, k=key):
-            var.set(int(round(v)))
-            self._debounce(k, int(round(v)))
-
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
-                             step=1, on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
-            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
-
-    def _float_slider_row(self, parent, key, label, vmin, vmax, value, step, tooltip, row_idx):
-        dec = glsl_io.decimals(step)
-        var = tk.DoubleVar(value=value)
-        self.vars[key] = var
-
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = glsl_io.tip(parent, "?", tooltip)
-        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        def on_change(v, k=key):
-            var.set(v)
-            self._debounce(k, v, "smooth")
-
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
-                             step=step, is_float=True, decimals=dec,
-                             on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-        ttk.Label(parent, text=" ", width=4).grid(
-            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
-
-    # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _write_rotate(self):
         deg = self.rotate_var.get()

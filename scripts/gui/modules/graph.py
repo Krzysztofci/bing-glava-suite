@@ -216,55 +216,6 @@ class GraphParamWidget(BaseParamWidget):
                    command=self._reset_shader,
                    style="Accent.TButton").pack(fill="x", pady=(4, 0))
 
-    # ── Wiersze suwaków (grid) ────────────────────────────────────────────────
-
-    def _slider_row(self, parent, param_def, current, row_idx):
-        key, label, vmin, vmax, default, unit, tooltip = param_def
-        cur = int(current.get(key, default))
-        var = tk.IntVar(value=cur)
-        self.vars[key] = var
-
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = glsl_io.tip(parent, "?", tooltip)
-        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        def on_change(v, k=key):
-            var.set(int(round(v)))
-            self._debounce(k, int(round(v)))
-
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
-                             step=1, on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
-            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
-
-    def _float_slider_row(self, parent, param_def, current, row_idx):
-        key, label, vmin, vmax, default, unit, step, tooltip = param_def
-        try:    cur = float(current.get(key, default))
-        except: cur = float(default)
-        var = tk.DoubleVar(value=cur)
-        self.vars[key] = var
-        dec = glsl_io.decimals(step)
-
-        ttk.Label(parent, text=label, width=12, anchor="w").grid(
-            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
-        t = glsl_io.tip(parent, "?", tooltip)
-        if t: t.grid(row=row_idx, column=1, padx=5, pady=5)
-
-        def on_change(v, k=key):
-            var.set(v)
-            self._debounce(k, v, "smooth")
-
-        slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
-                             step=step, is_float=True, decimals=dec,
-                             on_change=on_change)
-        slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
-        ttk.Label(parent, text=" ", width=4).grid(
-            row=row_idx, column=3, padx=(5, 10), pady=5, sticky="e")
-
-    # ── Zapis ─────────────────────────────────────────────────────────────────
-
     def _write_flag(self, key, var):
         val = 1 if var.get() else (-1 if key == "DIRECTION" else 0)
         glsl_io.write_flag_defines(_graph_glsl(), {key: val}, FLAG_PARAMS)

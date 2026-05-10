@@ -106,6 +106,93 @@ class BaseParamWidget:
             glsl_io.write_int_req(RC_GLSL, key, int(value))
         self._schedule_restart()
 
+
+    # ── Wiersze suwaków ───────────────────────────────────────────────────────
+
+    def _slider_row(self, parent, param_def, current, row_idx, target="module"):
+        """Int slider. param_def: (key, label, vmin, vmax, default, unit, tooltip)"""
+        key, label, vmin, vmax, default, unit, tooltip = param_def
+        cur = int(current.get(key, default))
+        var = tk.IntVar(value=cur)
+        self.vars[key] = var
+        parent.columnconfigure(2, weight=1)
+        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = glsl_io.tip(parent, "?", tooltip)
+        if t:
+            t.grid(row=row_idx, column=1, padx=5, pady=5)
+        entry_var = tk.StringVar(value=str(cur))
+        def on_change(v, k=key, tgt=target):
+            iv = max(vmin, min(vmax, int(round(float(v)))))
+            var.set(iv)
+            entry_var.set(str(iv))
+            self._debounce(k, iv, tgt)
+        def on_entry(e, k=key, tgt=target):
+            try:
+                iv = int(round(float(entry_var.get())))
+                iv = max(vmin, min(vmax, iv))
+                var.set(iv)
+                entry_var.set(str(iv))
+                self._debounce(k, iv, tgt)
+            except ValueError:
+                entry_var.set(str(var.get()))
+        scale = ttk.Scale(parent, from_=vmin, to=vmax,
+                          orient="horizontal", variable=var,
+                          command=on_change)
+        scale.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+        entry = ttk.Entry(parent, textvariable=entry_var, width=6, justify="right")
+        entry.grid(row=row_idx, column=3, padx=(0, 4), pady=5)
+        entry.bind("<Return>",   on_entry)
+        entry.bind("<FocusOut>", on_entry)
+        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
+            row=row_idx, column=4, padx=(0, 10), pady=5, sticky="e")
+
+    def _float_slider_row(self, parent, param_def, current, row_idx, target="smooth"):
+        """Float slider. param_def: (key, label, vmin, vmax, default, unit, step, tooltip)"""
+        key, label, vmin, vmax, default, unit, step, tooltip = param_def
+        try:
+            cur = float(current.get(key, default))
+        except (ValueError, TypeError):
+            cur = float(default)
+        dec = glsl_io.decimals(step)
+        var = tk.DoubleVar(value=cur)
+        self.vars[key] = var
+        parent.columnconfigure(2, weight=1)
+        ttk.Label(parent, text=label, width=12, anchor="w").grid(
+            row=row_idx, column=0, padx=(10, 5), pady=5, sticky="w")
+        t = glsl_io.tip(parent, "?", tooltip)
+        if t:
+            t.grid(row=row_idx, column=1, padx=5, pady=5)
+        entry_var = tk.StringVar(value=f"{cur:.{dec}f}")
+        def on_change(v, k=key, tgt=target):
+            fv = float(v)
+            # snap do kroku
+            if step > 0:
+                fv = round(round(fv / step) * step, dec)
+            fv = max(vmin, min(vmax, fv))
+            var.set(fv)
+            entry_var.set(f"{fv:.{dec}f}")
+            self._debounce(k, fv, tgt)
+        def on_entry(e, k=key, tgt=target):
+            try:
+                fv = float(entry_var.get())
+                fv = max(vmin, min(vmax, fv))
+                var.set(fv)
+                entry_var.set(f"{fv:.{dec}f}")
+                self._debounce(k, fv, tgt)
+            except ValueError:
+                entry_var.set(f"{var.get():.{dec}f}")
+        scale = ttk.Scale(parent, from_=vmin, to=vmax,
+                          orient="horizontal", variable=var,
+                          command=on_change)
+        scale.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
+        entry = ttk.Entry(parent, textvariable=entry_var, width=6, justify="right")
+        entry.grid(row=row_idx, column=3, padx=(0, 4), pady=5)
+        entry.bind("<Return>",   on_entry)
+        entry.bind("<FocusOut>", on_entry)
+        ttk.Label(parent, text=unit if unit else " ", width=4).grid(
+            row=row_idx, column=4, padx=(0, 10), pady=5, sticky="e")
+
     # ── Profile ───────────────────────────────────────────────────────────────
 
     def _apply_profile(self):
@@ -232,6 +319,14 @@ def detach_section(title, build_fn, current, root, on_close_fn):
 
     frame = ttk.Frame(tw, padding=(8, 8))
     frame.pack(fill="both", expand=True)
+    # Odczytaj świeże wartości z pliku zamiast zamrożonego snapshotu
+    try:
+        import importlib
+        widget = build_fn.__self__
+        mod = importlib.import_module(f"gui.modules.{widget.MODULE_NAME}")
+        current = mod.collect_params(widget.app)
+    except Exception:
+        pass  # fallback do przekazanego current
     build_fn(frame, current)
 
     btn_frame = ttk.Frame(tw)
