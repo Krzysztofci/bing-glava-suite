@@ -94,7 +94,8 @@ def reset_shader(app):
 
 
 class CircleParamWidget(BaseParamWidget):
-    MODULE_NAME = "circle"
+    MODULE_NAME  = "circle"
+    SHAPE_PARAMS = SHAPE_PARAMS
 
     def _init_extra(self):
         try:
@@ -357,7 +358,7 @@ class CircleParamWidget(BaseParamWidget):
 
         def on_change(v, k=key):
             var.set(v)
-            self._debounce_smooth(k, v)
+            self._debounce(k, v, "smooth")
 
         slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
                              step=step, is_float=True, decimals=dec,
@@ -377,19 +378,11 @@ class CircleParamWidget(BaseParamWidget):
         glsl_io.write_flag_defines(_circle_glsl(), {key: 1 if var.get() else 0}, FLAG_PARAMS)
         self._schedule_restart()
 
-    def _debounce(self, key, value):
-        glsl_io.write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
-        self._schedule_restart()
-
     def _debounce_int(self, key, value):
         if key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
             glsl_io.write_define_raw(_circle_glsl(), key, int(value))
         else:
             glsl_io.write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
-        self._schedule_restart()
-
-    def _debounce_smooth(self, key, value):
-        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
 
     def _reset_shader(self):

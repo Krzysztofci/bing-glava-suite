@@ -101,7 +101,8 @@ def reset_shader(app):
 # ─── Widget GUI ───────────────────────────────────────────────────────────────
 
 class BarsParamWidget(BaseParamWidget):
-    MODULE_NAME = "bars"
+    MODULE_NAME  = "bars"
+    SHAPE_PARAMS = SHAPE_PARAMS
 
     def _init_extra(self):
         self._buf_cb    = None
@@ -133,7 +134,7 @@ class BarsParamWidget(BaseParamWidget):
                 p_list[1] = self.T.get(json_key, p[1])
                 tk_key = json_key.replace("label_", "tooltip_")
                 p_list[6] = self.T.get(tk_key, p[6])
-            self._slider_row(lf, tuple(p_list), current, "bars_glsl", idx)
+            self._slider_row(lf, tuple(p_list), current, "module", idx)
 
     # ── Przełączniki ─────────────────────────────────────────────────────────
 
@@ -408,11 +409,3 @@ class BarsParamWidget(BaseParamWidget):
         glsl_io.write_bool_req(RC_GLSL, key, var.get())
         self._schedule_restart()
 
-    def _debounce(self, key, value, target):
-        if target == "bars_glsl":
-            glsl_io.write_defines(_bars_glsl(), {key: value}, SHAPE_PARAMS)
-        elif target == "smooth":
-            glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
-        elif target == "rc":
-            glsl_io.write_int_req(RC_GLSL, key, int(value))
-        self._schedule_restart()

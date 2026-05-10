@@ -8,13 +8,16 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox, simpledialog
+import os
 
 from ..core import (
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
     delete_shader_profile_for_module,
+    GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS,
 )
 
+from . import glsl_io
 RESTART_DELAY_MS = 300
 
 
@@ -90,6 +93,16 @@ class BaseParamWidget:
             ),
         )
 
+    # ── Zapis GLSL ───────────────────────────────────────────────────────────
+    def _debounce(self, key, value, target="module"):
+        if target == "module":
+            glsl_io.write_defines(self._module_glsl, {key: value}, self.SHAPE_PARAMS)
+        elif target == "smooth":
+            glsl_io.write_smooth(self._smooth_glsl, {key: value}, SMOOTH_PARAMS)
+        elif target == "rc":
+            glsl_io.write_int_req(RC_GLSL, key, int(value))
+        self._schedule_restart()
+
     # ── Profile ───────────────────────────────────────────────────────────────
 
     def _apply_profile(self):
@@ -157,6 +170,15 @@ class BaseParamWidget:
             return self.app.expert_mode.get()
         except AttributeError:
             return False
+
+    # ── Ścieżki GLSL ─────────────────────────────────────────────────────────
+    @property
+    def _module_glsl(self):
+        return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
+
+    @property
+    def _smooth_glsl(self):
+        return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
 
     # ── Detachable sections ───────────────────────────────────────────────────
 

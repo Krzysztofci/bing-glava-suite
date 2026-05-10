@@ -79,7 +79,8 @@ def reset_shader(app):
 
 
 class WaveParamWidget(BaseParamWidget):
-    MODULE_NAME = "wave"
+    MODULE_NAME  = "wave"
+    SHAPE_PARAMS = SHAPE_PARAMS
 
     def _init_extra(self):
         self._accel_sliders = {}
@@ -323,7 +324,7 @@ class WaveParamWidget(BaseParamWidget):
 
         def on_change(v):
             var.set(v)
-            self._debounce_smooth(key, v)
+            self._debounce(key, v, "smooth")
 
         slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=value,
                              step=step, is_float=True, decimals=dec,
@@ -353,10 +354,6 @@ class WaveParamWidget(BaseParamWidget):
 
     def _write_shape(self, key, value):
         glsl_io.write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
-        self._schedule_restart()
-
-    def _debounce_smooth(self, key, value):
-        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
         self._schedule_restart()
 
     def _reset_shader(self):

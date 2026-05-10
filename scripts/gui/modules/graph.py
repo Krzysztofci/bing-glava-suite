@@ -79,7 +79,8 @@ def reset_shader(app):
 
 
 class GraphParamWidget(BaseParamWidget):
-    MODULE_NAME = "graph"
+    MODULE_NAME  = "graph"
+    SHAPE_PARAMS = SHAPE_PARAMS
 
     def build_left(self, parent, current):
         self._build_shape(parent, current)
@@ -253,7 +254,7 @@ class GraphParamWidget(BaseParamWidget):
 
         def on_change(v, k=key):
             var.set(v)
-            self._debounce_smooth(k, v)
+            self._debounce(k, v, "smooth")
 
         slider = AccelSlider(parent, vmin=vmin, vmax=vmax, value=cur,
                              step=step, is_float=True, decimals=dec,
@@ -281,14 +282,6 @@ class GraphParamWidget(BaseParamWidget):
             write_geometry(RC_GLSL, x, y, w, h)
         except Exception:
             pass
-
-    def _debounce(self, key, value):
-        glsl_io.write_defines(_graph_glsl(), {key: value}, SHAPE_PARAMS)
-        self._schedule_restart()
-
-    def _debounce_smooth(self, key, value):
-        glsl_io.write_smooth(_smooth_glsl(), {key: value}, SMOOTH_PARAMS)
-        self._schedule_restart()
 
     def _reset_shader(self):
         if messagebox.askyesno(self.T.get("section_reset", "Reset"),
