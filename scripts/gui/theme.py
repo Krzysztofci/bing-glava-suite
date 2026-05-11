@@ -3,7 +3,7 @@
 # https://github.com/rdbende/Forest-ttk-theme
 #
 # Zamiast budować własny motyw od zera, używamy Forest-dark jako bazy.
-# Jedyna niestandardowa warstwa to AccelSlider (canvas), który motyw TTK
+# Niestandardowe widgety: SimpleSlider (ttk.Scale + Entry).
 # nie może obsłużyć — tam używamy kolorów wyekstrahowanych z Forest-dark.
 #
 # Dostępne motywy: "forest-dark", "forest-light"
@@ -28,7 +28,7 @@ AVAILABLE_THEMES = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Paleta kolorów dla widgetów canvas (AccelSlider) i tk.* widgetów,
+# Paleta kolorów dla tk.* widgetów,
 # które TTK nie stylizuje. Wyekstrahowane z Forest-dark/light.
 # ─────────────────────────────────────────────────────────────────────────────
 _PALETTE = {
@@ -41,7 +41,6 @@ _PALETTE = {
         "select_bg":    "#217346",
         "select_fg":    "#ffffff",
         "border":       "#4a4a4a",
-        # AccelSlider — canvas
         "slider_fill":       "#217346",
         "slider_fill_shift": "#e6a817",
         "slider_track":      "#3d3d3d",
@@ -76,7 +75,6 @@ _PALETTE = {
         "select_bg":    "#217346",
         "select_fg":    "#ffffff",
         "border":       "#cccccc",
-        # AccelSlider — canvas
         "slider_fill":       "#217346",
         "slider_fill_shift": "#e6a817",
         "slider_track":      "#e0e0e0",

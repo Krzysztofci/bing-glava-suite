@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..widgets import AccelSlider
+from ..widgets import SimpleSlider
 from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
@@ -155,7 +155,7 @@ class CircleParamWidget(BaseParamWidget):
             self.rotate_var.set(int(round(v)))
             self._write_rotate()
 
-        rot_slider = AccelSlider(lf, vmin=0, vmax=360, value=cur, step=1,
+        rot_slider = SimpleSlider(lf, vmin=0, vmax=360, value=cur, step=1,
                                  on_change=on_rot)
         rot_slider.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
         ttk.Label(lf, text="°", width=4).grid(
@@ -191,7 +191,7 @@ class CircleParamWidget(BaseParamWidget):
                 sv.set(int(round(v)))
                 self._debounce_int(k, int(round(v)))
 
-            slider = AccelSlider(lf, vmin=-max_val, vmax=max_val,
+            slider = SimpleSlider(lf, vmin=-max_val, vmax=max_val,
                                  value=cur, step=1, on_change=on_offset)
             slider.grid(row=row_idx, column=2, padx=10, pady=5, sticky="ew")
             ttk.Label(lf, text="px", width=4).grid(

@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..widgets import AccelSlider, SimpleSlider
+from ..widgets import SimpleSlider
 from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget

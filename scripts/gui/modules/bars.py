@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
-from ..widgets import AccelSlider
+
 from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
                      COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
 from . import glsl_io
