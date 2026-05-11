@@ -264,11 +264,17 @@ class BaseParamWidget:
     # ── Ścieżki GLSL ─────────────────────────────────────────────────────────
     @property
     def _module_glsl(self):
-        return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
+        try:
+            return self.app.active_instance.module_glsl(self.MODULE_NAME)
+        except AttributeError:
+            return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
 
     @property
     def _smooth_glsl(self):
-        return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
+        try:
+            return self.app.active_instance.smooth_glsl
+        except AttributeError:
+            return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
 
     # ── Detachable sections ───────────────────────────────────────────────────
 

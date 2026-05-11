@@ -78,7 +78,9 @@ class GlavaGUI:
         self.settings      = load_settings()
         self.T             = load_lang(self.settings.get("lang", "pl"))
         self.langs         = available_langs()
-        self.active_module = read_active_module()
+        self.active_module   = read_active_module()
+        from gui.instance import GlavaInstance
+        self.active_instance = GlavaInstance(0)
         self.gui_conf      = load_gui_conf()
 
         self._setup_window()
