@@ -276,6 +276,30 @@ class BaseParamWidget:
         except AttributeError:
             return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
 
+
+    @property
+    def _glsl(self):
+        """Ścieżka do pliku GLSL aktywnego modułu (zastępuje _bars_glsl() itp.)"""
+        try:
+            return self.app.active_instance.module_glsl(self.MODULE_NAME)
+        except AttributeError:
+            return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
+
+    @property
+    def _tmpl(self):
+        """Ścieżka do pliku template kolorów (zastępuje _bars_tmpl() itp.)"""
+        try:
+            return self.app.active_instance.module_tmpl(self.MODULE_NAME)
+        except AttributeError:
+            return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}_colors.frag")
+
+    @property
+    def _frag(self):
+        """Ścieżka do 1.frag aktywnego modułu (zastępuje _bars_1frag() itp.)"""
+        try:
+            return self.app.active_instance.module_frag(self.MODULE_NAME)
+        except AttributeError:
+            return os.path.join(GLAVA_DIR, self.MODULE_NAME, "1.frag")
     # ── Detachable sections ───────────────────────────────────────────────────
 
     def _detachable_lf(self, parent, title, build_fn, current):

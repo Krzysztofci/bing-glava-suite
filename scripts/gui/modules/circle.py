@@ -13,10 +13,6 @@ from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
 
-def _circle_glsl():  return os.path.join(GLAVA_DIR, "circle.glsl")
-def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
-def _circle_tmpl():  return os.path.join(GLAVA_DIR, "circle_colors.frag")
-def _circle_1frag(): return os.path.join(GLAVA_DIR, "circle", "1.frag")
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_PARAMS = [
@@ -52,10 +48,10 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(glsl_io.read_defines(_circle_glsl(), SHAPE_PARAMS))
-    p.update(glsl_io.read_flag_defines(_circle_glsl(), FLAG_PARAMS))
-    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
-    raw = glsl_io.read_raw(_circle_glsl())
+    p.update(glsl_io.read_defines(app.active_instance.module_glsl('circle'), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(app.active_instance.module_glsl('circle'), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(app.active_instance.smooth_glsl, SMOOTH_PARAMS))
+    raw = glsl_io.read_raw(app.active_instance.module_glsl('circle'))
     rotate_raw = raw.get("ROTATE", "(PI / 2)")
     p["ROTATE_DEG"] = _rotate_to_deg(rotate_raw)
     try:    p["CENTER_OFFSET_X"] = int(raw.get("CENTER_OFFSET_X", 0))
@@ -66,31 +62,31 @@ def collect_params(app):
 
 
 def apply_params(params, app):
-    glsl_io.write_defines(_circle_glsl(), params, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_circle_glsl(), params, FLAG_PARAMS)
-    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('circle'), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('circle'), params, FLAG_PARAMS)
+    glsl_io.write_smooth(app.active_instance.smooth_glsl, params, SMOOTH_PARAMS)
     if "ROTATE_DEG" in params:
-        glsl_io.write_define_raw(_circle_glsl(), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
+        glsl_io.write_define_raw(app.active_instance.module_glsl('circle'), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
     for key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
         if key in params:
-            glsl_io.write_define_raw(_circle_glsl(), key, int(params[key]))
+            glsl_io.write_define_raw(app.active_instance.module_glsl('circle'), key, int(params[key]))
 
 
 def reset_shader(app):
     import shutil
-    tmpl = _circle_tmpl()
-    live = _circle_1frag()
+    tmpl = app.active_instance.module_tmpl('circle')
+    live = app.active_instance.module_frag('circle')
     if os.path.exists(tmpl):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
     defaults["C_SMOOTH"] = 1
-    glsl_io.write_defines(_circle_glsl(), defaults, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_circle_glsl(), defaults, FLAG_PARAMS)
-    glsl_io.write_define_raw(_circle_glsl(), "ROTATE", "(PI / 2)")
-    glsl_io.write_define_raw(_circle_glsl(), "CENTER_OFFSET_X", 0)
-    glsl_io.write_define_raw(_circle_glsl(), "CENTER_OFFSET_Y", 0)
+    glsl_io.write_defines(app.active_instance.module_glsl('circle'), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('circle'), defaults, FLAG_PARAMS)
+    glsl_io.write_define_raw(app.active_instance.module_glsl('circle'), "ROTATE", "(PI / 2)")
+    glsl_io.write_define_raw(app.active_instance.module_glsl('circle'), "CENTER_OFFSET_X", 0)
+    glsl_io.write_define_raw(app.active_instance.module_glsl('circle'), "CENTER_OFFSET_Y", 0)
 
 
 class CircleParamWidget(BaseParamWidget):
@@ -323,18 +319,18 @@ class CircleParamWidget(BaseParamWidget):
 
     def _write_rotate(self):
         deg = self.rotate_var.get()
-        glsl_io.write_define_raw(_circle_glsl(), "ROTATE", _deg_to_rotate(deg))
+        glsl_io.write_define_raw(self._glsl, "ROTATE", _deg_to_rotate(deg))
         self._schedule_restart()
 
     def _write_flag(self, key, var):
-        glsl_io.write_flag_defines(_circle_glsl(), {key: 1 if var.get() else 0}, FLAG_PARAMS)
+        glsl_io.write_flag_defines(self._glsl, {key: 1 if var.get() else 0}, FLAG_PARAMS)
         self._schedule_restart()
 
     def _debounce_int(self, key, value):
         if key in ("CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
-            glsl_io.write_define_raw(_circle_glsl(), key, int(value))
+            glsl_io.write_define_raw(self._glsl, key, int(value))
         else:
-            glsl_io.write_defines(_circle_glsl(), {key: value}, SHAPE_PARAMS)
+            glsl_io.write_defines(self._glsl, {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _reset_shader(self):

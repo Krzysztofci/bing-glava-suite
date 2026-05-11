@@ -23,10 +23,6 @@ from .base import BaseParamWidget
 
 # ─── Ścieżki ─────────────────────────────────────────────────────────────────
 
-def _bars_glsl():   return os.path.join(GLAVA_DIR, "bars.glsl")
-def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
-def _bars_1frag():  return os.path.join(GLAVA_DIR, "bars", "1.frag")
-def _bars_tmpl():   return os.path.join(GLAVA_DIR, "bars_colors.frag")
 
 # ─── Definicje parametrów ────────────────────────────────────────────────────
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
@@ -74,28 +70,28 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(glsl_io.read_defines(_bars_glsl(), SHAPE_PARAMS))
-    p.update(glsl_io.read_flag_defines(_bars_glsl(), FLAG_PARAMS))
-    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
+    p.update(glsl_io.read_defines(app.active_instance.module_glsl('bars'), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(app.active_instance.module_glsl('bars'), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(app.active_instance.smooth_glsl, SMOOTH_PARAMS))
     # Usunięto odczyt bufsize, samplesize, setmirror i setinterpolate
     return p
 
 def apply_params(params, app):
-    glsl_io.write_defines(_bars_glsl(), params, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_bars_glsl(), params, FLAG_PARAMS)
-    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('bars'), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('bars'), params, FLAG_PARAMS)
+    glsl_io.write_smooth(app.active_instance.smooth_glsl, params, SMOOTH_PARAMS)
     # Usunięto zapisywanie parametrów do RC_GLSL
 
 def reset_shader(app):
     import shutil
-    tmpl, live = _bars_tmpl(), _bars_1frag()
+    tmpl, live = app.active_instance.module_tmpl('bars'), app.active_instance.module_frag('bars')
     if os.path.exists(tmpl):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
-    glsl_io.write_defines(_bars_glsl(), defaults, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_bars_glsl(), defaults, FLAG_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('bars'), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('bars'), defaults, FLAG_PARAMS)
 
 
 # ─── Widget GUI ───────────────────────────────────────────────────────────────
@@ -302,7 +298,7 @@ class BarsParamWidget(BaseParamWidget):
 
     def _write_flag(self, key, var):
         val = 1 if var.get() else 0
-        glsl_io.write_flag_defines(_bars_glsl(), {key: val}, FLAG_PARAMS)
+        glsl_io.write_flag_defines(self._glsl, {key: val}, FLAG_PARAMS)
         if key in ("FLIP", "MIRROR_YX"):
             self._update_geometry()
         self._schedule_restart()
@@ -313,7 +309,7 @@ class BarsParamWidget(BaseParamWidget):
             from ..geometry import get_screen_info, calc_geometry, write_geometry
             from ..core import RC_GLSL
             # Odczytaj aktualne wartości flag z pliku
-            current = glsl_io.read_flag_defines(_bars_glsl(), FLAG_PARAMS)
+            current = glsl_io.read_flag_defines(self._glsl, FLAG_PARAMS)
             flipped   = bool(current.get("FLIP", 0))
             mirror_yx = bool(current.get("MIRROR_YX", 0))
             si = get_screen_info()

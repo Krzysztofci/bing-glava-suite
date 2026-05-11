@@ -18,10 +18,6 @@ from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
 
-def _radial_glsl():  return os.path.join(GLAVA_DIR, "radial.glsl")
-def _smooth_glsl():  return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
-def _radial_tmpl():  return os.path.join(GLAVA_DIR, "radial_colors.frag")
-def _radial_1frag(): return os.path.join(GLAVA_DIR, "radial", "1.frag")
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_INT_PARAMS = [
@@ -62,7 +58,7 @@ def build_params(parent, app, T):
 
 
 def collect_params(app):
-    raw = glsl_io.read_raw(_radial_glsl())
+    raw = glsl_io.read_raw(app.active_instance.module_glsl('radial'))
     p = {}
     for key, _, _, _, default, _, _ in SHAPE_INT_PARAMS:
         try:    p[key] = int(raw.get(key, default))
@@ -76,8 +72,8 @@ def collect_params(app):
     except: p["CENTER_OFFSET_X"] = 0
     try:    p["CENTER_OFFSET_Y"] = int(raw.get("CENTER_OFFSET_Y", 0))
     except: p["CENTER_OFFSET_Y"] = 0
-    p.update(glsl_io.read_flag_defines(_radial_glsl(), FLAG_PARAMS))
-    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
+    p.update(glsl_io.read_flag_defines(app.active_instance.module_glsl('radial'), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(app.active_instance.smooth_glsl, SMOOTH_PARAMS))
     return p
 
 
@@ -85,32 +81,32 @@ def apply_params(params, app):
     int_keys = {p[0] for p in SHAPE_INT_PARAMS} | {"CENTER_OFFSET_X", "CENTER_OFFSET_Y"}
     for key, val in params.items():
         if key in int_keys:
-            glsl_io.write_define_int(_radial_glsl(), key, int(val))
+            glsl_io.write_define_int(app.active_instance.module_glsl('radial'), key, int(val))
     float_keys = {p[0] for p in SHAPE_FLOAT_PARAMS}
     for key, val in params.items():
         if key in float_keys:
             step = next(p[5] for p in SHAPE_FLOAT_PARAMS if p[0] == key)
-            glsl_io.write_define_float(_radial_glsl(), key, float(val), step)
+            glsl_io.write_define_float(app.active_instance.module_glsl('radial'), key, float(val), step)
     if "ROTATE_DEG" in params:
-        glsl_io.write_define_raw(_radial_glsl(), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
-    glsl_io.write_flag_defines(_radial_glsl(), params, FLAG_PARAMS)
-    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
+        glsl_io.write_define_raw(app.active_instance.module_glsl('radial'), "ROTATE", _deg_to_rotate(int(params["ROTATE_DEG"])))
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('radial'), params, FLAG_PARAMS)
+    glsl_io.write_smooth(app.active_instance.smooth_glsl, params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
     import shutil
-    tmpl, live = _radial_tmpl(), _radial_1frag()
+    tmpl, live = app.active_instance.module_tmpl('radial'), app.active_instance.module_frag('radial')
     if os.path.exists(tmpl):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     for key, _, _, _, default, _, _ in SHAPE_INT_PARAMS:
-        glsl_io.write_define_int(_radial_glsl(), key, default)
+        glsl_io.write_define_int(app.active_instance.module_glsl('radial'), key, default)
     for key, _, _, _, default, step, _ in SHAPE_FLOAT_PARAMS:
-        glsl_io.write_define_float(_radial_glsl(), key, default, step)
-    glsl_io.write_define_raw(_radial_glsl(), "ROTATE", "(PI / 2)")
-    glsl_io.write_define_int(_radial_glsl(), "CENTER_OFFSET_X", 0)
-    glsl_io.write_define_int(_radial_glsl(), "CENTER_OFFSET_Y", 0)
-    glsl_io.write_flag_defines(_radial_glsl(), {p[0]: 0 for p in FLAG_PARAMS}, FLAG_PARAMS)
+        glsl_io.write_define_float(app.active_instance.module_glsl('radial'), key, default, step)
+    glsl_io.write_define_raw(app.active_instance.module_glsl('radial'), "ROTATE", "(PI / 2)")
+    glsl_io.write_define_int(app.active_instance.module_glsl('radial'), "CENTER_OFFSET_X", 0)
+    glsl_io.write_define_int(app.active_instance.module_glsl('radial'), "CENTER_OFFSET_Y", 0)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('radial'), {p[0]: 0 for p in FLAG_PARAMS}, FLAG_PARAMS)
 
 
 # ─── Widget ───────────────────────────────────────────────────────────────────
@@ -397,11 +393,11 @@ class RadialParamWidget(BaseParamWidget):
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _debounce_int(self, key, value):
-        glsl_io.write_define_int(_radial_glsl(), key, int(value))
+        glsl_io.write_define_int(self._glsl, key, int(value))
         self._schedule_restart()
 
     def _debounce_float(self, key, value, step):
-        glsl_io.write_define_float(_radial_glsl(), key, value, step)
+        glsl_io.write_define_float(self._glsl, key, value, step)
         self._schedule_restart()
 
     def _debounce_smooth(self, key, value):
@@ -409,16 +405,16 @@ class RadialParamWidget(BaseParamWidget):
         step = p[6]
         dec = glsl_io.decimals(step)
         sv = str(int(value)) if key == "setavgframes" else f"{value:.{dec}f}"
-        glsl_io.write_request(_smooth_glsl(), key, sv)
+        glsl_io.write_request(self._smooth_glsl, key, sv)
         self._schedule_restart()
 
     def _write_rotate(self):
         deg = int(self.rotate_var.get())
-        glsl_io.write_define_raw(_radial_glsl(), "ROTATE", _deg_to_rotate(deg))
+        glsl_io.write_define_raw(self._glsl, "ROTATE", _deg_to_rotate(deg))
         self._schedule_restart()
 
     def _write_flag(self, key, var):
-        glsl_io.write_define_int(_radial_glsl(), key, 1 if var.get() else 0)
+        glsl_io.write_define_int(self._glsl, key, 1 if var.get() else 0)
         self._schedule_restart()
 
     def _reset_shader(self):

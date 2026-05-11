@@ -13,10 +13,6 @@ from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
 
-def _wave_glsl():   return os.path.join(GLAVA_DIR, "wave.glsl")
-def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
-def _wave_tmpl():   return os.path.join(GLAVA_DIR, "wave_colors.frag")
-def _wave_1frag():  return os.path.join(GLAVA_DIR, "wave", "1.frag")
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_PARAMS = [
@@ -40,8 +36,8 @@ def build_params(parent, app, T):
 
 
 def collect_params(app):
-    p = glsl_io.read_defines(_wave_glsl(), SHAPE_PARAMS)
-    raw = glsl_io.read_raw(_wave_glsl())
+    p = glsl_io.read_defines(app.active_instance.module_glsl('wave'), SHAPE_PARAMS)
+    raw = glsl_io.read_raw(app.active_instance.module_glsl('wave'))
     try:    p["WAVE_LENGTH"]     = int(raw.get("WAVE_LENGTH", 0))
     except: p["WAVE_LENGTH"]     = 0
     try:    p["CENTER_OFFSET_X"] = int(raw.get("CENTER_OFFSET_X", 0))
@@ -50,32 +46,32 @@ def collect_params(app):
     except: p["CENTER_OFFSET_Y"] = 0
     try:    p["ROTATE"]          = float(raw.get("ROTATE", "0.0"))
     except: p["ROTATE"]          = 0.0
-    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
+    p.update(glsl_io.read_smooth(app.active_instance.smooth_glsl, SMOOTH_PARAMS))
     return p
 
 
 def apply_params(params, app):
-    glsl_io.write_defines(_wave_glsl(), params, SHAPE_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('wave'), params, SHAPE_PARAMS)
     for key in ("WAVE_LENGTH", "CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
         if key in params:
-            glsl_io.write_define_int(_wave_glsl(), key, int(params[key]))
+            glsl_io.write_define_int(app.active_instance.module_glsl('wave'), key, int(params[key]))
     if "ROTATE" in params:
-        glsl_io.write_define_raw(_wave_glsl(), "ROTATE", f"{float(params['ROTATE']):.6f}")
-    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
+        glsl_io.write_define_raw(app.active_instance.module_glsl('wave'), "ROTATE", f"{float(params['ROTATE']):.6f}")
+    glsl_io.write_smooth(app.active_instance.smooth_glsl, params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
     import shutil
-    tmpl = _wave_tmpl()
-    live = _wave_1frag()
+    tmpl = app.active_instance.module_tmpl('wave')
+    live = app.active_instance.module_frag('wave')
     if os.path.exists(tmpl):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
     defaults = {p[0]: p[4] for p in SHAPE_PARAMS}
-    glsl_io.write_defines(_wave_glsl(), defaults, SHAPE_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('wave'), defaults, SHAPE_PARAMS)
     for key in ("WAVE_LENGTH", "CENTER_OFFSET_X", "CENTER_OFFSET_Y"):
-        glsl_io.write_define_int(_wave_glsl(), key, 0)
-    glsl_io.write_define_raw(_wave_glsl(), "ROTATE", "0.000000")
+        glsl_io.write_define_int(app.active_instance.module_glsl('wave'), key, 0)
+    glsl_io.write_define_raw(app.active_instance.module_glsl('wave'), "ROTATE", "0.000000")
 
 
 class WaveParamWidget(BaseParamWidget):
@@ -141,7 +137,7 @@ class WaveParamWidget(BaseParamWidget):
         self._accel_sliders["WAVE_LENGTH"] = wl_slider
 
     def _on_wave_length(self, val):
-        glsl_io.write_define_int(_wave_glsl(), "WAVE_LENGTH", int(val))
+        glsl_io.write_define_int(self._glsl, "WAVE_LENGTH", int(val))
         self._schedule_restart()
 
     # ── Pozycja i rotacja ─────────────────────────────────────────────────────
@@ -153,7 +149,7 @@ class WaveParamWidget(BaseParamWidget):
         lf.columnconfigure(2, weight=1)
 
         # ROTATE
-        cur_deg = int(round(math.degrees(float(glsl_io.read_raw(_wave_glsl()).get("ROTATE", "0.0")))))
+        cur_deg = int(round(math.degrees(float(glsl_io.read_raw(self._glsl).get("ROTATE", "0.0")))))
         cur_deg = max(-180, min(180, cur_deg))
 
         ttk.Label(lf, text=self.T.get("label_rotation", "Obrót"),
@@ -206,11 +202,11 @@ class WaveParamWidget(BaseParamWidget):
         #     "Rozszerza zakres długości fali 3× i offsetów do przekątnej ekranu"))
 
     def _on_rotate(self, val):
-        glsl_io.write_define_raw(_wave_glsl(), "ROTATE", f"{math.radians(float(val)):.6f}")
+        glsl_io.write_define_raw(self._glsl, "ROTATE", f"{math.radians(float(val)):.6f}")
         self._schedule_restart()
 
     def _on_offset(self, key, val):
-        glsl_io.write_define_int(_wave_glsl(), key, int(val))
+        glsl_io.write_define_int(self._glsl, key, int(val))
         self._schedule_restart()
 
     def _on_unlock_toggle(self):
@@ -340,20 +336,20 @@ class WaveParamWidget(BaseParamWidget):
             if value > mx:
                 self.vars["MAX_THICKNESS"].set(value)
                 self._accel_sliders["MAX_THICKNESS"].set(value)
-                glsl_io.write_defines(_wave_glsl(), {"MAX_THICKNESS": value}, SHAPE_PARAMS)
+                glsl_io.write_defines(self._glsl, {"MAX_THICKNESS": value}, SHAPE_PARAMS)
         elif key == "MAX_THICKNESS" and "MIN_THICKNESS" in self.vars:
             mn = self.vars["MIN_THICKNESS"].get()
             if value < mn:
                 self.vars["MIN_THICKNESS"].set(value)
                 self._accel_sliders["MIN_THICKNESS"].set(value)
-                glsl_io.write_defines(_wave_glsl(), {"MIN_THICKNESS": value}, SHAPE_PARAMS)
+                glsl_io.write_defines(self._glsl, {"MIN_THICKNESS": value}, SHAPE_PARAMS)
         return value
 
 
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
     def _write_shape(self, key, value):
-        glsl_io.write_defines(_wave_glsl(), {key: value}, SHAPE_PARAMS)
+        glsl_io.write_defines(self._glsl, {key: value}, SHAPE_PARAMS)
         self._schedule_restart()
 
     def _reset_shader(self):

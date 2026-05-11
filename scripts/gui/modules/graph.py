@@ -17,10 +17,6 @@ from . import glsl_io
 from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
 
-def _graph_glsl():  return os.path.join(GLAVA_DIR, "graph.glsl")
-def _smooth_glsl(): return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
-def _graph_tmpl():  return os.path.join(GLAVA_DIR, "graph_colors.frag")
-def _graph_1frag(): return os.path.join(GLAVA_DIR, "graph", "1.frag")
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_PARAMS = [
@@ -51,22 +47,22 @@ def build_params(parent, app, T):
 
 def collect_params(app):
     p = {}
-    p.update(glsl_io.read_defines(_graph_glsl(), SHAPE_PARAMS))
-    p.update(glsl_io.read_flag_defines(_graph_glsl(), FLAG_PARAMS))
-    p.update(glsl_io.read_smooth(_smooth_glsl(), SMOOTH_PARAMS))
+    p.update(glsl_io.read_defines(app.active_instance.module_glsl('graph'), SHAPE_PARAMS))
+    p.update(glsl_io.read_flag_defines(app.active_instance.module_glsl('graph'), FLAG_PARAMS))
+    p.update(glsl_io.read_smooth(app.active_instance.smooth_glsl, SMOOTH_PARAMS))
     return p
 
 
 def apply_params(params, app):
-    glsl_io.write_defines(_graph_glsl(), params, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_graph_glsl(), params, FLAG_PARAMS)
-    glsl_io.write_smooth(_smooth_glsl(), params, SMOOTH_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('graph'), params, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('graph'), params, FLAG_PARAMS)
+    glsl_io.write_smooth(app.active_instance.smooth_glsl, params, SMOOTH_PARAMS)
 
 
 def reset_shader(app):
     import shutil
-    tmpl = _graph_tmpl()
-    live = _graph_1frag()
+    tmpl = app.active_instance.module_tmpl('graph')
+    live = app.active_instance.module_frag('graph')
     if os.path.exists(tmpl):
         os.makedirs(os.path.dirname(live), exist_ok=True)
         shutil.copy2(tmpl, live)
@@ -74,8 +70,8 @@ def reset_shader(app):
     defaults.update({p[0]: 0 for p in FLAG_PARAMS})
     defaults["DIRECTION"] = 1
     defaults["DRAW_HIGHLIGHT"] = 1
-    glsl_io.write_defines(_graph_glsl(), defaults, SHAPE_PARAMS)
-    glsl_io.write_flag_defines(_graph_glsl(), defaults, FLAG_PARAMS)
+    glsl_io.write_defines(app.active_instance.module_glsl('graph'), defaults, SHAPE_PARAMS)
+    glsl_io.write_flag_defines(app.active_instance.module_glsl('graph'), defaults, FLAG_PARAMS)
 
 
 class GraphParamWidget(BaseParamWidget):
@@ -134,7 +130,11 @@ class GraphParamWidget(BaseParamWidget):
             tooltip = p[-1] # Ostatni to zawsze tooltip
             
             raw = current.get(key, 0)
-            var = tk.BooleanVar(value=bool(int(raw)))
+            # DIRECTION: 1=włączony, -1=wyłączony (niestandardowe)
+            if key == "DIRECTION":
+                var = tk.BooleanVar(value=(int(raw) == 1))
+            else:
+                var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
             
             json_key = mapping_flags.get(key)
@@ -218,7 +218,7 @@ class GraphParamWidget(BaseParamWidget):
 
     def _write_flag(self, key, var):
         val = 1 if var.get() else (-1 if key == "DIRECTION" else 0)
-        glsl_io.write_flag_defines(_graph_glsl(), {key: val}, FLAG_PARAMS)
+        glsl_io.write_flag_defines(self._glsl, {key: val}, FLAG_PARAMS)
         if key == "INVERT":
             self._update_geometry_for_flip(bool(val))
         self._schedule_restart()
