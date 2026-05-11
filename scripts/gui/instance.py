@@ -111,3 +111,66 @@ class GlavaInstance:
 
     def __repr__(self):
         return f"GlavaInstance(inst_id={self.inst_id!r}, glava_dir={self.glava_dir!r})"
+
+# =============================================================================
+# Rejestr instancji — instances.json
+# =============================================================================
+
+import json
+
+INSTANCES_FILE = os.path.join(USER_HOME, ".config/GlavaMP/instances.json")
+
+def load_instances():
+    """
+    Wczytuje rejestr instancji z instances.json.
+    Zwraca listę dict: [{inst_id, name, module, active}, ...]
+    Instancja 0 (domyślna) jest zawsze obecna.
+    """
+    default = [{"inst_id": 0, "name": "Default", "module": "bars", "active": True}]
+    if not os.path.exists(INSTANCES_FILE):
+        return default
+    try:
+        with open(INSTANCES_FILE) as f:
+            data = json.load(f)
+        if not isinstance(data, list) or not data:
+            return default
+        return data
+    except Exception:
+        return default
+
+def save_instances(instances):
+    """Zapisuje rejestr instancji do instances.json."""
+    os.makedirs(os.path.dirname(INSTANCES_FILE), exist_ok=True)
+    with open(INSTANCES_FILE, "w") as f:
+        json.dump(instances, f, indent=2)
+
+def register_instance(inst_id, name=None, module="bars"):
+    """Dodaje instancję do rejestru jeśli nie istnieje."""
+    instances = load_instances()
+    ids = [i["inst_id"] for i in instances]
+    if inst_id in ids:
+        return
+    instances.append({
+        "inst_id": inst_id,
+        "name": name or f"Instance {inst_id}",
+        "module": module,
+        "active": False,
+    })
+    save_instances(instances)
+
+def unregister_instance(inst_id):
+    """Usuwa instancję z rejestru (nie można usunąć inst_id=0)."""
+    if inst_id == 0:
+        raise ValueError("Nie można wyrejestrować instancji domyślnej (inst_id=0)")
+    instances = load_instances()
+    instances = [i for i in instances if i["inst_id"] != inst_id]
+    save_instances(instances)
+
+def next_inst_id():
+    """Zwraca następny wolny inst_id."""
+    instances = load_instances()
+    ids = {i["inst_id"] for i in instances}
+    n = 1
+    while n in ids:
+        n += 1
+    return n
