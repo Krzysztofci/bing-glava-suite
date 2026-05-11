@@ -85,12 +85,14 @@ class BaseParamWidget:
                 pass
         from gui.glava import glava_restart
         mod = self.MODULE_NAME
+        instance = getattr(self.app, "active_instance", None)
         self._rjob = self.app.root.after(
             RESTART_DELAY_MS,
             lambda: glava_restart(
                 mod,
                 extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                 after_fn=self.app.update_status,
+                instance=instance,
             ),
         )
 

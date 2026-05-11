@@ -127,10 +127,12 @@ def glava_toggle():
         glava_start(env={"XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"})
 
 
-def _write_rc_module(module):
-    if not os.path.exists(RC_GLSL):
+def _write_rc_module(module, rc_path=None):
+    if rc_path is None:
+        rc_path = RC_GLSL
+    if not os.path.exists(rc_path):
         return
-    with open(RC_GLSL) as f:
+    with open(rc_path) as f:
         content = f.read()
     new = re.sub(
         r'^#request mod .*',
@@ -138,7 +140,7 @@ def _write_rc_module(module):
         content,
         flags=re.MULTILINE
     )
-    with open(RC_GLSL, "w") as f:
+    with open(rc_path, "w") as f:
         f.write(new)
 
 
