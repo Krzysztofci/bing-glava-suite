@@ -262,7 +262,8 @@ class BarsParamWidget(BaseParamWidget):
             try:
                 v = int(var.get())
                 self._validate_buf_sample(k, v)
-                glsl_io.write_int_req(RC_GLSL, k, int(self.vars[k].get()))
+                _rc = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
+                glsl_io.write_int_req(_rc, k, int(self.vars[k].get()))
                 self._schedule_restart()
             except ValueError:
                 pass
@@ -279,7 +280,8 @@ class BarsParamWidget(BaseParamWidget):
         if changed == "setbufsize" and sample > new_val:
             valid = max(v for v in svals if v <= new_val)
             self.vars["setsamplesize"].set(str(valid))
-            glsl_io.write_int_req(RC_GLSL, "setsamplesize", valid)
+            _rc = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
+            glsl_io.write_int_req(_rc, "setsamplesize", valid)
         elif changed == "setsamplesize" and new_val > buf:
             valid = max(v for v in svals if v <= buf)
             self.vars["setsamplesize"].set(str(valid))
@@ -291,8 +293,11 @@ class BarsParamWidget(BaseParamWidget):
             return
         reset_shader(self.app)
         self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
+        if hasattr(self.app, 'restart_active_instance'):
+            self.app.restart_active_instance(module="bars", after_fn=self.app.update_status)
+        else:
+            from gui.glava import glava_restart
+            glava_restart("bars", extra_flags=getattr(self.app, "extra_flags", "--desktop"), after_fn=self.app.update_status)
 
     # ── Zapis ─────────────────────────────────────────────────────────────────
 
@@ -307,23 +312,22 @@ class BarsParamWidget(BaseParamWidget):
         """Koryguje geometrię rc.glsl na podstawie aktualnych flag FLIP i MIRROR_YX."""
         try:
             from ..geometry import get_screen_info, calc_geometry, write_geometry
-            from ..core import RC_GLSL
-            # Odczytaj aktualne wartości flag z pliku
+            rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
             current = glsl_io.read_flag_defines(self._glsl, FLAG_PARAMS)
             flipped   = bool(current.get("FLIP", 0))
             mirror_yx = bool(current.get("MIRROR_YX", 0))
             si = get_screen_info()
-            # si: (screen_w, screen_h, work_h, top, bottom, left, right)
             x, y, w, h = calc_geometry(
                 "bars", si[0], si[1], si[4], si[3],
                 flipped=flipped, mirror_yx=mirror_yx,
                 left_reserved=si[5], right_reserved=si[6]
             )
-            write_geometry(RC_GLSL, x, y, w, h)
+            write_geometry(rc_path, x, y, w, h)
         except Exception:
             pass
 
     def _write_bool_rc(self, key, var):
-        glsl_io.write_bool_req(RC_GLSL, key, var.get())
+        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
+        glsl_io.write_bool_req(rc_path, key, var.get())
         self._schedule_restart()
 

@@ -83,18 +83,27 @@ class BaseParamWidget:
                 self.app.root.after_cancel(self._rjob)
             except Exception:
                 pass
-        from gui.glava import glava_restart
         mod = self.MODULE_NAME
-        instance = getattr(self.app, "active_instance", None)
-        self._rjob = self.app.root.after(
-            RESTART_DELAY_MS,
-            lambda: glava_restart(
-                mod,
-                extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                after_fn=self.app.update_status,
-                instance=instance,
-            ),
-        )
+        if hasattr(self.app, 'restart_active_instance'):
+            self._rjob = self.app.root.after(
+                RESTART_DELAY_MS,
+                lambda: self.app.restart_active_instance(
+                    module=mod,
+                    after_fn=self.app.update_status,
+                ),
+            )
+        else:
+            from gui.glava import glava_restart
+            instance = getattr(self.app, "active_instance", None)
+            self._rjob = self.app.root.after(
+                RESTART_DELAY_MS,
+                lambda: glava_restart(
+                    mod,
+                    extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                    after_fn=self.app.update_status,
+                    instance=instance,
+                ),
+            )
 
     # ── Zapis GLSL ───────────────────────────────────────────────────────────
     def _debounce(self, key, value, target="module"):
@@ -105,7 +114,8 @@ class BaseParamWidget:
         elif target == "smooth":
             glsl_io.write_smooth(self._smooth_glsl, {key: value}, SMOOTH_PARAMS)
         elif target == "rc":
-            glsl_io.write_int_req(RC_GLSL, key, int(value))
+            rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
+            glsl_io.write_int_req(rc_path, key, int(value))
         self._schedule_restart()
 
 
@@ -210,12 +220,18 @@ class BaseParamWidget:
         mod = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
         mod.apply_params(profiles[name], self.app)
         self.app.rebuild_module_tab()
-        from gui.glava import glava_restart
-        glava_restart(
-            self.MODULE_NAME,
-            extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-            after_fn=self.app.update_status,
-        )
+        if hasattr(self.app, 'restart_active_instance'):
+            self.app.restart_active_instance(
+                module=self.MODULE_NAME,
+                after_fn=self.app.update_status,
+            )
+        else:
+            from gui.glava import glava_restart
+            glava_restart(
+                self.MODULE_NAME,
+                extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                after_fn=self.app.update_status,
+            )
 
     def _save_profile(self):
         name = simpledialog.askstring(

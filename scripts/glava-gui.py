@@ -1,32 +1,51 @@
 #!/usr/bin/env python3
 # =============================================================================
 # glava-gui.py
-# Szkielet okna GLava Control Center.
-# Zakładki: Główna (stała) | ✦ Moduł (dynamiczna) | Zaawansowane (stała)
+# GLava Control Center — główne okno aplikacji.
+#
+# Architektura multiinstancji:
+#   self.instances  : dict[inst_id, GlavaInstance]
+#   self.processes  : dict[inst_id, subprocess.Popen | None]
+#   self._inst_tabs : dict[inst_id, TabModule]   — jeden obiekt per zakładka
+#
+# Każda instancja GLava ma własny XDG_CONFIG_HOME (→ GlavaInstance.xdg_dir).
+# Zamknięcie zakładki zatrzymuje TYLKO jej Popen, usuwa katalog konfiguracyjny
+# i wyrejestrowuje instancję. Instancja 0 jest domyślna i nieusuwalna.
 #
 # Motyw: Forest-ttk-theme (rdbende, MIT License)
 # https://github.com/rdbende/Forest-ttk-theme
 # =============================================================================
+
 import tkinter as tk
 from tkinter import ttk
 import os
 import sys
 import json
 import datetime
+import re
 import subprocess
 
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, _SCRIPT_DIR)
 
-from gui.theme import apply_theme, COLORS, TFrame, TLabel, TSeparator, get_theme_names
+from gui.theme   import apply_theme, COLORS, TFrame, TLabel, TSeparator, get_theme_names
 from gui.widgets import _ensure_shift_style
-from gui.core import (
+from gui.core    import (
     load_settings, save_settings, load_lang, available_langs,
     read_active_module, write_active_module,
     GLAVA_MODULES, WALLPAPER, FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK,
     CONFIG_DIR,
 )
-from gui.glava import glava_is_running
+from gui.glava   import (
+    glava_is_running, glava_start,
+    glava_stop_instance, glava_restart_instance, glava_stop_all,
+    read_rc_module,
+)
+from gui.instance import (
+    GlavaInstance, next_inst_id,
+    register_instance, unregister_instance, update_instance,
+)
+from gui.instance_tab_bar import InstanceTabBar
 
 WIN_W_DEFAULT = 1040
 WIN_H_DEFAULT = 768
@@ -74,14 +93,27 @@ def save_gui_conf(conf):
 
 class GlavaGUI:
     def __init__(self, root):
-        self.root          = root
-        self.settings      = load_settings()
-        self.T             = load_lang(self.settings.get("lang", "pl"))
-        self.langs         = available_langs()
-        self.active_module   = read_active_module()
-        from gui.instance import GlavaInstance
-        self.active_instance = GlavaInstance(0)
+        self.root     = root
+        self.settings = load_settings()
+        self.T        = load_lang(self.settings.get("lang", "pl"))
+        self.langs    = available_langs()
+
+        self.active_module = read_active_module()
         self.gui_conf      = load_gui_conf()
+
+        # ── Rejestr instancji ──────────────────────────────────────────────
+        # instances[inst_id]  = GlavaInstance
+        # processes[inst_id]  = Popen | None
+        # _inst_modules[iid]  = ostatni uruchomiony moduł (str)
+        self.instances:     dict = {}
+        self.processes:     dict = {}
+        self._inst_modules: dict = {}
+        self._active_inst_id: int = 0
+
+        self._load_saved_instances()
+
+        # active_instance — wskazuje na instancję w aktywnej zakładce
+        self.active_instance = self.instances[0]
 
         self._setup_window()
         self._build_header()
@@ -92,6 +124,55 @@ class GlavaGUI:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._resize_after = None
         self.root.bind("<Configure>", self._on_configure)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Wczytanie zapisanych instancji z instances.json
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _load_saved_instances(self):
+        """
+        Wczytuje rejestr instancji z instances.json i odtwarza
+        self.instances / self.processes / self._inst_modules.
+        Instancje, których katalog konfiguracyjny nie istnieje, są pomijane
+        i usuwane z rejestru (sprzątanie po nieprawidłowym zamknięciu).
+        """
+        from gui.instance import load_instances, save_instances
+
+        saved   = load_instances()          # [{inst_id, name, module, active}, ...]
+        cleaned = []
+
+        for entry in saved:
+            iid    = entry["inst_id"]
+            module = entry.get("module", "bars")
+            inst   = GlavaInstance(iid)
+
+            # inst_id=0 zawsze jest ważna (domyślny ~/.config/glava)
+            if iid != 0 and not inst.exists():
+                continue    # katalog zniknął — pomijamy, nie dodajemy do cleaned
+
+            # Synchronizuj moduł z rc.glsl instancji — to jest
+            # jedyne źródło prawdy (instances.json może być nieaktualne)
+            rc_module = read_rc_module(inst.rc_glsl)
+            if rc_module:
+                module = rc_module
+                entry["module"] = module   # zaktualizuj też wpis do zapisu
+
+            self.instances[iid]     = inst
+            self.processes[iid]     = None
+            self._inst_modules[iid] = module
+            cleaned.append(entry)
+
+        # Upewnij się że inst 0 zawsze jest
+        if 0 not in self.instances:
+            inst0 = GlavaInstance(0)
+            self.instances[0]     = inst0
+            self.processes[0]     = None
+            self._inst_modules[0] = self.active_module
+            cleaned.insert(0, {"inst_id": 0, "name": "Default",
+                                "module": self.active_module, "active": True})
+
+        # Zapisz oczyszczony rejestr (usuwa instancje bez katalogu)
+        save_instances(cleaned)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Okno
@@ -139,18 +220,15 @@ class GlavaGUI:
         header = ttk.Frame(self.root, padding=(8, 4, 8, 0))
         header.pack(fill="x")
 
-        # Tytuł po lewej
         ttk.Label(
             header,
             text=T.get("title", "GLava Control Center"),
-            font=("TkDefaultFont", 10, "bold"),
+            font=("TkDefaultFont", 12, "bold"),
         ).pack(side="left")
 
-        # Język + Expert po prawej
         right = ttk.Frame(header)
         right.pack(side="right")
 
-        # Expert mode — Switch z Forest
         self.expert_mode = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             right,
@@ -160,7 +238,6 @@ class GlavaGUI:
             command=self._on_expert_toggle,
         ).pack(side="right", padx=(10, 0))
 
-        # Wybór języka
         ttk.Label(right,
                   text=T.get("section_language", "Język") + ":").pack(side="left", padx=(0, 4))
         self.lang_var = tk.StringVar(value=self.settings.get("lang", "pl"))
@@ -177,74 +254,356 @@ class GlavaGUI:
         ttk.Separator(self.root).pack(fill="x", pady=(4, 0))
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Zakładki — ttk.Notebook
+    # Główny obszar: InstanceTabBar + panele Main / Advanced / Module
     # ─────────────────────────────────────────────────────────────────────────
 
     def _build_notebook(self):
-        T = self.T
+        T     = self.T
+        style = ttk.Style()
 
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=4, pady=4)
+        outer = ttk.Frame(self.root)
+        outer.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-        self.frames = {}
-        tab_defs = [
-            ("main",     T.get("tab_main",     "Główna")),
-            ("module",   self._module_tab_label()),
-            ("advanced", T.get("tab_advanced", "Zaawansowane")),
-        ]
+        self.main_border = ttk.Frame(outer, style="Card")
+        self.main_border.pack(fill="both", expand=True)
 
-        for key, label in tab_defs:
-            frame = ttk.Frame(self.notebook, padding=(8, 6))
-            self.notebook.add(frame, text=label)
-            self.frames[key] = frame
+        # ── Pasek nawigacji ────────────────────────────────────────────────
+        top_bar = ttk.Frame(self.main_border, padding=(2, 0, 2, 0))
+        top_bar.pack(side="top", fill="x")
 
-        self._tab_keys = [k for k, _ in tab_defs]
+        style.configure("Nav.Toolbutton", padding=[4, 0], font=("TkDefaultFont", 9))
 
-        self._populate_tabs()
+        self._btn_main = ttk.Button(
+            top_bar, text=T.get("tab_main", "Main"),
+            style="Nav.Toolbutton", command=self._show_main,
+        )
+        self._btn_main.pack(side="left", pady=(2, 0))
 
-        # Pokazuj właściwą zakładkę po kliknięciu
-        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+        self._btn_advanced = ttk.Button(
+            top_bar, text=T.get("tab_advanced", "Advanced"),
+            style="Nav.Toolbutton", command=self._show_advanced,
+        )
+        self._btn_advanced.pack(side="right", pady=(2, 0))
+
+        self.inst_bar = InstanceTabBar(
+            top_bar,
+            on_select=self._on_inst_select,
+            on_add=self._on_inst_add,
+            on_close=self._on_inst_close,
+            on_action=self._on_inst_action,
+            content_parent=self.main_border,
+        )
+        self.inst_bar.pack(side="left", fill="x", expand=True)
+
+        # ── Separator ──────────────────────────────────────────────────────
+        sep_color = style.lookup("TSeparator", "background") or "#454545"
+        tk.Frame(self.main_border, height=1, bg=sep_color).pack(fill="x", side="top")
+
+        # ── Panele statyczne (Main, Advanced) ─────────────────────────────
+        self._frame_main     = ttk.Frame(self.main_border, padding=(4, 4))
+        self._frame_advanced = ttk.Frame(self.main_border, padding=(4, 4))
+
+        # ── Odtwarzaj zakładki z rejestru instancji ─────────────────────────
+        from gui.instance import load_instances
+        saved_order = load_instances()   # zachowuje kolejność z pliku
+
+        labels_to_save = []  # (iid, label) do synchronizacji po zbudowaniu tab bar
+
+        for entry in saved_order:
+            iid    = entry["inst_id"]
+            module = entry.get("module", "bars")
+            name   = entry.get("name")   # None lub własna nazwa nadana przez użytkownika
+            if iid not in self.instances:
+                continue
+
+            # Jeśli name wygląda jak autogenerowana ("Default", "Instance N")
+            # lub jest None — pozwólmy add_tab wygenerować świeżą etykietę.
+            # Nazwy nadane ręcznie przez użytkownika (rename) są zachowywane.
+            import re as _re
+            is_auto = (name is None
+                       or name == "Default"
+                       or bool(_re.fullmatch(r'Instance \d+', name)))
+            label_to_pass = None if is_auto else name
+
+            self.inst_bar.add_tab(iid, module=module, label=label_to_pass,
+                                  select=(iid == 0))
+
+            # Zbierz faktyczną etykietę (autogenerowane zapisz z powrotem)
+            if is_auto:
+                labels_to_save.append(iid)
+
+        # Synchronizuj autogenerowane etykiety do rejestru
+        for iid in labels_to_save:
+            actual = self.inst_bar._tabs.get(iid, {}).get("label")
+            if actual:
+                try:
+                    update_instance(iid, name=actual)
+                except Exception:
+                    pass
+
+        # ── Zbuduj panele statyczne ────────────────────────────────────────
+        self._populate_static_tabs()
+
+        # ── Aktywny panel ──────────────────────────────────────────────────
+        self._active_panel = "instances"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Budowanie zawartości zakładki instancji
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _build_inst_frame(self, inst_id):
+        """
+        Buduje (lub odbudowuje) zawartość zakładki instancji inst_id.
+        TabModule jest tworzony z właściwą instancją ustawioną jako active_instance.
+        """
+        from gui.tab_module import build_tab_module
+
+        frame = self.inst_bar.get_frame(inst_id)
+        if frame is None:
+            return
+
+        # Usuń poprzednią zawartość
+        for w in frame.winfo_children():
+            w.destroy()
+
+        # Ustaw active_instance na czas budowania zakładki
+        prev_inst    = self.active_instance
+        prev_mod     = self.active_module
+        self.active_instance = self.instances[inst_id]
+        self.active_module   = self._inst_modules.get(inst_id, self.active_module)
+
+        build_tab_module(frame, self)
+
+        self.active_instance = prev_inst
+        self.active_module   = prev_mod
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Panele statyczne (Main, Advanced)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _populate_static_tabs(self):
+        from gui.tab_main     import build_tab_main
+        from gui.tab_advanced import build_tab_advanced
+        build_tab_main(self._frame_main, self)
+        build_tab_advanced(self._frame_advanced, self)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Przełączanie widoków
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _show_main(self):
+        self._frame_advanced.pack_forget()
+        self.inst_bar._content_frame.pack_forget()
+        self._frame_main.pack(fill="both", expand=True)
+        self._active_panel = "main"
+        # Odśwież geometrię w panelu Main — czyta z rc.glsl aktywnej instancji
+        if hasattr(self, "_tab_main_ref"):
+            self._tab_main_ref.refresh_geometry()
+
+    def _show_advanced(self):
+        self._frame_main.pack_forget()
+        self.inst_bar._content_frame.pack_forget()
+        self._frame_advanced.pack(fill="both", expand=True)
+        self._active_panel = "advanced"
+
+    def _show_instances(self):
+        self._frame_main.pack_forget()
+        self._frame_advanced.pack_forget()
+        self.inst_bar._content_frame.pack(fill="both", expand=True)
+        self._active_panel = "instances"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Callbacki InstanceTabBar
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _on_inst_select(self, inst_id):
+        """Użytkownik kliknął zakładkę instancji."""
+        self._active_inst_id = inst_id
+        self.active_instance = self.instances.get(inst_id, self.instances[0])
+        self.active_module   = self._inst_modules.get(inst_id, self.active_module)
+        self._show_instances()
+
+        # Zbuduj zawartość zakładki jeśli pusta (lazy init)
+        frame = self.inst_bar.get_frame(inst_id)
+        if frame is not None and not frame.winfo_children():
+            self._build_inst_frame(inst_id)
+
+    def _on_inst_add(self, module_name):
+        """
+        Użytkownik wybrał moduł z menu [+].
+        Tworzy nową instancję, jej katalog konfiguracyjny (kopia inst 0),
+        rejestruje, dodaje zakładkę i uruchamia GLava.
+        """
+        iid  = next_inst_id()
+        inst = GlavaInstance(iid)
+        inst.create()                           # kopiuje pliki GLSL z inst 0
+        register_instance(iid, module=module_name)
+
+        self.instances[iid]     = inst
+        self.processes[iid]     = None
+        self._inst_modules[iid] = module_name
+
+        self.inst_bar.add_tab(iid, module=module_name, select=True)
+        self._build_inst_frame(iid)
+
+        # Synchronizuj faktyczną etykietę (wygenerowaną przez add_tab) do rejestru
+        actual_label = self.inst_bar._tabs.get(iid, {}).get("label")
+        if actual_label:
+            try:
+                update_instance(iid, name=actual_label)
+            except Exception:
+                pass
+
+        # Uruchom GLava dla nowej instancji
+        def _after_start(proc):
+            self.processes[iid] = proc
+            self.root.after(0, self.update_status)
+
+        glava_restart_instance(
+            instance=inst,
+            module=module_name,
+            proc=self.processes.get(iid),
+            after_fn=_after_start,
+        )
+
+    def _on_inst_close(self, inst_id):
+        """
+        Zamknięcie zakładki:
+        - zatrzymuje TYLKO proces tej instancji
+        - usuwa katalog konfiguracyjny instancji (inst_id != 0)
+        - wyrejestrowuje z instances.json
+        """
+        if inst_id == 0:
+            return  # instancja domyślna jest nieusuwalna
+
+        # Zatrzymaj tylko ten proces
+        glava_stop_instance(self.processes.pop(inst_id, None))
+
+        # Usuń zakładkę z UI
+        self.inst_bar.remove_tab(inst_id)
+
+        # Usuń z rejestrów
+        inst = self.instances.pop(inst_id, None)
+        self._inst_modules.pop(inst_id, None)
+
+        # Usuń katalog konfiguracyjny instancji
+        if inst is not None:
+            try:
+                inst.destroy()
+            except Exception:
+                pass
+
+        # Wyrejestruj z instances.json
+        try:
+            unregister_instance(inst_id)
+        except Exception:
+            pass
+
+        # Wróć do inst 0 jeśli aktywna była usunięta
+        if self._active_inst_id == inst_id:
+            self._active_inst_id = 0
+            self.active_instance = self.instances[0]
+            self.active_module   = self._inst_modules.get(0, read_active_module())
+
+        self.update_status()
+
+    def _on_inst_action(self, inst_id, action):
+        """Menu kontekstowe zakładki."""
+        if action == "duplicate":
+            module = self._inst_modules.get(inst_id, self.active_module)
+            self._on_inst_add(module)
+        elif action == "rename":
+            # InstanceTabBar już pokazał dialog i zmienił etykietę w UI.
+            # Synchronizujemy nową nazwę do instances.json.
+            new_label = self.inst_bar._tabs.get(inst_id, {}).get("label")
+            if new_label:
+                try:
+                    update_instance(inst_id, name=new_label)
+                except Exception:
+                    pass
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # API dla tab_main / tab_module — operują na active_instance
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def restart_active_instance(self, module=None, after_fn=None):
+        """
+        Restartuje proces GLava aktywnej instancji.
+        Używane przez tab_main i tab_module zamiast globalnego glava_restart().
+        """
+        iid    = self._active_inst_id
+        inst   = self.active_instance
+        module = module or self._inst_modules.get(iid, self.active_module)
+
+        self._inst_modules[iid] = module
+        # Aktualizuj moduł w rejestrze
+        try:
+            update_instance(iid, module=module)
+        except Exception:
+            pass
+
+        def _after(proc):
+            self.processes[iid] = proc
+            self.root.after(0, self.update_status)
+            if after_fn:
+                self.root.after(0, after_fn)
+
+        glava_restart_instance(
+            instance=inst,
+            module=module,
+            proc=self.processes.get(iid),
+            after_fn=_after,
+        )
+
+    def get_active_rc_glsl(self):
+        """Zwraca ścieżkę rc.glsl aktywnej instancji (używane przez tab_main)."""
+        return self.active_instance.rc_glsl
+
+    def get_active_glava_dir(self):
+        """Zwraca katalog glava aktywnej instancji."""
+        return self.active_instance.glava_dir
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Kompatybilność wsteczna (tab_main, tab_module, tab_advanced używają tych)
+    # ─────────────────────────────────────────────────────────────────────────
 
     def _module_tab_label(self):
-        T = self.T
-        name = T.get(f"module_{self.active_module}", self.active_module.capitalize())
+        name = self.T.get(f"module_{self.active_module}", self.active_module.capitalize())
         return f"{name} ✦"
 
     def _on_tab_changed(self, event=None):
-        idx = self.notebook.index("current")
-        key = self._tab_keys[idx]
-        if key == "main" and hasattr(self, "_tab_main_ref"):
-            self._tab_main_ref.refresh_geometry()
+        pass  # zastąpione przez _on_inst_select
 
     def _show_tab(self, key):
-        """Przełącza na zakładkę o podanym kluczu."""
-        if key in self._tab_keys:
-            idx = self._tab_keys.index(key)
-            self.notebook.select(idx)
+        if key == "main":
+            self._show_main()
+        elif key == "advanced":
+            self._show_advanced()
+        else:
+            self._show_instances()
 
     def _refresh_module_tab_label(self):
-        idx = self._tab_keys.index("module")
-        self.notebook.tab(idx, text=self._module_tab_label())
+        iid  = self._active_inst_id
+        mod  = self._inst_modules.get(iid, self.active_module)
+        name = self.T.get(f"module_{mod}", mod.capitalize())
+        self.inst_bar.set_label(iid, f"{name} ✦")
 
     def _populate_tabs(self):
-        from gui.tab_main     import build_tab_main
-        from gui.tab_module   import build_tab_module
-        from gui.tab_advanced import build_tab_advanced
-
-        for frame in self.frames.values():
-            for w in frame.winfo_children():
-                w.destroy()
-
-        build_tab_main(self.frames["main"], self)
-        build_tab_module(self.frames["module"], self)
-        build_tab_advanced(self.frames["advanced"], self)
+        """Kompatybilność wsteczna."""
+        self._populate_static_tabs()
 
     def rebuild_module_tab(self):
-        from gui.tab_module import build_tab_module
-        for w in self.frames["module"].winfo_children():
-            w.destroy()
-        build_tab_module(self.frames["module"], self)
+        """Przebudowuje zakładkę aktywnej instancji (po zmianie modułu)."""
+        self._build_inst_frame(self._active_inst_id)
         self._refresh_module_tab_label()
+
+    @property
+    def frames(self):
+        """Kompatybilność wsteczna dla tab_main/tab_advanced."""
+        return {
+            "main":     self._frame_main,
+            "advanced": self._frame_advanced,
+        }
 
     # ─────────────────────────────────────────────────────────────────────────
     # Pasek statusu
@@ -266,7 +625,7 @@ class GlavaGUI:
         self.root.after(3000, self._schedule_status_update)
 
     def update_status(self):
-        T = self.T
+        T       = self.T
         running = glava_is_running()
         module  = read_active_module()
 
@@ -299,7 +658,6 @@ class GlavaGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _save_gui_conf(self):
-        """Publiczny dostęp do zapisu gui_conf — używany przez tab_advanced."""
         save_gui_conf(self.gui_conf)
 
     def _on_configure(self, event=None):
@@ -309,8 +667,7 @@ class GlavaGUI:
 
     def _save_window_state(self):
         try:
-            geo = self.root.geometry()  # "WxH+X+Y"
-            import re
+            geo = self.root.geometry()
             m = re.match(r'(\d+)x(\d+)\+(-?\d+)\+(-?\d+)', geo)
             if m:
                 w, h, x, y = int(m[1]), int(m[2]), int(m[3]), int(m[4])
@@ -324,7 +681,7 @@ class GlavaGUI:
         self.root.destroy()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Zmiana języka / expert
+    # Zmiana języka / tryb expert
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_lang_change(self, event=None):
@@ -332,7 +689,6 @@ class GlavaGUI:
         self.settings["lang"] = lang
         save_settings(self.settings)
         self._restart = True
-        # Anuluj debounced zapis i zapisz aktualną pozycję
         if self._resize_after:
             self.root.after_cancel(self._resize_after)
             self._resize_after = None
@@ -377,17 +733,20 @@ def _bind_tooltip(widget, text):
     widget.bind("<Leave>", hide)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Punkt wejścia
+# ─────────────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     while True:
         root = tk.Tk(className="glavamasterpanel")
         root.withdraw()
-        _conf = load_gui_conf()
+        _conf  = load_gui_conf()
         _theme = _conf.get("theme", "forest-dark")
         apply_theme(root, theme=_theme)
         _ensure_shift_style(root)
         app = GlavaGUI(root)
         root.deiconify()
         root.mainloop()
-        # mainloop() kończy się po destroy() — sprawdź czy to był restart
         if not getattr(app, "_restart", False):
             break

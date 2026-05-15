@@ -356,25 +356,36 @@ class TabAdvanced:
                 lambda e, k=key, v=current_var: self._debounce_request(k, int(v.get())))
         return cb
 
+    def _rc_glsl(self):
+        """Ścieżka rc.glsl aktywnej instancji."""
+        if hasattr(self.app, 'get_active_rc_glsl'):
+            return self.app.get_active_rc_glsl()
+        return RC_GLSL
+
     def _read_request_bool(self, key):
-        if not os.path.exists(RC_GLSL): return False
-        with open(RC_GLSL) as f: src = f.read()
+        rc = self._rc_glsl()
+        if not os.path.exists(rc): return False
+        with open(rc) as f: src = f.read()
         m = re.search(rf'^#request\s+{key}\s+(\S+)', src, re.MULTILINE)
         if m: return m.group(1).lower() == "true"
         return False
 
     def _read_request_int(self, key, default):
-        if not os.path.exists(RC_GLSL): return default
-        with open(RC_GLSL) as f: src = f.read()
+        rc = self._rc_glsl()
+        if not os.path.exists(rc): return default
+        with open(rc) as f: src = f.read()
         m = re.search(rf'^#request\s+{key}\s+(\d+)', src, re.MULTILINE)
         if m:
             try: return int(m.group(1))
             except Exception: pass
         return default
 
-    def _write_request(self, key, val):
-        if not os.path.exists(RC_GLSL): return
-        with open(RC_GLSL) as f: lines = f.readlines()
+    def _write_request_to(self, rc, key, val):
+        """Zapisuje #request key val do podanego pliku rc.glsl."""
+        if not os.path.exists(rc):
+            return
+        with open(rc) as f:
+            lines = f.readlines()
         found = False
         new_lines = []
         for line in lines:
@@ -387,27 +398,59 @@ class TabAdvanced:
             if new_lines and not new_lines[-1].endswith("\n"):
                 new_lines.append("\n")
             new_lines.append(f"#request {key} {val}\n")
-        with open(RC_GLSL, "w") as f: f.writelines(new_lines)
+        with open(rc, "w") as f:
+            f.writelines(new_lines)
+
+    def _write_request(self, key, val):
+        """Zapisuje parametr do rc.glsl WSZYSTKICH instancji (audio/fps = globalne)."""
+        if hasattr(self.app, 'instances'):
+            for inst in self.app.instances.values():
+                self._write_request_to(inst.rc_glsl, key, val)
+        else:
+            self._write_request_to(self._rc_glsl(), key, val)
 
     def _debounce_request(self, key, value):
         self._write_request(key, value)
         if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from .glava import glava_restart
-        self._rjob = self.app.root.after(
-            500, lambda: glava_restart(
-                self.app.active_module, after_fn=self.app.update_status))
+            try:
+                self.app.root.after_cancel(self._rjob)
+            except Exception:
+                pass
+        # Restartuj wszystkie instancje rownoleggle
+        if hasattr(self.app, 'instances') and hasattr(self.app, 'processes'):
+            def _restart_all():
+                from .glava import glava_restart_instance
+                import threading
+                threads = []
+                for iid, inst in self.app.instances.items():
+                    mod = self.app._inst_modules.get(iid, self.app.active_module)
+                    proc = self.app.processes.get(iid)
+                    def _do(i=iid, ins=inst, m=mod, p=proc):
+                        from .glava import glava_stop_instance, glava_start
+                        import time
+                        glava_stop_instance(p)
+                        time.sleep(0.5)
+                        new_proc = glava_start(instance=ins)
+                        self.app.processes[i] = new_proc
+                    t = threading.Thread(target=_do, daemon=True)
+                    threads.append(t)
+                for t in threads:
+                    t.start()
+                self.app.root.after(0, self.app.update_status)
+            self._rjob = self.app.root.after(500, _restart_all)
+        elif hasattr(self.app, 'restart_active_instance'):
+            self._rjob = self.app.root.after(
+                500, lambda: self.app.restart_active_instance(
+                    after_fn=self.app.update_status))
+        else:
+            from .glava import glava_restart
+            self._rjob = self.app.root.after(
+                500, lambda: glava_restart(
+                    self.app.active_module, after_fn=self.app.update_status))
 
     def _write_bool_rc(self, key, var):
-        self._write_request(key, "true" if var.get() else "false")
-        if hasattr(self, "_rjob"):
-            try: self.app.root.after_cancel(self._rjob)
-            except Exception: pass
-        from .glava import glava_restart
-        self._rjob = self.app.root.after(
-            500, lambda: glava_restart(
-                self.app.active_module, after_fn=self.app.update_status))
+        # _write_request juz zapisuje do wszystkich instancji
+        self._debounce_request(key, "true" if var.get() else "false")
 
     # ── Callbacki ─────────────────────────────────────────────────────────────
 

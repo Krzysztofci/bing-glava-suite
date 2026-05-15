@@ -24,7 +24,7 @@ from .colors import (
     shader_supports_hsv, set_gradient_mode,
 )
 from .geometry import get_screen_info, calc_geometry, read_geometry, write_geometry
-from .glava import glava_restart, glava_toggle, restore_auto, toggle_wallpaper_lock
+from .glava import glava_restart, glava_toggle, restore_auto, toggle_wallpaper_lock, glava_restart_instance
 from . import core
 from .color_button import ColorButton, _PIL_OK
 
@@ -199,7 +199,8 @@ class TabMain:
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
 
-        geo = read_geometry(core.RC_GLSL)
+        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        geo = read_geometry(rc_path)
         if geo is None:
             si  = get_screen_info()
             geo = calc_geometry(self.app.active_module, si[0], si[1], si[4], si[3])
@@ -228,7 +229,8 @@ class TabMain:
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
 
     def refresh_geometry(self):
-        geo = read_geometry(core.RC_GLSL)
+        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        geo = read_geometry(rc_path)
         if geo and hasattr(self, "geo_vars"):
             for k, v in zip(("x", "y", "w", "h"), geo):
                 self.geo_vars[k].set(str(v))
@@ -248,7 +250,7 @@ class TabMain:
             subprocess.Popen(["/bin/bash", os.path.join(BIN_DIR, "glava-colors-auto")])
             self.app.root.after(1500, self.app.update_status)
         else:
-            glava_restart(module, after_fn=self.app.update_status)
+            self.app.restart_active_instance(module=module, after_fn=self.app.update_status) if hasattr(self.app, 'restart_active_instance') else glava_restart(module, after_fn=self.app.update_status)
         self.app.rebuild_module_tab()
         self._update_hsv_warn()
 
@@ -259,7 +261,8 @@ class TabMain:
             si = get_screen_info()
             flipped = False
             mirror_yx = False
-            glava_dir = os.path.join(os.path.expanduser("~"), ".config/glava")
+            glava_dir = self.app.get_active_glava_dir() if hasattr(self.app, 'get_active_glava_dir') else os.path.join(os.path.expanduser("~"), ".config/glava")
+            rc_path   = self.app.get_active_rc_glsl()   if hasattr(self.app, 'get_active_rc_glsl')   else core.RC_GLSL
             if module == "bars":
                 path = os.path.join(glava_dir, "bars.glsl")
                 if os.path.exists(path):
@@ -279,7 +282,7 @@ class TabMain:
                 flipped=flipped, mirror_yx=mirror_yx,
                 left_reserved=si[5], right_reserved=si[6]
             )
-            write_geometry(core.RC_GLSL, x, y, w, h)
+            write_geometry(rc_path, x, y, w, h)
         except Exception:
             pass
 
@@ -311,7 +314,10 @@ class TabMain:
         if not ok:
             messagebox.showerror("", err); return
         self._save_last_session()
-        glava_restart(self.app.active_module, after_fn=self.app.update_status)
+        if hasattr(self.app, 'restart_active_instance'):
+            self.app.restart_active_instance(after_fn=self.app.update_status)
+        else:
+            glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _capture_colors(self):
         colors = read_colors_from_frag(get_live_frag(self.app.active_module))
@@ -327,7 +333,10 @@ class TabMain:
         from .core import save_settings
         save_settings(self.app.settings)
         set_gradient_mode(self.app.active_module, mode)
-        glava_restart(self.app.active_module, after_fn=self.app.update_status)
+        if hasattr(self.app, 'restart_active_instance'):
+            self.app.restart_active_instance(after_fn=self.app.update_status)
+        else:
+            glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _update_hsv_warn(self):
         if hasattr(self, "hsv_warn"):
@@ -403,8 +412,12 @@ class TabMain:
                             f"X={x}  Y={y}  W={w}  H={h}")
         for k, v in (("x", x), ("y", y), ("w", w), ("h", h)):
             self.geo_vars[k].set(str(v))
-        if write_geometry(core.RC_GLSL, x, y, w, h):
-            glava_restart(self.app.active_module, after_fn=self.app.update_status)
+        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        if write_geometry(rc_path, x, y, w, h):
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(after_fn=self.app.update_status)
+            else:
+                glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _apply_geometry(self):
         try:
@@ -416,9 +429,13 @@ class TabMain:
         if w <= 0 or h <= 0:
             messagebox.showerror("", self.T.get("error_positive_only", "Szerokość i wysokość muszą być > 0."))
             return
-        if write_geometry(core.RC_GLSL, x, y, w, h):
+        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        if write_geometry(rc_path, x, y, w, h):
             messagebox.showinfo("", self.T.get("geometry_applied", "Geometria zaktualizowana."))
-            glava_restart(self.app.active_module, after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(after_fn=self.app.update_status)
+            else:
+                glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _save_settings(self):
         self.bing_cfg["BING_REGION"] = self.region_var.get()

@@ -358,6 +358,9 @@ class WaveParamWidget(BaseParamWidget):
                 self.T.get("confirm_reset_wave", "Przywrócić domyślny shader wave?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
-            from gui.glava import glava_restart
-            glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                          after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module="wave", after_fn=self.app.update_status)
+            else:
+                from gui.glava import glava_restart
+                glava_restart("wave", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                              after_fn=self.app.update_status)

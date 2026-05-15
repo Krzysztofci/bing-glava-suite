@@ -166,6 +166,20 @@ def unregister_instance(inst_id):
     instances = [i for i in instances if i["inst_id"] != inst_id]
     save_instances(instances)
 
+def update_instance(inst_id, **kwargs):
+    """
+    Aktualizuje pola istniejącego wpisu w rejestrze.
+    Obsługiwane pola: name, module, active.
+    Przykład: update_instance(2, name="Bars lewy", module="bars")
+    """
+    instances = load_instances()
+    for entry in instances:
+        if entry["inst_id"] == inst_id:
+            for k, v in kwargs.items():
+                entry[k] = v
+            break
+    save_instances(instances)
+
 def next_inst_id():
     """Zwraca następny wolny inst_id."""
     instances = load_instances()

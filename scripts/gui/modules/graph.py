@@ -226,11 +226,11 @@ class GraphParamWidget(BaseParamWidget):
     def _update_geometry_for_flip(self, flipped):
         try:
             from ..geometry import get_screen_info, calc_geometry, write_geometry
-            from ..core import RC_GLSL
+            rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
             si = get_screen_info()
             x, y, w, h = calc_geometry("graph", si[0], si[1], si[4], si[3],
                                         flipped=flipped)
-            write_geometry(RC_GLSL, x, y, w, h)
+            write_geometry(rc_path, x, y, w, h)
         except Exception:
             pass
 
@@ -239,8 +239,11 @@ class GraphParamWidget(BaseParamWidget):
                                self.T.get("confirm_reset_graph", "Restore default graph shader?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
-            from gui.glava import glava_restart
-            glava_restart("graph", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                          after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module="graph", after_fn=self.app.update_status)
+            else:
+                from gui.glava import glava_restart
+                glava_restart("graph", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                              after_fn=self.app.update_status)
 
 

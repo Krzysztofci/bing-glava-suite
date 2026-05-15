@@ -423,9 +423,12 @@ class RadialParamWidget(BaseParamWidget):
                 self.T.get("confirm_reset_radial", "Restore default radial shader?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
-            from gui.glava import glava_restart
-            glava_restart("radial", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                          after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module="radial", after_fn=self.app.update_status)
+            else:
+                from gui.glava import glava_restart
+                glava_restart("radial", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                              after_fn=self.app.update_status)
 
 
 # ─── Helpers (rotation) ─────────────────────────────────────────────────────

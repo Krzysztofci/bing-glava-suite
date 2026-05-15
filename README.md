@@ -1,222 +1,200 @@
 # bing-glava-suite
 
-A Linux desktop toolkit that downloads the daily Bing wallpaper and automatically
-synchronizes GLava's audio visualizer colors with it — with a full GUI control panel
-for fine-tuning everything.
+**Multi-instance GLava visualization studio for Linux desktop.**
 
-> Tested on **Linux Mint / XFCE** · Lenovo ThinkPad T420 · Intel HD 3000
+Automated Bing wallpaper downloads + GLava audio visualizer with full
+multi-instance control — run multiple independent visualizations simultaneously,
+each with its own shader, geometry, and color scheme.
 
----
-## Usage
-
-### GUI
-
-```bash
-glava-gui
-```
-
-The GUI panel has three tabs:
-
-![Panel Sterowania](screenshots/demo0.5.0.gif)
-
-- **Main** — wallpaper lock toggle, manual color picker, color presets, module switcher
-- **Module** — per-module controls (colors, gradient mode, rotation, position, profiles)
-- **Advanced** — geometry, FPS cap, GLava restart
-
-
-## Shader modules
-
-Each module has an independent control panel in the GUI with:
-
-- **Color gradient** — two color endpoints, HSV or RGB interpolation
-- **Shader profiles** — named presets saved per module
-- **Rotation** — 0–360° slider (where the shader supports it)
-- **Position offsets** — X/Y sliders for fine placement
-- **HSV color wheel** — shortest-path hue interpolation for smooth gradients
-
-| Module | Style |
-|---|---|
-| `bars` | Classic frequency bars |
-![Bars](screenshots/bars.gif) | 
-| `graph` | Waveform / spectrum graph anchored to taskbar |
-![Graph](screenshots/graph.gif)
-| `circle` | Circular amplitude ring |
-![Circle](screenshots/circle.gif)
-| `radial` | Radial spokes with rotation |
-![Radial](screenshots/radial.gif) 
-| `wave` | Horizontal wave/Verical wave/Rotation Wave |
-![Wave](screenshots/wave.gif)
+Tested on **Linux Mint 22 XFCE/Cinnamon**, Intel HD 3000 (ThinkPad T420).
 
 ---
 
 ## Features
 
-- **Daily Bing wallpaper** — downloaded automatically via cron, set as desktop background
-- **KMeans color extraction** — dominant colors are pulled from the wallpaper and applied to GLava
-- **GLava GUI control panel** — Tkinter-based, modular, themeable (Forest TTK)
-- **5 shader modules** — bars, circle, wave, radial, graph — each with its own control panel
-- **HSV / RGB gradient modes** per module
-- **Shader profiles** — save, load, delete and reset named presets per module
-- **Auto geometry detection** — GLava window size and position set automatically from screen resolution and taskbar height
-- **Rotation and position offsets** — sliders per module (0–360° rotation, X/Y offset)
-- **Wallpaper lock** — prevent auto-color changes when you want to keep a manual color scheme
-- **systemd user service** — inotify daemon watches for wallpaper changes and restarts GLava
-- **Internationalization (i18n)** — English and Polish UI (switchable at runtime)
-- **Installer and uninstaller** — single `install.sh` covers everything including GLava
+- **Multiple GLava instances** — Bars, Wave, Circle, Graph, Radial running
+  in parallel, each in its own tab
+- **Per-instance isolation** — separate config directory, separate GLava
+  process, separate shader settings
+- **Persistent sessions** — open tabs and settings survive application restarts
+- **Automated Bing wallpaper** — daily download with region selection
+- **KMeans color sync** — extract dominant colors from wallpaper → apply to
+  all GLava instances
+- **Forest-ttk-theme** — clean dark/light UI
+- **Geometry auto-calculation** — correct size/position per screen and taskbar
+- **Shader profiles** — save and restore parameter sets per module
 
 ---
 
-## Requirements
+## Screenshots
 
-| Dependency | Notes |
-|---|---|
-| `python3` + `python3-tk` | GUI |
-| `python3-pil` | Wallpaper image processing |
-| `python3-sklearn` + `python3-numpy` | KMeans color extraction |
-| `curl`, `wget`, `jq` | Wallpaper download and API queries |
-| `inotify-tools` | Wallpaper change detection |
-| `x11-utils` | Screen geometry detection (`xprop`) |
-| `libgl1`, `libglx-mesa0`, `libgl1-mesa-dev`, `libglvnd0` | OpenGL for GLava |
-| **GLava** | Audio visualizer — installer can fetch it automatically |
-
-The installer checks and installs all apt packages automatically.
+*(add screenshots here)*
 
 ---
 
 ## Installation
 
+### Requirements
+
+- Linux (Mint 22 / Ubuntu 24.04 recommended)
+- Python 3.10+
+- Tkinter (`python3-tk`)
+- Pillow (`python3-pil`) — for color extraction
+- GLava — use the pre-built `.deb` in Releases or build from source
+
+### Quick install
+
 ```bash
 git clone https://github.com/Krzysztofci/bing-glava-suite.git
 cd bing-glava-suite
-sudo ./install.sh
+./install.sh
 ```
 
-The installer will:
+The installer:
+1. Copies files to `~/.local/bin/GlavaMP/`
+2. Copies system GLava config from `/etc/xdg/glava/` if no user config exists
+3. Installs systemd user service for wallpaper daemon
+4. Creates desktop entry
 
-1. Ask which user to install for (default: current sudo user)
-2. Ask how often to download a new wallpaper (default: every 15 minutes)
-3. Check and install missing apt packages — with a live progress bar
-4. Offer to download and install GLava automatically (pre-built `.deb` from Releases)
-5. Copy all scripts, GUI files, shaders and configs to the correct locations
-6. Register a systemd user service and a cron job
-7. Optionally download today's wallpaper immediately
-
-After installation, **log out and back in** — everything starts automatically.
-
-### Manual GLava start (without logging out)
+### Manual run (no install)
 
 ```bash
-systemctl --user start glava-color-daemon
-glava --desktop &
+python3 glava-gui.py
 ```
 
 ---
 
-## Configuration files
+## Usage
 
-### Wallpaper downloader — `~/.config/bing-glava/config`
+### Adding instances
 
-```bash
-WALLPAPER_DIR="$HOME/Pictures/Bing"
-LOCK=0          # 1 = don't update GLava colors on wallpaper change
-```
+Click `[✚]` in the tab bar → select a module (Bars / Wave / Circle / Graph /
+Radial). A new tab appears and GLava starts automatically with the selected
+module and its own isolated configuration.
 
-### GLava — `~/.config/glava/rc.glsl`
+### Tab controls
 
-Geometry, FPS cap and active module are managed by the GUI and installer.
-Manual edits are fine — the GUI reads the file on startup.
+| Action | Result |
+|--------|--------|
+| Click tab | Switch active instance |
+| Right-click tab | Context menu: Rename / Duplicate / Save session / Close |
+| `[✚]` button | Add new instance |
+| Close tab | Stops that instance's GLava process only |
+
+### Main panel
+
+Controls colors, gradients, and color presets. Changes apply to the
+**currently selected tab** (the one with the green underline).
+
+### Module tab
+
+Per-instance shader parameters — shape, smoothing, flags. Each tab has
+independent settings.
+
+### Advanced panel
+
+Audio settings (`setbufsize`, `setsamplesize`, `setsamplerate`) and FPS limit
+are **broadcast to all instances simultaneously** and trigger a parallel restart
+of all GLava processes.
+
+### Enabling / Disabling GLava
+
+The Enable/Disable button in the Main panel:
+- **Disable** — stops all GLava processes (`pkill`)
+- **Enable** — starts all registered instances in parallel, each with its
+  correct module and `XDG_CONFIG_HOME`
 
 ---
 
-### Scripts
-
-| Script | Purpose |
-|---|---|
-| `glava-toggle` | Enable / disable GLava |
-| `glava-colorswitch` | Apply a color scheme manually |
-| `glava-colors-auto` | Re-extract colors from current wallpaper |
-| `glava-color-daemon` | The inotify daemon (managed by systemd) |
-| `bing-fetch-user.sh` | Download today's Bing wallpaper on demand |
-
----
-
-## Directory layout (after install)
+## Directory structure
 
 ```
-~/.local/bin/
-├── GlavaMP/                   # GUI and modules
-│   ├── glava-gui.py
-│   └── gui/
-│       ├── modules/           # bars.py, circle.py, wave.py, radial.py, graph.py
-│       └── ...
-└── glava-toggle, glava-colorswitch, ...
-
 ~/.config/
-├── GlavaMP/                   # GUI config: profiles, preferences
-├── glava/                     # GLava shaders and rc.glsl
-│   ├── bars_colors.frag
-│   ├── circle_colors.frag
-│   └── ...
-└── bing-glava/                # Wallpaper downloader config
-
-~/.local/share/bing-glava-suite/
-└── lang/                      # en.json, pl.json
+├── glava/                    ← Instance 0 (default, non-deletable)
+├── glava-inst-1/glava/       ← Instance 1
+├── glava-inst-2/glava/       ← Instance 2
+└── GlavaMP/
+    ├── instances.json        ← Tab registry + persistent state
+    ├── inst-1/               ← GUI profiles/presets for instance 1
+    ├── inst-2/
+    ├── gui.conf              ← Window geometry
+    └── themes/               ← Forest-ttk-theme files
 ```
 
 ---
 
-## Uninstall
+## Technical notes
 
-```bash
-sudo ./uninstall.sh
-```
-
-Removes scripts, GUI files, systemd service and cron entry.
-GLava itself and wallpapers are left untouched.
-
----
-
-## Troubleshooting
-
-**GLava doesn't start / black screen**
-Run `glava --desktop` in a terminal to see error output.
-Make sure `XDG_RUNTIME_DIR` is set: `echo $XDG_RUNTIME_DIR` should return `/run/user/XXXX`.
-
-**Colors don't update after wallpaper change**
-Check the daemon: `systemctl --user status glava-color-daemon`.
-If it's inactive, start it manually and check the log at `~/.local/logs/`.
-
-**GUI shows "⚠ RGB only" warning**
-The active shader doesn't have `#define HSV_MODE` embedded.
-Run the installer again or copy the template shader manually:
-```bash
-cp ~/.config/glava/bars_colors.frag ~/.config/glava/bars/1.frag
-```
-
-**Intel GPU freeze (ThinkPad / older Intel hardware)**
-Make sure these kernel parameters are set in `/etc/default/grub`:
-```
-i915.enable_rc6=0 i915.enable_dc=0 i915.disable_power_well=0
-```
-
----
-
-## Changelog highlights
-
-| Version | Summary |
-|---|---|
-| `0.5.0` | i18n complete (EN/PL), Forest TTK theme, resizable window |
-| `0.3.x` | Modular GUI architecture, shader profiles, rotation/offset sliders |
-| `0.2.2` | HSV_MODE define replaces regex block-replacement, auto geometry fix |
-| `0.2.1` | Wallpaper lock, bars gradient fix |
-| `0.2.0` | Multi-module support, auto geometry, security hardening |
-| `0.1.0-beta` | GUI first version, color presets, GLava auto-install |
-| `0.1.0-alpha` | First public release — wallpaper + KMeans + inotify daemon |
-
-Full history: [CHANGELOG.md](CHANGELOG.md)
+- Process management: SIGTERM → 2s wait → SIGKILL per instance
+- `XDG_CONFIG_HOME` set per instance so GLava reads the correct config dir
+- Module source of truth: `rc.glsl` `#request mod <name>` line
+  (not `instances.json`)
+- All shader writes go through `app.active_instance` — no global path
+- No new Python dependencies beyond stdlib + Tkinter + Pillow
 
 ---
 
 ## License
 
-[MIT](LICENSE) — KrzysztofCi
+MIT — see [LICENSE](LICENSE)
+
+GLava: GPLv3
+Forest-ttk-theme: MIT
+
+---
+
+---
+
+## Polski
+
+### bing-glava-suite — wieloinstancyjne studio wizualizacji GLava
+
+Automatyczne pobieranie tapet Bing + pełna kontrola GLava z obsługą wielu
+niezależnych instancji uruchomionych jednocześnie.
+
+Testowane na **Linux Mint 22 XFCE/Cinnamon**, Intel HD 3000 (ThinkPad T420).
+
+### Funkcje
+
+- **Wiele instancji GLava** — Bars, Wave, Circle, Graph, Radial równocześnie,
+  każda w osobnej zakładce
+- **Izolacja per instancja** — osobny katalog konfiguracyjny, osobny proces
+  GLava, osobne ustawienia shaderów
+- **Trwałe sesje** — zakładki i ustawienia przeżywają restart aplikacji
+- **Automatyczne tapety Bing** — codzienne pobieranie z wyborem regionu
+- **Synchronizacja kolorów KMeans** — ekstrakcja dominujących kolorów z tapety
+  i aplikowanie do wszystkich instancji GLava
+- **Auto-geometria** — automatyczne obliczanie rozmiaru i pozycji okna GLava
+- **Profile shaderów** — zapis i odczyt zestawów parametrów per moduł
+
+### Instalacja
+
+```bash
+git clone https://github.com/Krzysztofci/bing-glava-suite.git
+cd bing-glava-suite
+./install.sh
+```
+
+### Użytkowanie
+
+Kliknij `[✚]` na pasku zakładek → wybierz moduł → nowa zakładka pojawia się
+i GLava startuje automatycznie. Prawy klik na zakładce otwiera menu kontekstowe
+(Zmień nazwę / Duplikuj / Zamknij).
+
+Ustawienia w zakładce **Zaawansowane** (audio, FPS) są aplikowane do
+**wszystkich instancji** jednocześnie.
+
+### Struktura katalogów
+
+```
+~/.config/
+├── glava/                    ← Instancja 0 (domyślna, nieusuwalna)
+├── glava-inst-1/glava/       ← Instancja 1
+└── GlavaMP/
+    ├── instances.json        ← Rejestr zakładek i stan sesji
+    └── …
+```
+
+### Licencja
+
+MIT — patrz [LICENSE](LICENSE)

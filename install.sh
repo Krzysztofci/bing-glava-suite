@@ -223,7 +223,7 @@ info "Installed: /usr/local/bin/bing-downloader.sh"
 section "Installing user scripts"
 
 for script in glava-colorswitch glava-toggle glava-colors-auto \
-              glava-color-daemon bing-fetch-user.sh; do
+              glava-color-daemon bing-fetch-user.sh glava-autostart.sh; do
     src="$SCRIPT_DIR/scripts/$script"
     dst="$BIN_DIR/$script"
     [ -f "$src" ] || error "Missing file: $src"

@@ -58,7 +58,10 @@ class TabModule:
         try:
             mod = _load_module_plugin(self.module)
             mod.apply_params(profiles[name], self.app)
-            glava_restart(self.module, after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module=self.module, after_fn=self.app.update_status)
+            else:
+                glava_restart(self.module, after_fn=self.app.update_status)
         except ImportError:
             pass
 
@@ -124,7 +127,10 @@ class TabModule:
         # Przebuduj zakładkę żeby suwaki pokazały nowe wartości
         self.app.rebuild_module_tab()
         messagebox.showinfo("", T.get("reset_done", "Shader restored."))
-        glava_restart(module, after_fn=self.app.update_status)
+        if hasattr(self.app, 'restart_active_instance'):
+            self.app.restart_active_instance(module=module, after_fn=self.app.update_status)
+        else:
+            glava_restart(module, after_fn=self.app.update_status)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -338,9 +338,12 @@ class CircleParamWidget(BaseParamWidget):
                                self.T.get("confirm_reset_circle", "Restore default circle shader?")):
             reset_shader(self.app)
             self.app.rebuild_module_tab()
-            from gui.glava import glava_restart
-            glava_restart("circle", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
-                          after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module="circle", after_fn=self.app.update_status)
+            else:
+                from gui.glava import glava_restart
+                glava_restart("circle", extra_flags=getattr(self.app, "extra_flags", "--desktop"),
+                              after_fn=self.app.update_status)
 
 
 # ─── Helpers (rotation) ─────────────────────────────────────────────────────

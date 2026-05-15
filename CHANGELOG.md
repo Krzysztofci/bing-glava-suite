@@ -1,253 +1,187 @@
-Changelog
-
-All notable changes to this project are documented here.Format based on Keep a Changelog.
-
-## [0.5.0] — 2026‑05‑05
-This release is a major architectural overhaul that replaces manual configuration with a modular Master Panel, giving you real-time, surgical control over every shader parameter through a polished GUI.
-
-### Added
-
-- Advanced geometry engine (multi‑panel detection)Geometry detection now identifies taskbars and desktop panels on all four screen edges (top, bottom, left, right).Modules automatically adjust their available workspace and default positions based on the detected panel layout.
-- Per‑module geometry systemEach module (bars, graph, circle, radial, wave) stores its own geometry (X/Y/W/H) independently.Geometry is no longer global — every shader remembers its own layout and restores it when selected.
-- Modular GUI architectureEvery GLava module now has a dedicated configuration tab with its own parameters:
-- Shape & Dynamics
-- Position & Rotation
-- Switches
-- Smoothing
-- Shader Profiles
-- Unified Smoothing sectionGravity, smoothing, average frames, FFT scale and bass cutoff are now:
-- globally consistent,
-- shared across all shaders,
-- saved inside each module’s profile.
-- Per‑module shader profilesEach module supports its own preset system:
-- Apply
-- Save new
-- Delete
-- Reset shader
-- Simple JSON‑based localization systemAdding a new language requires translating a single JSON file and placing it in the language directory.The application automatically detects and loads new languages — no code changes required.
-- Full internationalization (i18n)
-- Complete English and Polish translations
-- All module tabs fully localized
-- Language switching in the GUI
-- Enhanced shader setUpdated and extended versions of GLava shaders with:
-- additional parameters,
-- improved dynamics,
-- corrected upstream issues,
-- better gradient handling,
-- more consistent FFT behavior.
-- New GUI theme systemForest‑dark theme with consistent styling across all widgets.
-- Diagnostics tools
-- View daemon logs
-- Test panel detection
-
-### Changed
-- Geometry system completely redesigned
-- Previously: simple resolution detection with fixed offsets
-- Now: full multi‑panel detection, per‑module geometry memory, and precise control over position & rotation
-- Modules no longer share geometry — each one behaves independently
-- Color and gradient handling improved
-- More stable RGB/HSV switching
-- Corrected HSV_MODE behavior
-- Better synchronization with shader state
-- GUI overhaul
-- Fully redesigned layout
-- Clearer structure and workflow
-- Better separation of module‑specific and global settings
-- Improved ergonomics and visual consistency
-- Shader performance and stability
-- Corrected t calculations across modules
-- Improved FFT scaling
-- More stable amplitude handling
-- Better visual consistency between modules
-
-### Installer improvements
-- Numerous fixes accumulated over 1.5 months
-- More reliable file copying
-- Corrected permissions and systemd logic
-- Cleaner directory structure and safer operations
-
-### Fixed
-- Dozens of shader fixes across all modules
-- Geometry detection and auto‑geometry stability
-- i18n issues in PL/EN
-- Profile loading/saving logic
-- Manual mode color handling
-- Wallpaper lock/unlock logic
-- Installer bugs (chown, systemd, missing files)
-- Edge cases in gradient and HSV mode switching
-
-### Removed
-- Old global geometry system
-- Legacy GUI components from 0.2.x
-- Deprecated shader files
-- Unused code paths and obsolete logic
-
-### Migration notes
-- Profiles from 0.2.x are not compatible with 0.5.0.
-- Each module requires initial configuration and profile save.
-- Geometry is now per‑module — old XYWH settings are ignored.
-- Localization files are fully modular: adding a new language requires only translating one JSON file and placing it in internal_lang/.
-
-### Highlights
-- Modular GUI with per‑module profiles
-- Advanced geometry engine with multi‑panel detection
-- Enhanced shaders with new parameters
-- Full EN/PL localization
-- Fully themed gui - dark/light versions
-- 1.5 months of continuous refactoring and improvements
+# Changelog — bing-glava-suite
 
 ---
 
-## [0.3.0] — feature/modular-gui — in testing
+## [1.0.0] — 2026-05-15
 
-The modular GUI release. Focus: per-module control panels, unified shader
-architecture, full 5-module support.
+### Multi-instance GLava Studio
 
-### Added
-- Modular GUI architecture — each GLava module has its own dedicated control
-  panel (`bars.py`, `circle.py`, `graph.py`, `radial.py`, `wave.py`)
-- Per-module shape parameters with live sliders and debounced restart
-- Per-module shader profiles (save, load, delete named presets)
-- Per-module shader reset to defaults
-- Smoothing parameters panel in all modules (gravity, smoothing factor,
-  avg frames, FFT scale, FFT cutoff)
-- Position offsets (CENTER_OFFSET_X/Y) in radial and circle modules
-- Rotation slider 0–360° replacing 4-option combobox in radial and circle
-- Circle module: full parameter support (C_RADIUS, C_LINE, AMPLIFY, ROTATE,
-  offsets, C_FILL, C_SMOOTH, INVERT)
-- Wave module: linked MIN/MAX thickness sliders (move together on collision)
-- Graph module: GRADIENT parameter repurposed as center brightness control
-- Audio section in Advanced tab (setbufsize, setsamplesize, setsamplerate,
-  setframerate, setmirror, setinterpolate) with expert mode expansion
-- Expert mode now rebuilds Advanced tab to show extended audio buffer options
-- GLava extra flags field in Advanced tab reads current process flags
-- Auto-geometry now saves and restarts GLava immediately without extra click
-
-### Changed
-- All modules now use unified geometry: full screen height with Y=-panel_height
-  (previously circle/radial/wave used work area height)
-- GLAVA_MODULES list sorted alphabetically: bars, circle, graph, radial, wave
-- Default active module changed from graph to bars
-- graph_red.frag renamed to graph_colors.frag for naming consistency
-- Installer: graph module merged with other modules (no longer treated
-  separately), all 5 modules installed equally
-- install-modules.sh updated to include graph
-- Codebase grew from ~2359 to ~5974 lines (2.5× increase due to modularization)
-
-### Removed
-- graph2 module references removed throughout codebase and installer
-- Hardcoded C_LINE override in circle/1.frag (now controlled by GUI)
-- Dead shader parameters C_LINE_WIDTH and C_AMPLIFY from circle module
-
-### Fixed
-- Circle module: CENTER_OFFSET_X/Y now correctly read from file on GUI load
-- Radial module: rotation value correctly converted between degrees and radians
-- Geometry calculation unified — no more wrong 860px height for circle/wave/radial
+This release is a milestone. The application transitions from a single-instance
+GLava controller to a full **multi-instance visualization studio** — multiple
+independent GLava processes running simultaneously, each with isolated
+configuration, dedicated controls, and persistent state.
 
 ---
 
-## [0.2.2] — 2026-04-06
+### ✨ New Features
 
-### Fixed
-- glava-colors-auto now uses `HSV_MODE` define instead of replacing `gradient_color` function
-- `restore_auto` no longer resets HSV mode
-- Auto-geometry values now populate fields after dialog closes
-- Module switch now correctly reflects HSV/RGB state in radio buttons
-- Missing live `.frag` triggers `apply_manual` automatically
+#### Multi-instance Architecture
+- **Parallel GLava instances** — run Bars, Wave, Circle, Graph, Radial
+  simultaneously, each in its own tab
+- **Per-instance process management** — each GLava runs as a tracked
+  `subprocess.Popen`; closing a tab stops only that instance (SIGTERM → SIGKILL)
+- **Isolated configuration** — each instance gets its own
+  `~/.config/glava-inst-{id}/` directory with copied GLSL files and symlinks
+  to shared shaders
+- **Persistent state** — open tabs, module choices, and custom tab names
+  survive application restarts via `instances.json`
+- **Source-of-truth from rc.glsl** — module is read directly from the
+  instance's `rc.glsl` at startup; `instances.json` serves as fallback only
 
----
+#### InstanceTabBar (`gui/instance_tab_bar.py`) — new file
+- Custom tab bar widget built on `ttk.Notebook` with `height=0` (tab strip only)
+- Native Forest-ttk-theme appearance — tabs identical to standard notebook tabs
+- `✦` suffix in tab labels with automatic numbering (`Bars ✦`, `Bars ✦2`, …)
+- `[✚]` Menubutton opens module selector + "Load workspace" option
+- Right-click context menu per tab: Rename / Save session / Save workspace /
+  Duplicate / Close
+- `content_parent` parameter allows placing tab content in a separate frame
+  (used for full-width rendering below the tab strip)
+- `show_separator` parameter controls whether the widget draws its own separator
 
-## [0.2.2-pre] — Pending testing
+#### Advanced Panel — broadcast audio/FPS to all instances
+- `setbufsize`, `setsamplesize`, `setsamplerate`, `setframerate` and
+  mirror/interpolation flags are now written to **every** instance's `rc.glsl`
+  simultaneously
+- All instances are restarted in parallel threads after the debounce delay
+- Single-instance fallback preserved
 
-### Added
-- New tool: `tools/gradient_compare.py` for comparing RGB vs HSV gradients.
-- GUI now detects `HSV_MODE` directly from shader files when switching modules.
-
-### Changed
-- Enabled functional HSV support across all shader modules.
-- GUI updates gradient mode and radio buttons based on live shader state.
-- GUI shows a warning label (⚠ RGB only) for shaders without HSV support.
-- Updated GLava configuration defaults (`circle.glsl`, `rc.glsl`).
-
-### Fixed
-- Corrected and standardized `t` calculations in multiple shader modules
-
----
-
-## [0.2.1] — Hotfix release
-
-### Added
-- Lock/unlock mechanism for wallpaper.
-- Increased automation — less manual intervention required
-- New functions in the GUI control panel
-
-### Changed
-- Updated GUI to support the new lock/unlock wallpaper functionality.
-- Updated `bing-downloader.sh` and `bing-fetch-user.sh`.
-- Updated language JSON files.
-
-### Fixed
-- Bars module: corrected gradient color mapping
-- Corrected logic in wallpaper lock/unlock function
+#### New API in `GlavaGUI`
+- `get_active_rc_glsl()` — returns `rc.glsl` path for the currently selected tab
+- `get_active_glava_dir()` — returns the GLava config directory for the active instance
+- `restart_active_instance(module, after_fn)` — restarts only the active instance
+- `_inst_modules[inst_id]` — tracks the module per tab
 
 ---
 
-## [0.2.0] — feature/new-architecture (first pass)
+### 🔧 Modified Files
 
-### Added
-- Multi-module support: bars, circle, wave, radial (previously: graph only)
-- Auto-detect geometry based on screen resolution and taskbar height
-- Cinnamon desktop compatibility
-- GLava autostart on login
-- Uninstall script
-- English translations in GUI
-
-### Changed
-- Root no longer executes scripts inside user directories
-- Systemd service and directory ownership handling hardened
-- Installer rewritten with multiple rounds of fixes
-
-### Fixed
-- GUI geometry functions
-- Systemd directory ownership
-- Active shader colors no longer overwritten on reinstall
-- Daemon now checks wallpaper vs shader timestamp on start
+| File | Change summary |
+|------|---------------|
+| `glava-gui.py` | Full rewrite of notebook section; instances dict; process dict; persistence |
+| `gui/glava.py` | `glava_start()` returns `Popen`; added `glava_stop_instance`, `glava_restart_instance`, `read_rc_module`; global `pkill` limited to `glava_stop_all()` |
+| `gui/instance_tab_bar.py` | **New file** — InstanceTabBar widget |
+| `gui/instance.py` | Added `update_instance()` helper |
+| `gui/tab_main.py` | All rc.glsl I/O via `app.get_active_rc_glsl()`; restart via `app.restart_active_instance()` |
+| `gui/tab_module.py` | Restart via `app.restart_active_instance()` with fallback |
+| `gui/tab_advanced.py` | `_write_request` broadcasts to all instances; parallel restart |
+| `gui/modules/base.py` | `_schedule_restart()` and `_debounce()` use active-instance API |
+| `gui/modules/bars.py` | Instance-specific GLSL paths via `app.active_instance` |
+| `gui/modules/wave.py` | As above |
+| `gui/modules/circle.py` | As above |
+| `gui/modules/graph.py` | As above |
+| `gui/modules/radial.py` | As above |
 
 ---
 
-## [0.1.0-beta]
+### 🏗 Architecture: Before → After
 
-### Added
-- GUI control panel (Tkinter) — first version
-- Color presets system
-- GLava auto-install from GitHub Releases (pre-built .deb)
-- MIT license
-
----
-
-## [0.1.0-alpha]
-
-### Added
-- First public release on GitHub
-- Bing wallpaper downloader
-- KMeans color extraction from wallpaper
-- Automatic GLava shader update on wallpaper change
-- systemd user service (inotify daemon)
-- glava-toggle
+| Aspect | v0.5.x | v1.0.0 |
+|--------|--------|--------|
+| GLava processes | 1 global | N independent, tracked by PID |
+| Config isolation | Single `~/.config/glava/` | Per-instance `~/.config/glava-inst-{id}/` |
+| Process termination | `pkill -x glava` (kills all) | SIGTERM per Popen → SIGKILL fallback |
+| Tab UI | Static `ttk.Notebook` (Main/Module/Advanced) | Dynamic InstanceTabBar + static Main/Advanced |
+| State persistence | None | Full via `instances.json` |
+| Audio/FPS settings | Active instance only | Broadcast to all instances, parallel restart |
+| Module source of truth | `instances.json` | `rc.glsl` (JSON as fallback) |
 
 ---
 
-## [pre-alpha] — not tagged, local only
+### 📂 Directory Layout
 
-- Started as a standalone wallpaper download script
-- Added GLava after looking for audio visualization
-- Added color extraction, manual controls
-- Complex enough to put on GitHub
+```
+~/.config/
+├── glava/                        ← Instance 0 (default, non-deletable)
+│   ├── rc.glsl
+│   ├── bars.glsl, wave.glsl, …
+│   └── bars/, wave/, …  (shader subdirs)
+├── glava-inst-1/glava/           ← Instance 1 (copied GLSL + symlinks)
+├── glava-inst-2/glava/           ← Instance 2
+└── GlavaMP/
+    ├── instances.json            ← Registry + persistent tab state
+    ├── inst-1/                   ← GUI settings for instance 1
+    ├── inst-2/
+    └── …
+```
 
 ---
 
-## Versioning notes
+### ⚠ Known Limitations
 
-- `0.x.0` — significant feature additions or architectural changes
-- `0.x.y` — fixes and small improvements
-- `1.0.0` — when stable enough for general use without caveats
+- GLava must be in `PATH`
+- No new Python dependencies (stdlib + Tkinter only)
+- Instance 0 (`~/.config/glava`) is non-deletable by design
+- Workspace save/load (session files) — UI present, persistence not yet implemented
+
+---
+
+### 🧪 Quick Test
+
+```bash
+python3 glava-gui.py
+# 1. Default tab (Instance 0 / Bars) opens automatically
+# 2. Click [✚] → select Wave → new tab "Wave ✦" appears, GLava starts
+# 3. Click [✚] → select Bars → "Bars ✦2" appears alongside the first
+# 4. Right-click any tab → Rename, Duplicate, or Close
+# 5. Change FPS in Advanced → all instances restart in parallel
+# 6. Close and reopen app → all tabs restored
+```
+
+---
+
+---
+
+## Polski — Notatki do wersji 1.0.0
+
+### Multiinstancja GLava Studio
+
+Ta wersja to kamień milowy. Aplikacja przechodzi z kontrolera jednej instancji
+GLava do pełnego **studia wizualizacji wieloinstancyjnej** — wiele niezależnych
+procesów GLava działających równocześnie, każdy z izolowaną konfiguracją,
+dedykowanymi kontrolkami i trwałym stanem.
+
+### Co nowego
+
+- **Równoległe instancje GLava** — Bars, Wave, Circle, Graph, Radial
+  jednocześnie, każda w osobnej zakładce
+- **Zarządzanie procesami per instancja** — zamknięcie zakładki zatrzymuje
+  tylko ten jeden proces (SIGTERM → SIGKILL)
+- **Izolowana konfiguracja** — każda instancja ma własny katalog
+  `~/.config/glava-inst-{id}/`
+- **Trwały stan** — otwarte zakładki, wybrane moduły i własne nazwy zakładek
+  przeżywają restart aplikacji (`instances.json`)
+- **Nowy widget InstanceTabBar** — pasek zakładek z natywnym wyglądem
+  Forest-ttk-theme, przycisk `[✚]` z menu wyboru modułu, menu kontekstowe
+  (prawy klik)
+- **Ustawienia audio/FPS** w zakładce Zaawansowane są teraz broadcast do
+  wszystkich instancji i restartują je równolegle
+
+### Znane ograniczenia
+
+- Zapis/odczyt workspace (zestawów sesji) — interfejs obecny, zapis na dysk
+  jeszcze niezaimplementowany
+- Instancja 0 (`~/.config/glava`) jest nieusuwalna z założenia
+
+---
+
+## [0.5.0] — 2026-04-xx
+
+Modular GUI rewrite — five shader modules with dedicated control panels,
+unified geometry calculation, debounced restart logic, i18n framework,
+Forest-ttk-theme integration, GLava pre-built `.deb` for Ubuntu 24.04/Mint 22.x.
+
+## [0.2.2] — 2026-04-xx
+
+Fixed wave/graph gradient, HSV/RGB gradient system using `#define HSV_MODE`,
+wallpaper lock feature, `gradient_compare.py` tool.
+
+## [0.2.0] — 2026-03-xx
+
+Critical shader bug fixes (bars gradient, circle gradient), redesigned
+gradient system.
+
+## [0.1.0] — 2026-03-xx
+
+Initial release: wallpaper downloader + GLava controller, systemd daemon,
+KMeans color extraction, basic Tkinter GUI.
