@@ -545,16 +545,15 @@ if [ "$GLAVA_INSTALLED" = true ]; then
     # 2. Upewniamy się, że katalog ~/.local/bin istnieje
     mkdir -p "$LOCAL_BIN"
 
-    # 3. Kopiujemy Twój gotowy skrypt do katalogu docelowego
-    # (Załóżmy, że skrypt leży w tym samym folderze co instalator pod nazwą glava-autostart.sh)
-    cp "glava-autostart.sh" "$AUTOSTART_SCRIPT"
+    # 3. Kopiujemy skrypt do katalogu docelowego
+    cp "./scripts/glava-autostart.sh" "$AUTOSTART_SCRIPT"
 
     # 4. Nadajemy uprawnienia pliku skryptu i zmieniamy właściciela na użytkownika
     chmod +x "$AUTOSTART_SCRIPT"
     chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_SCRIPT"
     chown -R "$TARGET_USER:$TARGET_USER" "$LOCAL_BIN"
 
-    # 5. Tworzymy plik .desktop, który jako polecenie (Exec) uruchomi Twój skrypt
+    # 5. Tworzymy plik .desktop, który jako polecenie (Exec) uruchomi skrypt
     cat > "$TARGET_HOME/.config/autostart/glava.desktop" << AUTOSTART
 [Desktop Entry]
 Version=1.0
