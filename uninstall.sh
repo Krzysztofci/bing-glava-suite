@@ -339,7 +339,7 @@ fi
 section "Removing user scripts"
 
 for script in glava-colorswitch glava-toggle glava-colors-auto \
-              glava-color-daemon bing-fetch-user.sh; do
+              glava-color-daemon bing-fetch-user.sh glava-autostart.sh; do
     dst="$BIN_DIR/$script"
     if [ -f "$dst" ]; then
         rm -f "$dst"
