@@ -245,7 +245,8 @@ chmod 644 "$GLAVAMP_DIR/glava-gui.py"
 # GUI modules
 for pyfile in core.py colors.py geometry.py glava.py \
               tab_main.py tab_module.py tab_advanced.py \
-              theme.py widgets.py color_button.py; do
+              theme.py widgets.py color_button.py instance.py \
+              instance_tab_bar.py; do
     src="$SCRIPT_DIR/scripts/gui/$pyfile"
     [ -f "$src" ] || error "Missing file: $src"
     cp "$src" "$GLAVAMP_DIR/gui/$pyfile"
@@ -537,21 +538,40 @@ sudo -u "$TARGET_USER" update-desktop-database "$DESKTOP_DST" 2>/dev/null || tru
 section "GLava autostart"
 
 if [ "$GLAVA_INSTALLED" = true ]; then
+    # 1. Definiujemy ścieżki
+    LOCAL_BIN="$TARGET_HOME/.local/bin"
+    AUTOSTART_SCRIPT="$LOCAL_BIN/glava-autostart.sh"
+
+    # 2. Upewniamy się, że katalog ~/.local/bin istnieje
+    mkdir -p "$LOCAL_BIN"
+
+    # 3. Kopiujemy Twój gotowy skrypt do katalogu docelowego
+    # (Załóżmy, że skrypt leży w tym samym folderze co instalator pod nazwą glava-autostart.sh)
+    cp "glava-autostart.sh" "$AUTOSTART_SCRIPT"
+
+    # 4. Nadajemy uprawnienia pliku skryptu i zmieniamy właściciela na użytkownika
+    chmod +x "$AUTOSTART_SCRIPT"
+    chown "$TARGET_USER:$TARGET_USER" "$AUTOSTART_SCRIPT"
+    chown -R "$TARGET_USER:$TARGET_USER" "$LOCAL_BIN"
+
+    # 5. Tworzymy plik .desktop, który jako polecenie (Exec) uruchomi Twój skrypt
     cat > "$TARGET_HOME/.config/autostart/glava.desktop" << AUTOSTART
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=GLava
 Comment=OpenGL audio visualizer
-Exec=glava --desktop
+Exec=$AUTOSTART_SCRIPT
 Icon=multimedia-audio-player
 Terminal=false
 Categories=AudioVideo;
 X-GNOME-Autostart-enabled=true
 StartupNotify=false
 AUTOSTART
+
+    # 6. Naprawiamy uprawnienia pliku .desktop
     chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/autostart/glava.desktop"
-    info "Added GLava autostart."
+    info "Added GLava autostart via local script."
 else
     warn "GLava not installed — skipping autostart."
 fi
