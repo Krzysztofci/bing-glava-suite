@@ -276,9 +276,12 @@ class InstanceTabBar(ttk.Frame):
         if inst_id in self._tabs:
             return
 
+        # Zawsze inkrementuj licznik modulu — nawet gdy label jest przekazany z zewnatrz.
+        # Dzieki temu duplikat zawsze dostanie kolejny numer.
+        cnt = self._module_counts.get(module, 0) + 1
+        self._module_counts[module] = cnt
+
         if label is None:
-            cnt = self._module_counts.get(module, 0) + 1
-            self._module_counts[module] = cnt
             name  = module.capitalize()
             label = f"{name} \u2726" if cnt == 1 else f"{name} \u2726{cnt}"
 

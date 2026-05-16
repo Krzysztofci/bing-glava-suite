@@ -138,8 +138,18 @@ def load_instances():
     except Exception:
         return default
 
+#def save_instances(instances):
+#    """Zapisuje rejestr instancji do instances.json."""
+#    os.makedirs(os.path.dirname(INSTANCES_FILE), exist_ok=True)
+#    with open(INSTANCES_FILE, "w") as f:
+#        json.dump(instances, f, indent=2)
 def save_instances(instances):
     """Zapisuje rejestr instancji do instances.json."""
+    # Pętla naprawcza: synchronizuje nazwę zakładki z wybranym modułem
+    for entry in instances:
+        if "module" in entry:
+            entry["name"] = f"{entry['module'].capitalize()} ✦"
+
     os.makedirs(os.path.dirname(INSTANCES_FILE), exist_ok=True)
     with open(INSTANCES_FILE, "w") as f:
         json.dump(instances, f, indent=2)

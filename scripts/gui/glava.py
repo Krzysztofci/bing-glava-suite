@@ -15,7 +15,120 @@ import time
 
 from .core import RC_GLSL, FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK, BIN_DIR
 
-AUTOSTART_FILE = os.path.expanduser("~/.config/autostart/glava.desktop")
+AUTOSTART_FILE  = os.path.expanduser("~/.config/autostart/glava.desktop")
+_PID_DIR        = os.path.expanduser("~/.config/GlavaMP")
+
+
+# =============================================================================
+# Zarzadzanie plikami PID per instancja
+# =============================================================================
+
+def _pid_path(inst_id):
+    """Zwraca sciezke pliku PID dla danej instancji."""
+    return os.path.join(_PID_DIR, f"inst-{inst_id}.pid")
+
+
+def write_pid(inst_id, pid):
+    """Zapisuje PID procesu GLava do pliku inst-{id}.pid."""
+    os.makedirs(_PID_DIR, exist_ok=True)
+    try:
+        with open(_pid_path(inst_id), "w") as f:
+            f.write(str(pid))
+    except Exception:
+        pass
+
+
+def read_pid(inst_id):
+    """
+    Czyta PID z pliku inst-{id}.pid.
+    Zwraca int lub None jesli plik nie istnieje lub jest niepoprawny.
+    """
+    path = _pid_path(inst_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def clear_pid(inst_id):
+    """Usuwa plik PID instancji."""
+    try:
+        os.remove(_pid_path(inst_id))
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+
+def is_pid_running(pid):
+    """
+    Sprawdza czy proces o podanym PID istnieje i dziala.
+    Uzywa os.kill(pid, 0) — nie wysyla sygnalu, tylko sprawdza istnienie.
+    """
+    if pid is None:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, OSError):
+        return False
+
+
+def adopt_instance(inst_id):
+    """
+    Probuje adoptowac istniejacy proces GLava dla danej instancji.
+    Czyta PID z pliku, sprawdza czy proces zyje.
+    Zwraca (pid, Popen-like) lub (None, None).
+
+    Zamiast pelnego Popen zwracamy obiekt-wrapper ktory implementuje
+    poll() i terminate() przez syscalle — wystarczy do glava_stop_instance().
+    """
+    pid = read_pid(inst_id)
+    if not is_pid_running(pid):
+        clear_pid(inst_id)
+        return None, None
+    return pid, _AdoptedProcess(pid, inst_id)
+
+
+class _AdoptedProcess:
+    """
+    Lekki wrapper symulujacy subprocess.Popen dla adoptowanego procesu.
+    Implementuje poll(), terminate(), kill(), wait() przez syscalle.
+    """
+    def __init__(self, pid, inst_id):
+        self.pid     = pid
+        self._inst_id = inst_id
+
+    def poll(self):
+        """None jesli proces zyje, -1 jesli martwy (jak Popen.poll())."""
+        return None if is_pid_running(self.pid) else -1
+
+    def terminate(self):
+        try:
+            os.kill(self.pid, 15)   # SIGTERM
+        except (ProcessLookupError, OSError):
+            pass
+
+    def kill(self):
+        try:
+            os.kill(self.pid, 9)    # SIGKILL
+        except (ProcessLookupError, OSError):
+            pass
+
+    def wait(self, timeout=None):
+        """Czeka az proces sie zakonczy."""
+        import time
+        deadline = time.time() + (timeout or 5)
+        while time.time() < deadline:
+            if not is_pid_running(self.pid):
+                return
+            time.sleep(0.1)
+
+    def __repr__(self):
+        return f"_AdoptedProcess(pid={self.pid}, inst_id={self._inst_id})"
 
 
 # =============================================================================
@@ -47,33 +160,40 @@ def glava_start(extra_flags=None, env=None, instance=None):
         proc_env["XDG_CONFIG_HOME"] = instance.xdg_dir
 
     try:
-        return subprocess.Popen(
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=proc_env,
         )
+        # Zapisz PID jesli znamy inst_id
+        if instance is not None:
+            write_pid(instance.inst_id, proc.pid)
+        return proc
     except Exception:
         return None
 
 
 def glava_stop_instance(proc):
     """
-    Zatrzymuje konkretną instancję GLava podaną jako Popen.
-    Próbuje SIGTERM, po 2s SIGKILL.
-    Bezpieczne: sprawdza czy proces jeszcze żyje przed wysłaniem sygnału.
+    Zatrzymuje konkretna instancje GLava podana jako Popen lub _AdoptedProcess.
+    Probuje SIGTERM, po 2s SIGKILL.
+    Usuwa plik PID jesli proc jest _AdoptedProcess.
     """
     if proc is None:
         return
     try:
-        if proc.poll() is None:          # proces żyje
+        if proc.poll() is None:
             proc.terminate()
             try:
                 proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
+            except (subprocess.TimeoutExpired, Exception):
                 proc.kill()
     except OSError:
         pass
+    # Usun plik PID
+    if isinstance(proc, _AdoptedProcess):
+        clear_pid(proc._inst_id)
 
 
 def glava_is_instance_running(proc):
@@ -218,41 +338,24 @@ def restore_auto(callback=None):
         callback()
 
 
-def update_autostart(extra_flags=None):
+def update_autostart(extra_flags):
     """
-    Zapisuje ~/.config/autostart/glava.desktop uruchamiający glava-autostart.sh.
-    Skrypt startuje wszystkie zarejestrowane instancje GLava z właściwym
-    XDG_CONFIG_HOME dla każdej.
-    extra_flags — ignorowany (zachowany dla kompatybilności wstecznej).
+    Podmienia linię Exec= w ~/.config/autostart/glava.desktop.
+    Tworzy plik jeśli nie istnieje.
     """
-    import shutil
+    flags = extra_flags.strip() if extra_flags else "--desktop"
+    if not flags:
+        flags = "--desktop"
 
-    # Szukaj glava-autostart.sh obok glava-gui.py lub w BIN_DIR
-    candidates = [
-        os.path.join(BIN_DIR, "glava-autostart.sh"),
-        os.path.join(os.path.dirname(__file__), "..", "glava-autostart.sh"),
-    ]
-    script_path = None
-    for c in candidates:
-        if os.path.exists(os.path.abspath(c)):
-            script_path = os.path.abspath(c)
-            break
-
-    if script_path is None:
-        # Fallback — stare zachowanie z pojedynczą instancją
-        flags = (extra_flags or "--desktop").strip() or "--desktop"
-        exec_line = f"Exec=glava {flags}\n"
-    else:
-        exec_line = f"Exec=bash {script_path}\n"
-
+    exec_line = f"Exec=glava {flags}\n"
     desktop_template = (
         "[Desktop Entry]\n"
         "Version=1.0\n"
         "Type=Application\n"
-        "Name=GLava (multi-instance)\n"
-        "Comment=OpenGL audio visualizer - all instances\n"
-        + exec_line
-        + "Icon=multimedia-audio-player\n"
+        "Name=GLava\n"
+        "Comment=OpenGL audio visualizer\n"
+        f"Exec=glava {flags}\n"
+        "Icon=multimedia-audio-player\n"
         "Terminal=false\n"
         "Categories=AudioVideo;\n"
         "X-GNOME-Autostart-enabled=true\n"

@@ -90,6 +90,16 @@ for inst in instances:
         )
         log(f"inst {inst_id}: started (module={module}, pid={proc.pid})")
         started += 1
+        # Zapisz PID do pliku zeby GUI moglo adoptowac proces
+        pid_dir  = os.path.join(HOME, ".config/GlavaMP")
+        pid_path = os.path.join(pid_dir, f"inst-{inst_id}.pid")
+        os.makedirs(pid_dir, exist_ok=True)
+        try:
+            with open(pid_path, "w") as pf:
+                pf.write(str(proc.pid))
+            log(f"inst {inst_id}: PID {proc.pid} written to {pid_path}")
+        except Exception as e:
+            log(f"inst {inst_id}: failed to write PID: {e}")
     except Exception as e:
         log(f"inst {inst_id}: failed to start: {e}")
 
