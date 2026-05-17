@@ -4,7 +4,7 @@
 # konfiguracyjnym. Fundament architektury multi-instancji.
 # =============================================================================
 import os
-import glob
+#import glob
 import shutil
 
 USER_HOME = os.path.expanduser("~")
@@ -27,14 +27,9 @@ class GlavaInstance:
 
     def __init__(self, inst_id=0):
         self.inst_id = inst_id
-        if inst_id == 0:
-            self.xdg_dir   = os.path.join(USER_HOME, ".config")
-            self.glava_dir = self.DEFAULT_GLAVA_DIR
-            self.conf_dir  = self.DEFAULT_CONF_DIR
-        else:
-            self.xdg_dir   = os.path.expanduser(f"~/.config/glava-inst-{inst_id}")
-            self.glava_dir = os.path.join(self.xdg_dir, "glava")
-            self.conf_dir  = os.path.expanduser(f"~/.config/GlavaMP/inst-{inst_id}")
+        self.xdg_dir   = os.path.expanduser(f"~/.config/glava-inst-{inst_id}")
+        self.glava_dir = os.path.join(self.xdg_dir, "glava")
+        self.conf_dir  = os.path.expanduser(f"~/.config/GlavaMP/inst-{inst_id}")
 
     # ── Ścieżki plików ────────────────────────────────────────────────────────
 
@@ -67,63 +62,76 @@ class GlavaInstance:
 
     def exists(self):
         """Zwraca True jeśli katalog instancji istnieje."""
-        return os.path.isdir(self.glava_dir)
+        #        return os.path.isdir(self.glava_dir)
+        return os.path.exists(self.glava_dir)
 
     # Katalogi shaderow zawierajace pliki frag (kolory) — musza byc kopiowane
     # a nie symlinkowane, inaczej wszystkie instancje dzielą te same pliki frag
     SHADER_DIRS = {"bars", "wave", "circle", "graph", "radial"}
 
-    def create(self, source_inst=None):
+    def create(self):
         """
-        Tworzy strukturę katalogów nowej instancji.
-        source_inst — GlavaInstance z której kopiujemy pliki GLSL.
-                      Domyślnie instancja 0 (oryginalna).
-
-        Strategia kopiowania:
-          - *.glsl (rc.glsl, bars.glsl itp.)   — kopiowane
-          - bars/, wave/, circle/, graph/, radial/ — kopiowane w całości
-            (zawierają 1.frag z kolorami — muszą być izolowane per instancja)
-          - util/ i inne katalogi               — symlinki do inst-0
-            (współdzielone shadery pomocnicze, nie zawierają danych per inst)
+        Tworzy strukturę katalogów instancji.
+        Szablon: ~/.config/glava, fallback: /etc/xdg/glava.
         """
-        if source_inst is None:
-            source_inst = GlavaInstance(0)
+        if self.exists():
+            return
 
-        os.makedirs(self.glava_dir, exist_ok=True)
-        os.makedirs(self.conf_dir,  exist_ok=True)
+        os.makedirs(os.path.dirname(self.glava_dir), exist_ok=True)
+        os.makedirs(self.conf_dir, exist_ok=True)
 
-        src = source_inst.glava_dir
-
-        # Kopiuj pliki konfiguracyjne z poziomu glava_dir
-        # *.glsl  — rc.glsl, bars.glsl itp.
-        # *_colors.frag — szablony kolorow (bars_colors.frag itp.)
-        for pattern in ("*.glsl", "*_colors.frag"):
-            for f in glob.glob(os.path.join(src, pattern)):
-                dst = os.path.join(self.glava_dir, os.path.basename(f))
-                if not os.path.exists(dst):
-                    shutil.copy2(f, dst)
-
-        # Katalogi shaderow — kopiuj w calosci (izolacja plikow frag)
-        # Pozostale katalogi — symlinkuj (util/, backup/ itp.)
-        for entry in os.scandir(src):
-            dst = os.path.join(self.glava_dir, entry.name)
-            if os.path.exists(dst) or os.path.islink(dst):
-                continue
-            if entry.is_dir(follow_symlinks=False):
-                if entry.name in self.SHADER_DIRS:
-                    # Kopiuj caly katalog shadera
-                    shutil.copytree(entry.path, dst, symlinks=True)
-                else:
-                    # Symlinkuj pozostale katalogi (util/ itp.)
-                    os.symlink(entry.path, dst)
-            elif entry.is_symlink():
-                # Zachowaj istniejace symlinki (np. z poprzedniej instalacji)
-                os.symlink(os.readlink(entry.path), dst)
+        base_src = self.DEFAULT_GLAVA_DIR if os.path.exists(self.DEFAULT_GLAVA_DIR) else "/etc/xdg/glava"
+        if os.path.exists(base_src):
+            shutil.copytree(base_src, self.glava_dir, symlinks=True, dirs_exist_ok=True)
+#    def create(self, source_inst=None):
+#        """
+#        Tworzy strukturę katalogów nowej instancji.
+#        source_inst — GlavaInstance z której kopiujemy pliki GLSL.
+#                      Domyślnie instancja 0 (oryginalna).
+#
+#        Strategia kopiowania:
+#          - *.glsl (rc.glsl, bars.glsl itp.)   — kopiowane
+#          - bars/, wave/, circle/, graph/, radial/ — kopiowane w całości
+#            (zawierają 1.frag z kolorami — muszą być izolowane per instancja)
+#          - util/ i inne katalogi               — symlinki do inst-0
+#            (współdzielone shadery pomocnicze, nie zawierają danych per inst)
+#        """
+#        if source_inst is None:
+#            source_inst = GlavaInstance(0)
+#
+#        os.makedirs(self.glava_dir, exist_ok=True)
+#        os.makedirs(self.conf_dir,  exist_ok=True)
+#
+#        src = source_inst.glava_dir
+#
+#        # Kopiuj pliki konfiguracyjne z poziomu glava_dir
+#        # *.glsl  — rc.glsl, bars.glsl itp.
+#        # *_colors.frag — szablony kolorow (bars_colors.frag itp.)
+#        for pattern in ("*.glsl", "*_colors.frag"):
+#            for f in glob.glob(os.path.join(src, pattern)):
+#                dst = os.path.join(self.glava_dir, os.path.basename(f))
+#                if not os.path.exists(dst):
+#                    shutil.copy2(f, dst)
+#
+#        # Katalogi shaderow — kopiuj w calosci (izolacja plikow frag)
+#        # Pozostale katalogi — symlinkuj (util/, backup/ itp.)
+#        for entry in os.scandir(src):
+#            dst = os.path.join(self.glava_dir, entry.name)
+#            if os.path.exists(dst) or os.path.islink(dst):
+#                continue
+#            if entry.is_dir(follow_symlinks=False):
+#                if entry.name in self.SHADER_DIRS:
+#                    # Kopiuj caly katalog shadera
+#                    shutil.copytree(entry.path, dst, symlinks=True)
+#                else:
+#                    # Symlinkuj pozostale katalogi (util/ itp.)
+#                    os.symlink(entry.path, dst)
+#            elif entry.is_symlink():
+#                # Zachowaj istniejace symlinki (np. z poprzedniej instalacji)
+#                os.symlink(os.readlink(entry.path), dst)
 
     def destroy(self):
-        """Usuwa katalog instancji (nie dla inst_id=0)."""
-        if self.inst_id == 0:
-            raise ValueError("Nie można usunąć instancji domyślnej (inst_id=0)")
+        """Usuwa katalog instancji."""
         if os.path.isdir(self.xdg_dir):
             shutil.rmtree(self.xdg_dir)
         if os.path.isdir(self.conf_dir):
@@ -144,19 +152,18 @@ def load_instances():
     """
     Wczytuje rejestr instancji z instances.json.
     Zwraca listę dict: [{inst_id, name, module, active}, ...]
-    Instancja 0 (domyślna) jest zawsze obecna.
+    Pusta lista jest poprawnym stanem (brak instancji).
     """
-    default = [{"inst_id": 0, "name": "Default", "module": "bars", "active": True}]
     if not os.path.exists(INSTANCES_FILE):
-        return default
+        return []
     try:
         with open(INSTANCES_FILE) as f:
             data = json.load(f)
-        if not isinstance(data, list) or not data:
-            return default
+        if not isinstance(data, list):
+            return []
         return data
     except Exception:
-        return default
+        return []
 
 def save_instances(instances):
     """Zapisuje rejestr instancji do instances.json."""
@@ -179,12 +186,11 @@ def register_instance(inst_id, name=None, module="bars"):
     save_instances(instances)
 
 def unregister_instance(inst_id):
-    """Usuwa instancję z rejestru (nie można usunąć inst_id=0)."""
-    if inst_id == 0:
-        raise ValueError("Nie można wyrejestrować instancji domyślnej (inst_id=0)")
+    """Usuwa instancję z rejestru."""
     instances = load_instances()
     instances = [i for i in instances if i["inst_id"] != inst_id]
     save_instances(instances)
+
 
 def update_instance(inst_id, **kwargs):
     """

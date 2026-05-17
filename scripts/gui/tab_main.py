@@ -196,7 +196,7 @@ class TabMain:
         lf = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        rc_path = (self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
         geo = read_geometry(rc_path)
         if geo is None:
             si  = get_screen_info()
@@ -223,7 +223,7 @@ class TabMain:
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
     def refresh_geometry(self):
-        rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
+        rc_path = (self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
         geo = read_geometry(rc_path)
         if geo and hasattr(self, "geo_vars"):
             for k, v in zip(("x", "y", "w", "h"), geo):

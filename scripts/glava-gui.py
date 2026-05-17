@@ -109,12 +109,14 @@ class GlavaGUI:
         self.instances:     dict = {}
         self.processes:     dict = {}
         self._inst_modules: dict = {}
-        self._active_inst_id: int = 0
+        self._active_inst_id: int | None = None
 
         self._load_saved_instances()
 
         # active_instance — wskazuje na instancję w aktywnej zakładce
-        self.active_instance = self.instances[0]
+        first_id = next(iter(self.instances), None)
+        self._active_inst_id = first_id
+        self.active_instance = self.instances[first_id] if first_id is not None else None
 
         self._setup_window()
         self._build_header()
@@ -132,44 +134,29 @@ class GlavaGUI:
 
     def _load_saved_instances(self):
         """
-        Wczytuje rejestr instancji z instances.json i odtwarza
-        self.instances / self.processes / self._inst_modules.
-        Instancje, których katalog konfiguracyjny nie istnieje, są pomijane
-        i usuwane z rejestru (sprzątanie po nieprawidłowym zamknięciu).
+        Wczytuje rejestr instancji z instances.json i odtwarza sesję.
+        Instancje, których katalog nie istnieje, są pomijane (sprzątanie).
         """
         from gui.instance import load_instances, save_instances
 
-        saved   = load_instances()          # [{inst_id, name, module, active}, ...]
+        saved   = load_instances()
         cleaned = []
 
         for entry in saved:
-            iid    = entry["inst_id"]
-            inst   = GlavaInstance(iid)
+            iid  = entry["inst_id"]
+            inst = GlavaInstance(iid)
 
-            # inst_id=0 zawsze jest ważna (domyślny ~/.config/glava)
-            if iid != 0 and not inst.exists():
-                continue    # katalog zniknął — pomijamy, nie dodajemy do cleaned
+            if not inst.exists():
+                continue    # katalog zniknął — pomijamy, sprzątamy rejestr
 
-            # Zrodlo prawdy: rc.glsl instancji
-            # Fallback 1: instances.json
-            # Fallback 2: aktywny modul globalny (tylko dla inst 0)
-            # NIGDY nie uzywamy hardkodowanego "bars"
-            rc_module  = read_rc_module(inst.rc_glsl)
+            rc_module   = read_rc_module(inst.rc_glsl)
             json_module = entry.get("module")
-            if rc_module:
-                module = rc_module
-            elif json_module and json_module in GLAVA_MODULES:
-                module = json_module
-            elif iid == 0:
-                module = read_active_module() or GLAVA_MODULES[0]
-            else:
-                module = GLAVA_MODULES[0]
-            entry["module"] = module   # zaktualizuj wpis do zapisu
+            module      = rc_module or json_module or GLAVA_MODULES[0]
 
+            entry["module"] = module
             self.instances[iid]     = inst
             self._inst_modules[iid] = module
 
-            # Sprobuj adoptowac istniejacy proces (z autostartu lub poprzedniej sesji)
             _pid, adopted_proc = adopt_instance(iid)
             if adopted_proc is not None:
                 self.processes[iid] = adopted_proc
@@ -178,17 +165,67 @@ class GlavaGUI:
 
             cleaned.append(entry)
 
-        # Upewnij się że inst 0 zawsze jest
-        if 0 not in self.instances:
-            inst0 = GlavaInstance(0)
-            self.instances[0]     = inst0
-            self.processes[0]     = None
-            self._inst_modules[0] = self.active_module
-            cleaned.insert(0, {"inst_id": 0, "name": "Default",
-                                "module": self.active_module, "active": True})
-
-        # Zapisz oczyszczony rejestr (usuwa instancje bez katalogu)
         save_instances(cleaned)
+
+#    def _load_saved_instances(self):
+#        """
+#        Wczytuje rejestr instancji z instances.json i odtwarza
+#        self.instances / self.processes / self._inst_modules.
+#        Instancje, których katalog konfiguracyjny nie istnieje, są pomijane
+#        i usuwane z rejestru (sprzątanie po nieprawidłowym zamknięciu).
+#        """
+#        from gui.instance import load_instances, save_instances
+#
+#        saved   = load_instances()          # [{inst_id, name, module, active}, ...]
+#        cleaned = []
+#
+#        for entry in saved:
+#            iid    = entry["inst_id"]
+#            inst   = GlavaInstance(iid)
+#
+#            # inst_id=0 zawsze jest ważna (domyślny ~/.config/glava)
+#            if iid != 0 and not inst.exists():
+#                continue    # katalog zniknął — pomijamy, nie dodajemy do cleaned
+#
+#            # Zrodlo prawdy: rc.glsl instancji
+#            # Fallback 1: instances.json
+#            # Fallback 2: aktywny modul globalny (tylko dla inst 0)
+#            # NIGDY nie uzywamy hardkodowanego "bars"
+#            rc_module  = read_rc_module(inst.rc_glsl)
+#            json_module = entry.get("module")
+#            if rc_module:
+#                module = rc_module
+#            elif json_module and json_module in GLAVA_MODULES:
+#                module = json_module
+#            elif iid == 0:
+#                module = read_active_module() or GLAVA_MODULES[0]
+#            else:
+#                module = GLAVA_MODULES[0]
+#            entry["module"] = module   # zaktualizuj wpis do zapisu
+#
+#            self.instances[iid]     = inst
+#            self._inst_modules[iid] = module
+#
+#            # Sprobuj adoptowac istniejacy proces (z autostartu lub poprzedniej sesji)
+#            _pid, adopted_proc = adopt_instance(iid)
+#            if adopted_proc is not None:
+#                self.processes[iid] = adopted_proc
+#            else:
+#                self.processes[iid] = None
+#
+#            cleaned.append(entry)
+#
+#        # Upewnij się że inst 0 zawsze jest
+#        if 0 not in self.instances:
+#            inst0 = GlavaInstance(0)
+#            self.instances[0]     = inst0
+#            self.processes[0]     = None
+#            self._inst_modules[0] = self.active_module
+#            cleaned.insert(0, {"inst_id": 0, "name": "Default",
+#                                "module": self.active_module, "active": True})
+#
+#        # Zapisz oczyszczony rejestr (usuwa instancje bez katalogu)
+#        save_instances(cleaned)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Okno
@@ -443,10 +480,9 @@ class GlavaGUI:
     def _on_inst_select(self, inst_id):
         """Użytkownik kliknął zakładkę instancji."""
         self._active_inst_id = inst_id
-        self.active_instance = self.instances.get(inst_id, self.instances[0])
+        self.active_instance = self.instances.get(inst_id)
         self.active_module   = self._inst_modules.get(inst_id, self.active_module)
         self._show_instances()
-
         # Zbuduj zawartość zakładki jeśli pusta (lazy init)
         frame = self.inst_bar.get_frame(inst_id)
         if frame is not None and not frame.winfo_children():
@@ -494,12 +530,9 @@ class GlavaGUI:
         """
         Zamknięcie zakładki:
         - zatrzymuje TYLKO proces tej instancji
-        - usuwa katalog konfiguracyjny instancji (inst_id != 0)
+        - usuwa katalog konfiguracyjny instancji
         - wyrejestrowuje z instances.json
         """
-        if inst_id == 0:
-            return  # instancja domyślna jest nieusuwalna
-
         # Zatrzymaj tylko ten proces i usun jego PID
         proc = self.processes.pop(inst_id, None)
         glava_stop_instance(proc)
@@ -525,11 +558,12 @@ class GlavaGUI:
         except Exception:
             pass
 
-        # Wróć do inst 0 jeśli aktywna była usunięta
+        # Ustaw aktywną na pierwszą pozostałą (lub None jeśli brak)
         if self._active_inst_id == inst_id:
-            self._active_inst_id = 0
-            self.active_instance = self.instances[0]
-            self.active_module   = self._inst_modules.get(0, read_active_module())
+            first_id = next(iter(self.instances), None)
+            self._active_inst_id = first_id
+            self.active_instance = self.instances[first_id] if first_id is not None else None
+            self.active_module   = self._inst_modules.get(first_id, read_active_module()) if first_id is not None else None
 
         self.update_status()
 
@@ -587,10 +621,14 @@ class GlavaGUI:
 
     def get_active_rc_glsl(self):
         """Zwraca ścieżkę rc.glsl aktywnej instancji (używane przez tab_main)."""
+        if self.active_instance is None:
+            return None
         return self.active_instance.rc_glsl
 
     def get_active_glava_dir(self):
         """Zwraca katalog glava aktywnej instancji."""
+        if self.active_instance is None:
+            return None
         return self.active_instance.glava_dir
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -712,17 +750,18 @@ class GlavaGUI:
         self.root.destroy()
 
     def _save_active_instance(self):
-        """Zapisuje aktywna instancje do instances.json (pole active=True)."""
+        """Zapisuje aktywną instancję do instances.json (pole active=True).
+        Jeśli brak aktywnej (None), wszystkie wpisy dostają active=False."""
         try:
             from gui.instance import load_instances, save_instances
             instances = load_instances()
-            active_iid = self._active_inst_id
+            active_iid = self._active_inst_id  # może być None
             for entry in instances:
-                entry["active"] = (entry["inst_id"] == active_iid)
+                entry["active"] = (active_iid is not None and
+                                   entry["inst_id"] == active_iid)
             save_instances(instances)
         except Exception:
             pass
-
     # ─────────────────────────────────────────────────────────────────────────
     # Zmiana języka / tryb expert
     # ─────────────────────────────────────────────────────────────────────────

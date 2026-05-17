@@ -357,9 +357,8 @@ class TabAdvanced:
         return cb
 
     def _rc_glsl(self):
-        """Ścieżka rc.glsl aktywnej instancji."""
         if hasattr(self.app, 'get_active_rc_glsl'):
-            return self.app.get_active_rc_glsl()
+            return self.app.get_active_rc_glsl() or RC_GLSL
         return RC_GLSL
 
     def _read_request_bool(self, key):
