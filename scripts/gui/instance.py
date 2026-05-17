@@ -69,13 +69,22 @@ class GlavaInstance:
         """Zwraca True jeśli katalog instancji istnieje."""
         return os.path.isdir(self.glava_dir)
 
+    # Katalogi shaderow zawierajace pliki frag (kolory) — musza byc kopiowane
+    # a nie symlinkowane, inaczej wszystkie instancje dzielą te same pliki frag
+    SHADER_DIRS = {"bars", "wave", "circle", "graph", "radial"}
+
     def create(self, source_inst=None):
         """
         Tworzy strukturę katalogów nowej instancji.
         source_inst — GlavaInstance z której kopiujemy pliki GLSL.
                       Domyślnie instancja 0 (oryginalna).
-        Pliki własne (rc.glsl, bars.glsl itp.) — kopiowane.
-        Pozostałe (util/, subdirectory fragi) — symlinki do inst-0.
+
+        Strategia kopiowania:
+          - *.glsl (rc.glsl, bars.glsl itp.)   — kopiowane
+          - bars/, wave/, circle/, graph/, radial/ — kopiowane w całości
+            (zawierają 1.frag z kolorami — muszą być izolowane per instancja)
+          - util/ i inne katalogi               — symlinki do inst-0
+            (współdzielone shadery pomocnicze, nie zawierają danych per inst)
         """
         if source_inst is None:
             source_inst = GlavaInstance(0)
@@ -85,20 +94,31 @@ class GlavaInstance:
 
         src = source_inst.glava_dir
 
-        # Kopiuj własne pliki GLSL
-        for pattern in ("*.glsl",):
+        # Kopiuj pliki konfiguracyjne z poziomu glava_dir
+        # *.glsl  — rc.glsl, bars.glsl itp.
+        # *_colors.frag — szablony kolorow (bars_colors.frag itp.)
+        for pattern in ("*.glsl", "*_colors.frag"):
             for f in glob.glob(os.path.join(src, pattern)):
                 dst = os.path.join(self.glava_dir, os.path.basename(f))
                 if not os.path.exists(dst):
                     shutil.copy2(f, dst)
 
-        # Symlinki do podkatalogów (bars/, circle/ itp.) i util/
+        # Katalogi shaderow — kopiuj w calosci (izolacja plikow frag)
+        # Pozostale katalogi — symlinkuj (util/, backup/ itp.)
         for entry in os.scandir(src):
             dst = os.path.join(self.glava_dir, entry.name)
             if os.path.exists(dst) or os.path.islink(dst):
                 continue
-            if entry.is_dir(follow_symlinks=False) or entry.is_symlink():
-                os.symlink(entry.path, dst)
+            if entry.is_dir(follow_symlinks=False):
+                if entry.name in self.SHADER_DIRS:
+                    # Kopiuj caly katalog shadera
+                    shutil.copytree(entry.path, dst, symlinks=True)
+                else:
+                    # Symlinkuj pozostale katalogi (util/ itp.)
+                    os.symlink(entry.path, dst)
+            elif entry.is_symlink():
+                # Zachowaj istniejace symlinki (np. z poprzedniej instalacji)
+                os.symlink(os.readlink(entry.path), dst)
 
     def destroy(self):
         """Usuwa katalog instancji (nie dla inst_id=0)."""
@@ -138,18 +158,8 @@ def load_instances():
     except Exception:
         return default
 
-#def save_instances(instances):
-#    """Zapisuje rejestr instancji do instances.json."""
-#    os.makedirs(os.path.dirname(INSTANCES_FILE), exist_ok=True)
-#    with open(INSTANCES_FILE, "w") as f:
-#        json.dump(instances, f, indent=2)
 def save_instances(instances):
     """Zapisuje rejestr instancji do instances.json."""
-    # Pętla naprawcza: synchronizuje nazwę zakładki z wybranym modułem
-    for entry in instances:
-        if "module" in entry:
-            entry["name"] = f"{entry['module'].capitalize()} ✦"
-
     os.makedirs(os.path.dirname(INSTANCES_FILE), exist_ok=True)
     with open(INSTANCES_FILE, "w") as f:
         json.dump(instances, f, indent=2)

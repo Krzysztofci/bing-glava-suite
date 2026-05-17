@@ -3,7 +3,6 @@
 # Logika kolorów: odczyt z shadera, zapis do shadera, toggle HSV/RGB.
 # Brak importów tkinter.
 # =============================================================================
-
 import os
 import re
 from .core import (
@@ -11,13 +10,11 @@ from .core import (
     get_live_frag, get_template,
 )
 
-
 def hex_to_vec3(hex_color):
     """'#rrggbb' → (r_f, g_f, b_f) w zakresie 0.0–1.0"""
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return r / 255.0, g / 255.0, b / 255.0
-
 
 def vec3_to_hex(r_f, g_f, b_f):
     """(r_f, g_f, b_f) → '#rrggbb'"""
@@ -25,12 +22,11 @@ def vec3_to_hex(r_f, g_f, b_f):
         int(r_f * 255), int(g_f * 255), int(b_f * 255)
     )
 
-
 def read_colors_from_frag(frag_path):
     """
     Odczytuje kolory bottom/mid/top z pliku .frag.
     Zwraca dict {'bottom': '#rrggbb', 'mid': '#rrggbb', 'top': '#rrggbb'}
-    lub None jeśli plik nie istnieje lub brak wektorów.
+    lub None jesli plik nie istnieje lub brak wektorow.
     """
     if not os.path.exists(frag_path):
         return None
@@ -48,17 +44,18 @@ def read_colors_from_frag(frag_path):
         return result
     return None
 
-
-def write_colors_to_frag(module, colors, gradient_mode="rgb"):
+def write_colors_to_frag(module, colors, gradient_mode="rgb",
+                         tmpl_path=None, live_path=None):
     """
-    Zapisuje kolory do live frag aktywnego modułu (kopiując z szablonu).
-    Ustawia flagę manual.shift i red.shift.
-    Zwraca (True, "") przy sukcesie lub (False, komunikat_błędu).
+    Zapisuje kolory do live frag modulu (kopiujac z szablonu).
 
+    tmpl_path — sciezka szablonu per instancja; None = globalny get_template()
+    live_path — sciezka live frag per instancja; None = globalny get_live_frag()
     colors: {'bottom': '#rrggbb', 'mid': '#rrggbb', 'top': '#rrggbb'}
+    Zwraca (True, "") przy sukcesie lub (False, komunikat_bledu).
     """
-    tmpl = get_template(module)
-    live = get_live_frag(module)
+    tmpl = tmpl_path or get_template(module)
+    live = live_path or get_live_frag(module)
 
     if not os.path.exists(tmpl):
         return False, f"Brak szablonu: {tmpl}"
@@ -79,31 +76,30 @@ def write_colors_to_frag(module, colors, gradient_mode="rgb"):
             if not written:
                 f.write(line)
 
-    # Ustaw tryb gradientu jeśli shader to obsługuje
+    # Ustaw tryb gradientu jesli shader to obsluguje
     with open(live) as f:
         src = f.read()
     if "#define HSV_MODE" in src:
         hsv_val = "1" if gradient_mode == "hsv" else "0"
         src = HSV_MODE_PATTERN.sub(f"#define HSV_MODE {hsv_val}", src)
-
-    if "#define HSV_MODE" in src:
         with open(live, "w") as f:
             f.write(src)
 
     # Ustaw flagi
     open(FLAG_RED, "a").close()
     open(FLAG_MANUAL, "a").close()
-
     return True, ""
 
-
-def set_gradient_mode(module, mode):
+def set_gradient_mode(module, mode, live_path=None, tmpl_path=None):
     """
-    Przełącza HSV/RGB w szablonie i live frag danego modułu.
+    Przelacza HSV/RGB w szablonie i live frag modulu.
     mode: 'rgb' lub 'hsv'
+    live_path / tmpl_path — sciezki per instancja; None = globalne
     """
     hsv_val = "1" if mode == "hsv" else "0"
-    for fpath in (get_template(module), get_live_frag(module)):
+    live = live_path or get_live_frag(module)
+    tmpl = tmpl_path or get_template(module)
+    for fpath in (tmpl, live):
         if not os.path.exists(fpath):
             continue
         with open(fpath) as f:
@@ -114,15 +110,14 @@ def set_gradient_mode(module, mode):
         with open(fpath, "w") as f:
             f.write(new_src)
 
-
-
-
-def shader_supports_hsv(module):
+def shader_supports_hsv(module, live_path=None, tmpl_path=None):
     """
-    Zwraca True jeśli aktywny shader modułu obsługuje przełącznik HSV.
-    Sprawdza najpierw live frag, potem szablon.
+    Zwraca True jesli shader modulu obsluguje przelacznik HSV.
+    live_path / tmpl_path — sciezki per instancja; None = globalne
     """
-    for path in (get_live_frag(module), get_template(module)):
+    live = live_path or get_live_frag(module)
+    tmpl = tmpl_path or get_template(module)
+    for path in (live, tmpl):
         if os.path.exists(path):
             with open(path) as f:
                 return "#define HSV_MODE" in f.read()

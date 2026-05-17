@@ -6,11 +6,9 @@
 #
 # Wzorzec: bars.py + example.py (Forest-ttk-theme)
 # =============================================================================
-
 import tkinter as tk
 from tkinter import ttk, colorchooser, messagebox, simpledialog
 import os, subprocess
-
 from .core import (
     GLAVA_MODULES, BING_REGIONS, BIN_DIR,
     FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK,
@@ -46,8 +44,28 @@ class TabMain:
         self.gradient_mode  = app.settings.get("gradient_mode", "rgb")
         self._load_colors_from_live()
 
+    def _inst(self):
+        """Zwraca aktywna instancje GlavaInstance."""
+        return self.app.active_instance
+
+    def _live_frag(self, module=None):
+        """Sciezka live frag aktywnej instancji."""
+        m = module or self.app.active_module
+        inst = self._inst()
+        if inst:
+            return inst.module_frag(m)
+        return get_live_frag(m)
+
+    def _tmpl_frag(self, module=None):
+        """Sciezka szablonu frag aktywnej instancji."""
+        m = module or self.app.active_module
+        inst = self._inst()
+        if inst:
+            return inst.module_tmpl(m)
+        return get_template(m)
+
     def _load_colors_from_live(self):
-        colors = read_colors_from_frag(get_live_frag(self.app.active_module))
+        colors = read_colors_from_frag(self._live_frag())
         if colors:
             self.current_colors = colors
         if "LAST_SESSION" in self.presets:
@@ -56,7 +74,6 @@ class TabMain:
     def build(self):
         outer = ttk.Frame(self.parent)
         outer.pack(fill="both", expand=True)
-
         left  = ttk.Frame(outer)
         right = ttk.Frame(outer)
         left.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
@@ -64,20 +81,16 @@ class TabMain:
         outer.columnconfigure(0, weight=1, uniform="col")
         outer.columnconfigure(1, weight=1, uniform="col")
         outer.rowconfigure(0, weight=1)
-
         self._build_left(left)
         self._build_right(right)
 
     # ── LEWA ─────────────────────────────────────────────────────────────────
-
     def _build_left(self, col):
         T = self.T
-
         # Motyw GLava
         lf = ttk.LabelFrame(col, text=T.get("section_module", "GLava theme"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
         row = ttk.Frame(lf)
         row.pack(fill="x")
         ttk.Label(row, text=T.get("label_module", "Active theme") + ":").pack(side="left")
@@ -88,13 +101,10 @@ class TabMain:
         ttk.Button(row, text=T.get("btn_apply_module", "Apply theme"),
                    command=self._apply_module,
                    style="Accent.TButton").pack(side="left", fill="x", expand=True)
-
         # Kolory
         lf = ttk.LabelFrame(col, text=T.get("section_colors", "Colors"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
-        # Przyciski kolorów — ColorButton z dynamicznie kolorowanym PNG nine-slice
         srow = ttk.Frame(lf)
         srow.pack(fill="x", pady=(0, 5))
         self.color_btns = {}
@@ -107,13 +117,11 @@ class TabMain:
                              root=self.app.root)
             cb.widget.pack(side="left", padx=2, expand=True, fill="x")
             self.color_btns[key] = cb
-
         ttk.Button(lf, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
                    command=self._apply_colors,
                    style="Accent.TButton").pack(fill="x", pady=(0, 3))
         ttk.Button(lf, text=T.get("btn_capture", "Capture current from screen"),
                    command=self._capture_colors).pack(fill="x", pady=(0, 5))
-
         grad_row = ttk.Frame(lf)
         grad_row.pack(fill="x")
         ttk.Label(grad_row, text=T.get("label_gradient", "Gradient:")).pack(side="left")
@@ -125,12 +133,10 @@ class TabMain:
         self.hsv_warn = tk.Label(grad_row, text="", fg="#e65100")
         self.hsv_warn.pack(side="left")
         self._update_hsv_warn()
-
         # Profile kolorów
         lf = ttk.LabelFrame(col, text=T.get("section_profiles", "Color profiles"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
         self.preset_var = tk.StringVar()
         names = sorted(k for k in self.presets if k != "LAST_SESSION")
         self.preset_cb = ttk.Combobox(lf, textvariable=self.preset_var,
@@ -138,7 +144,6 @@ class TabMain:
         self.preset_cb.pack(fill="x", pady=(0, 5))
         if names:
             self.preset_cb.current(0)
-
         btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x")
         ttk.Button(btn_row, text=T.get("btn_load", "Load"),
@@ -150,12 +155,10 @@ class TabMain:
         ttk.Button(btn_row, text=T.get("btn_delete", "Delete"),
                    command=self._delete_preset,
                    style="Accent.TButton").pack(side="left", expand=True, fill="x")
-
         # Ustawienia
         lf = ttk.LabelFrame(col, text=T.get("section_settings", "Settings"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
         s_row = ttk.Frame(lf)
         s_row.pack(fill="x", pady=(0, 5))
         ttk.Label(s_row, text=T.get("label_region", "Bing region") + ":").pack(side="left")
@@ -164,7 +167,6 @@ class TabMain:
                      width=7, state="readonly").pack(side="left", padx=(5, 10))
         ttk.Button(s_row, text=T.get("btn_save_settings", "Save settings"),
                    command=self._save_settings).pack(side="left")
-
         lock_text = (T.get("btn_unlock_wallpaper", "Unlock wallpaper")
                      if os.path.exists(WALLPAPER_LOCK)
                      else T.get("btn_lock_wallpaper", "Lock wallpaper"))
@@ -174,38 +176,32 @@ class TabMain:
         self.lock_btn.pack(fill="x")
 
     # ── PRAWA ─────────────────────────────────────────────────────────────────
-
     def _build_right(self, col):
         T = self.T
-
         # Tryby
         lf = ttk.LabelFrame(col, text=T.get("section_modes", "Modes"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
         for text, style, cmd in [
             (T.get("btn_fetch_wallpaper",
-                   "Fetch Bing wallpaper (desktop only)"),       "Accent.TButton", self._fetch_wallpaper_user),
+                   "Fetch Bing wallpaper (desktop only)"),           "Accent.TButton", self._fetch_wallpaper_user),
             (T.get("btn_fetch_wallpaper_full",
                    "Fetch Bing wallpaper (desktop + login screen)"), "Accent.TButton", self._fetch_wallpaper_full),
-            (T.get("btn_restore_auto",  "Restore Bing (auto)"),  "",               self._restore_auto),
-            (T.get("btn_toggle_glava",  "Enable / Disable GLava"), "",             self._toggle_glava),
+            (T.get("btn_restore_auto",  "Restore Bing (auto)"),      "",               self._restore_auto),
+            (T.get("btn_toggle_glava",  "Enable / Disable GLava"),   "",               self._toggle_glava),
         ]:
             ttk.Button(lf, text=text, command=cmd,
                        style=style).pack(fill="x", pady=2)
-
         # Geometria GLava
         lf = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-
         rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
         geo = read_geometry(rc_path)
         if geo is None:
             si  = get_screen_info()
             geo = calc_geometry(self.app.active_module, si[0], si[1], si[4], si[3])
         self.geo_vars = {}
-
         grid_f = ttk.Frame(lf)
         grid_f.pack(fill="x", pady=(0, 5))
         for i, (key, val, lbl) in enumerate([
@@ -219,7 +215,6 @@ class TabMain:
             self.geo_vars[key] = var
             ttk.Entry(grid_f, textvariable=var,
                       width=8).grid(row=r, column=c + 1, padx=(0, 10), pady=2)
-
         ttk.Button(lf, text=T.get("btn_auto_geometry", "Auto-detect geometry"),
                    command=self._auto_geometry).pack(fill="x", pady=(0, 3))
         ttk.Button(lf, text=T.get("btn_apply_geometry", "Apply geometry"),
@@ -227,7 +222,6 @@ class TabMain:
                    style="Accent.TButton").pack(fill="x")
 
     # ── CALLBACKI ─────────────────────────────────────────────────────────────
-
     def refresh_geometry(self):
         rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else core.RC_GLSL
         geo = read_geometry(rc_path)
@@ -239,18 +233,22 @@ class TabMain:
         module = self.module_var.get()
         self.app.active_module = module
         write_active_module(module)
-        tmpl = get_template(module)
+        tmpl = self._tmpl_frag(module)
         if not os.path.exists(tmpl):
             messagebox.showerror("", f"Brak szablonu:\n{tmpl}")
             return
         self._update_geometry_for_module(module)
-        if not os.path.exists(get_live_frag(module)):
-            self._apply_colors(); return
+        if not os.path.exists(self._live_frag(module)):
+            self._apply_colors()
+            return
         if not os.path.exists(FLAG_RED) and not os.path.exists(FLAG_MANUAL):
             subprocess.Popen(["/bin/bash", os.path.join(BIN_DIR, "glava-colors-auto")])
             self.app.root.after(1500, self.app.update_status)
         else:
-            self.app.restart_active_instance(module=module, after_fn=self.app.update_status) if hasattr(self.app, 'restart_active_instance') else glava_restart(module, after_fn=self.app.update_status)
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(module=module, after_fn=self.app.update_status)
+            else:
+                glava_restart(module, after_fn=self.app.update_status)
         self.app.rebuild_module_tab()
         self._update_hsv_warn()
 
@@ -287,7 +285,6 @@ class TabMain:
             pass
 
     def _contrast_fg(self, hex_color):
-        """Dobierz biały lub czarny tekst zależnie od jasności tła."""
         try:
             h = hex_color.lstrip("#")
             r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
@@ -297,7 +294,6 @@ class TabMain:
             return "#ffffff"
 
     def _update_color_btn(self, key, color):
-        """Aktualizuje kolor przycisku przez ColorButton.set_color()."""
         if key in self.color_btns:
             self.color_btns[key].set_color(color)
 
@@ -310,9 +306,15 @@ class TabMain:
 
     def _apply_colors(self):
         ok, err = write_colors_to_frag(
-            self.app.active_module, self.current_colors, self.gradient_mode)
+            self.app.active_module,
+            self.current_colors,
+            self.gradient_mode,
+            tmpl_path=self._tmpl_frag(),
+            live_path=self._live_frag(),
+        )
         if not ok:
-            messagebox.showerror("", err); return
+            messagebox.showerror("", err)
+            return
         self._save_last_session()
         if hasattr(self.app, 'restart_active_instance'):
             self.app.restart_active_instance(after_fn=self.app.update_status)
@@ -320,7 +322,7 @@ class TabMain:
             glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _capture_colors(self):
-        colors = read_colors_from_frag(get_live_frag(self.app.active_module))
+        colors = read_colors_from_frag(self._live_frag())
         if colors:
             self.current_colors = colors
             for key in self.color_btns:
@@ -332,7 +334,11 @@ class TabMain:
         self.app.settings["gradient_mode"] = mode
         from .core import save_settings
         save_settings(self.app.settings)
-        set_gradient_mode(self.app.active_module, mode)
+        set_gradient_mode(
+            self.app.active_module, mode,
+            live_path=self._live_frag(),
+            tmpl_path=self._tmpl_frag(),
+        )
         if hasattr(self.app, 'restart_active_instance'):
             self.app.restart_active_instance(after_fn=self.app.update_status)
         else:
@@ -342,7 +348,11 @@ class TabMain:
         if hasattr(self, "hsv_warn"):
             self.hsv_warn.config(text=(
                 "⚠ RGB only"
-                if not shader_supports_hsv(self.app.active_module) else ""))
+                if not shader_supports_hsv(
+                    self.app.active_module,
+                    live_path=self._live_frag(),
+                    tmpl_path=self._tmpl_frag(),
+                ) else ""))
 
     def _load_preset(self):
         name = self.preset_var.get()
@@ -440,8 +450,7 @@ class TabMain:
     def _save_settings(self):
         self.bing_cfg["BING_REGION"] = self.region_var.get()
         write_bing_config(self.bing_cfg)
-        msg = self.T.get("settings_saved", "Settings saved.") 
-        messagebox.showinfo("", msg)
+        messagebox.showinfo("", self.T.get("settings_saved", "Settings saved."))
 
     def _toggle_lock(self):
         locked = toggle_wallpaper_lock(WALLPAPER_LOCK)
