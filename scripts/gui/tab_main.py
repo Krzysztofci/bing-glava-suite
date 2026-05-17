@@ -88,19 +88,6 @@ class TabMain:
     def _build_left(self, col):
         T = self.T
         # Motyw GLava
-        lf = ttk.LabelFrame(col, text=T.get("section_module", "GLava theme"),
-                            padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10)
-        row = ttk.Frame(lf)
-        row.pack(fill="x")
-        ttk.Label(row, text=T.get("label_module", "Active theme") + ":").pack(side="left")
-        self.module_var = tk.StringVar(value=self.app.active_module)
-        ttk.Combobox(row, textvariable=self.module_var,
-                     values=GLAVA_MODULES, width=9,
-                     state="readonly").pack(side="left", padx=(5, 10))
-        ttk.Button(row, text=T.get("btn_apply_module", "Apply theme"),
-                   command=self._apply_module,
-                   style="Accent.TButton").pack(side="left", fill="x", expand=True)
         # Kolory
         lf = ttk.LabelFrame(col, text=T.get("section_colors", "Colors"),
                             padding=(15, 10))
@@ -117,9 +104,14 @@ class TabMain:
                              root=self.app.root)
             cb.widget.pack(side="left", padx=2, expand=True, fill="x")
             self.color_btns[key] = cb
-        ttk.Button(lf, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
+        apply_row = ttk.Frame(lf)
+        apply_row.pack(fill="x", pady=(0, 3))
+        ttk.Button(apply_row, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
                    command=self._apply_colors,
-                   style="Accent.TButton").pack(fill="x", pady=(0, 3))
+                   style="Accent.TButton").pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self.all_inst_colors_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(apply_row, text=T.get("chk_all_instances", "Wszystkie"),
+                        variable=self.all_inst_colors_var).pack(side="left")
         ttk.Button(lf, text=T.get("btn_capture", "Capture current from screen"),
                    command=self._capture_colors).pack(fill="x", pady=(0, 5))
         grad_row = ttk.Frame(lf)
@@ -187,11 +179,17 @@ class TabMain:
                    "Fetch Bing wallpaper (desktop only)"),           "Accent.TButton", self._fetch_wallpaper_user),
             (T.get("btn_fetch_wallpaper_full",
                    "Fetch Bing wallpaper (desktop + login screen)"), "Accent.TButton", self._fetch_wallpaper_full),
-            (T.get("btn_restore_auto",  "Restore Bing (auto)"),      "",               self._restore_auto),
             (T.get("btn_toggle_glava",  "Enable / Disable GLava"),   "",               self._toggle_glava),
         ]:
             ttk.Button(lf, text=text, command=cmd,
                        style=style).pack(fill="x", pady=2)
+        restore_row = ttk.Frame(lf)
+        restore_row.pack(fill="x", pady=2)
+        ttk.Button(restore_row, text=T.get("btn_restore_auto", "Restore Bing (auto)"),
+                   command=self._restore_auto).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self.all_inst_restore_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(restore_row, text=T.get("chk_all_instances", "Wszystkie"),
+                        variable=self.all_inst_restore_var).pack(side="left")
         # Geometria GLava
         lf = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
                             padding=(15, 10))
@@ -305,21 +303,47 @@ class TabMain:
             self._save_last_session()
 
     def _apply_colors(self):
-        ok, err = write_colors_to_frag(
-            self.app.active_module,
-            self.current_colors,
-            self.gradient_mode,
-            tmpl_path=self._tmpl_frag(),
-            live_path=self._live_frag(),
-        )
-        if not ok:
-            messagebox.showerror("", err)
-            return
-        self._save_last_session()
-        if hasattr(self.app, 'restart_active_instance'):
-            self.app.restart_active_instance(after_fn=self.app.update_status)
+        all_inst = (hasattr(self, "all_inst_colors_var") and
+                    self.all_inst_colors_var.get())
+
+        if all_inst and hasattr(self.app, "instances"):
+            any_err = False
+            for iid, inst in self.app.instances.items():
+                module = self.app._inst_modules.get(iid, self.app.active_module)
+                ok, err = write_colors_to_frag(
+                    module,
+                    self.current_colors,
+                    self.gradient_mode,
+                    tmpl_path=inst.module_tmpl(module),
+                    live_path=inst.module_frag(module),
+                )
+                if not ok:
+                    any_err = True
+            if any_err:
+                messagebox.showerror("", self.T.get("error_some_instances",
+                                                    "Błąd przy niektórych instancjach."))
+            self._save_last_session()
+            for iid, inst in self.app.instances.items():
+                proc = self.app.processes.get(iid)
+                module = self.app._inst_modules.get(iid, self.app.active_module)
+                glava_restart_instance(instance=inst, module=module, proc=proc)
+            self.app.root.after(700, self.app.update_status)
         else:
-            glava_restart(self.app.active_module, after_fn=self.app.update_status)
+            ok, err = write_colors_to_frag(
+                self.app.active_module,
+                self.current_colors,
+                self.gradient_mode,
+                tmpl_path=self._tmpl_frag(),
+                live_path=self._live_frag(),
+            )
+            if not ok:
+                messagebox.showerror("", err)
+                return
+            self._save_last_session()
+            if hasattr(self.app, 'restart_active_instance'):
+                self.app.restart_active_instance(after_fn=self.app.update_status)
+            else:
+                glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
     def _capture_colors(self):
         colors = read_colors_from_frag(self._live_frag())
@@ -400,7 +424,56 @@ class TabMain:
         self.app.root.after(4000, self.app.update_status)
 
     def _restore_auto(self):
-        restore_auto(callback=self.app.update_status)
+        import re as _re
+        from PIL import Image
+        import numpy as np
+        from sklearn.cluster import KMeans
+
+        for flag in (FLAG_RED, FLAG_MANUAL):
+            if os.path.exists(flag):
+                os.remove(flag)
+
+        wallpaper = os.path.expanduser("~/Pictures/Bing/bing_today.jpg")
+        if not os.path.exists(wallpaper):
+            messagebox.showerror("", self.T.get("error_no_wallpaper",
+                                                "Brak tapety: " + wallpaper))
+            return
+
+        # KMeans — raz dla wszystkich
+        img = Image.open(wallpaper).convert("RGB")
+        img.thumbnail((200, 200))
+        pixels = np.array(img).reshape(-1, 3)
+        kmeans = KMeans(n_clusters=3, n_init=10)
+        kmeans.fit(pixels)
+        centers = sorted(kmeans.cluster_centers_.astype(int),
+                         key=lambda c: sum(c))
+        def to_hex(rgb):
+            return "#{:02x}{:02x}{:02x}".format(*rgb)
+        colors = {
+            "bottom": to_hex(centers[0]),
+            "mid":    to_hex(centers[1]),
+            "top":    to_hex(centers[2]),
+        }
+
+        all_inst = (hasattr(self, "all_inst_restore_var") and
+                    self.all_inst_restore_var.get())
+        targets = (list(self.app.instances.items())
+                   if all_inst and hasattr(self.app, "instances")
+                   else [(self.app._active_inst_id, self.app.active_instance)])
+
+        for iid, inst in targets:
+            if inst is None:
+                continue
+            module = self.app._inst_modules.get(iid, self.app.active_module)
+            write_colors_to_frag(
+                module, colors, self.gradient_mode,
+                tmpl_path=inst.module_tmpl(module),
+                live_path=inst.module_frag(module),
+            )
+            proc = self.app.processes.get(iid)
+            glava_restart_instance(instance=inst, module=module, proc=proc)
+
+        self.app.root.after(700, self.app.update_status)
 
     def _toggle_glava(self):
         glava_toggle()

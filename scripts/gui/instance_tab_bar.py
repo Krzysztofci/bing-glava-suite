@@ -25,13 +25,14 @@ _GLAVA_MODULES = ["bars", "wave", "circle", "graph", "radial"]
 _CONTEXT_ACTIONS = [
     ("rename",         "Zmien nazwe"),
     None,
+    ("change_shader",  "Zmien shader"),
+    None,
     ("save_session",   "Zapisz sesje"),
     ("save_workspace", "Zapisz workspace"),
     ("duplicate",      "Duplikuj"),
     None,
     ("close",          "Zamknij"),
 ]
-
 
 class InstanceTabBar(ttk.Frame):
     """
@@ -225,6 +226,17 @@ class InstanceTabBar(ttk.Frame):
                     menu.add_command(label=lbl, command=lambda i=inst_id: self._call("on_close", i))
                 elif key == "rename":
                     menu.add_command(label=lbl, command=lambda i=inst_id: self._nb.after(1, lambda: self._do_rename(i)))
+                elif key == "change_shader":
+                    submenu = tk.Menu(menu, tearoff=False,
+                                      bg=bg, fg=fg,
+                                      activebackground=select_bg,
+                                      activeforeground=active_fg,
+                                      bd=1, relief="flat")
+                    for mod in _GLAVA_MODULES:
+                        submenu.add_command(
+                            label=mod,
+                            command=lambda i=inst_id, m=mod: self._call("on_action", i, "change_shader", m))
+                    menu.add_cascade(label=lbl, menu=submenu)
                 else:
                     menu.add_command(label=lbl, command=lambda i=inst_id, k=key: self._call("on_action", i, k))
         

@@ -156,7 +156,7 @@ def glava_start(extra_flags=None, env=None, instance=None):
     proc_env = os.environ.copy()
     if env:
         proc_env.update(env)
-    if instance and instance.inst_id != 0:
+    if instance:
         proc_env["XDG_CONFIG_HOME"] = instance.xdg_dir
 
     try:
@@ -225,6 +225,7 @@ def glava_restart_instance(instance, module,
     """
     _write_rc_module(module, rc_path=instance.rc_glsl)
     glava_stop_instance(proc)
+    clear_pid(instance.inst_id)   # wyczyść PID niezależnie od typu proc
 
     def _do_start():
         time.sleep(delay_ms / 1000.0)

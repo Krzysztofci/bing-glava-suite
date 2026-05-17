@@ -567,7 +567,7 @@ class GlavaGUI:
 
         self.update_status()
 
-    def _on_inst_action(self, inst_id, action):
+    def _on_inst_action(self, inst_id, action, *args):
         """Menu kontekstowe zakładki."""
         if action == "duplicate":
             module = self._inst_modules.get(inst_id, self.active_module)
@@ -581,6 +581,30 @@ class GlavaGUI:
                     update_instance(inst_id, name=new_label)
                 except Exception:
                     pass
+        elif action == "change_shader":
+            module = args[0] if args else self._inst_modules.get(inst_id, self.active_module)
+            self._inst_modules[inst_id] = module
+            try:
+                update_instance(inst_id, module=module)
+            except Exception:
+                pass
+            inst = self.instances.get(inst_id)
+            if inst is None:
+                return
+            proc = self.processes.get(inst_id)
+            def _after(new_proc, _iid=inst_id):
+                self.processes[_iid] = new_proc
+                self.root.after(0, self.update_status)
+            glava_restart_instance(
+                instance=inst,
+                module=module,
+                proc=proc,
+                after_fn=_after,
+            )
+            # Odbuduj zakładkę jeśli to aktywna instancja
+            if inst_id == self._active_inst_id:
+                self.active_module = module
+                self.rebuild_module_tab()
 
     # ─────────────────────────────────────────────────────────────────────────
     # API dla tab_main / tab_module — operują na active_instance
@@ -590,34 +614,47 @@ class GlavaGUI:
         """
         Restartuje proces GLava aktywnej instancji.
         Używane przez tab_main i tab_module zamiast globalnego glava_restart().
+        Debounce 300ms — wielokrotne wywołania scalają się w jedno.
         """
         iid    = self._active_inst_id
         inst   = self.active_instance
         module = module or self._inst_modules.get(iid, self.active_module)
 
         self._inst_modules[iid] = module
-        # Aktualizuj moduł w rejestrze
         try:
             update_instance(iid, module=module)
         except Exception:
             pass
 
-        # Pobierz i wyzeruj stary proc — race condition prevention
-        old_proc = self.processes.get(iid)
-        self.processes[iid] = None
+        # Anuluj poprzednie oczekujące wywołanie
+        if not hasattr(self, "_restart_after"):
+            self._restart_after = {}
+        if iid in self._restart_after and self._restart_after[iid]:
+            try:
+                self.root.after_cancel(self._restart_after[iid])
+            except Exception:
+                pass
+            self._restart_after[iid] = None
 
-        def _after(proc, _iid=iid, _fn=after_fn):
-            self.processes[_iid] = proc
-            self.root.after(0, self.update_status)
-            if _fn:
-                self.root.after(0, _fn)
+        def _do_restart():
+            self._restart_after[iid] = None
+            old_proc = self.processes.get(iid)
+            self.processes[iid] = None
 
-        glava_restart_instance(
-            instance=inst,
-            module=module,
-            proc=old_proc,
-            after_fn=_after,
-        )
+            def _after(proc, _iid=iid, _fn=after_fn):
+                self.processes[_iid] = proc
+                self.root.after(0, self.update_status)
+                if _fn:
+                    self.root.after(0, _fn)
+
+            glava_restart_instance(
+                instance=inst,
+                module=module,
+                proc=old_proc,
+                after_fn=_after,
+            )
+
+        self._restart_after[iid] = self.root.after(300, _do_restart)
 
     def get_active_rc_glsl(self):
         """Zwraca ścieżkę rc.glsl aktywnej instancji (używane przez tab_main)."""
