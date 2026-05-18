@@ -339,7 +339,8 @@ fi
 section "Removing user scripts"
 
 for script in glava-colorswitch glava-toggle glava-colors-auto \
-              glava-color-daemon bing-fetch-user.sh glava-autostart.sh; do
+              glava-color-daemon glava-colors-auto-MI \
+              bing-fetch-user.sh glava-autostart.sh; do
     dst="$BIN_DIR/$script"
     if [ -f "$dst" ]; then
         rm -f "$dst"
@@ -399,6 +400,18 @@ for d in \
     "$SYSTEMD_DIR"; do
     if [ -d "$d" ] && [ -z "$(ls -A "$d" 2>/dev/null)" ]; then
         rmdir "$d" 2>/dev/null && info "Removed empty dir: $d" || true
+    fi
+done
+
+# =============================================================================
+# Katalogi instancji GLava
+# =============================================================================
+section "Removing GLava instance directories"
+
+for inst_dir in "$TARGET_HOME"/.config/glava-inst-*; do
+    if [ -d "$inst_dir" ]; then
+        rm -rf "$inst_dir"
+        info "Removed: $inst_dir"
     fi
 done
 

@@ -1,0 +1,2 @@
+#!/bin/bash
+exec python3 "/home/krzysztof/.local/bin/GlavaMP/glava-gui.py" "$@"
