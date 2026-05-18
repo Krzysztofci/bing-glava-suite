@@ -309,7 +309,24 @@ if [ ! -f "$GLAVAMP_CONF_DIR/profiles.json" ]; then
 else
     info "profiles.json already exists — skipping."
 fi
+if [ ! -f "$GLAVAMP_CONF_DIR/instances.json" ]; then
+    cp "$SCRIPT_DIR/config/default_instances.json" "$GLAVAMP_CONF_DIR/instances.json"
+    chown "$TARGET_USER:$TARGET_USER" "$GLAVAMP_CONF_DIR/instances.json"
+    info "Installed: default instances.json (inst-1, radial)"
+else
+    info "instances.json already exists — skipping."
+fi
 
+# Katalog instancji 1 — kopia szablonu glava
+INST1_DIR="$TARGET_HOME/.config/glava-inst-1"
+if [ ! -d "$INST1_DIR/glava" ]; then
+    mkdir -p "$INST1_DIR"
+    cp -r "$GLAVA_CONFIG/." "$INST1_DIR/glava"
+    chown -R "$TARGET_USER:$TARGET_USER" "$INST1_DIR"
+    info "Installed: instance directory glava-inst-1"
+else
+    info "glava-inst-1 already exists — skipping."
+fi
 cp "$SCRIPT_DIR/lang/"*.json "$SHARE_DIR/lang/"
 chown -R "$TARGET_USER:$TARGET_USER" "$SHARE_DIR/lang"
 info "Installed: language files"

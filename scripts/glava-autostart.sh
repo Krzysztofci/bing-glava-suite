@@ -54,10 +54,7 @@ except Exception as e:
     sys.exit(0)
 
 if not instances:
-    log("instances.json empty, starting default")
-    subprocess.Popen(["glava", "--desktop"],
-                     stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL)
+    log("instances.json empty, nothing to start")
     sys.exit(0)
 
 started = 0
