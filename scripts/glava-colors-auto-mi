@@ -106,6 +106,15 @@ def start_instance(inst_id, xdg_dir):
         return None
     env = os.environ.copy()
     env["XDG_CONFIG_HOME"] = xdg_dir
+
+    # Ustaw zmienne X11 jeśli brak (wywołanie z systemd)
+    if "DISPLAY" not in env:
+        env["DISPLAY"] = ":0"
+    if "DBUS_SESSION_BUS_ADDRESS" not in env:
+        uid = os.getuid()
+        env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{uid}/bus"
+    if "XAUTHORITY" not in env:
+        env["XAUTHORITY"] = os.path.join(USER_HOME, ".Xauthority")
     try:
         proc = subprocess.Popen(
             ["glava", "--desktop"],
@@ -184,7 +193,7 @@ def main():
 
         # Restart instancji
         stop_instance(iid)
-        time.sleep(0.3)
+        time.sleep(1.5)
         start_instance(iid, inst.xdg_dir)
 
     log("Gotowe.")

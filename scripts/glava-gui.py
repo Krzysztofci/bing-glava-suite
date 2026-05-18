@@ -407,6 +407,25 @@ class GlavaGUI:
         # ── Aktywny panel — domyslnie Main po pelnym renderze
         self._active_panel = "instances"
         self.root.after(50, self._show_main)
+        self._sync_processes_from_pids()
+
+    def _sync_processes_from_pids(self):
+        """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
+        from gui.glava import adopt_instance
+        for iid in list(self.instances.keys()):
+            current = self.processes.get(iid)
+            # Sprawdź czy aktualny proc jeszcze żyje
+            if current is not None and current.poll() is not None:
+                self.processes[iid] = None
+                current = None
+            # Jeśli brak proc — spróbuj adoptować z PID pliku
+            if current is None:
+                _pid, proc = adopt_instance(iid)
+                if proc is not None:
+                    self.processes[iid] = proc
+        # Powtarzaj co 3 sekundy
+        self.root.after(3000, self._sync_processes_from_pids)
+    
 
     # ─────────────────────────────────────────────────────────────────────────
     # Budowanie zawartości zakładki instancji

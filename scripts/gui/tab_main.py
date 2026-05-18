@@ -308,6 +308,14 @@ class TabMain:
 
         if all_inst and hasattr(self.app, "instances"):
             any_err = False
+            # Odśwież PID-y z plików — daemon mógł zmienić procesy
+            from gui.glava import adopt_instance
+            for _iid in list(self.app.instances.keys()):
+                if self.app.processes.get(_iid) is None:
+                    _pid, _proc = adopt_instance(_iid)
+                    if _proc is not None:
+                        self.app.processes[_iid] = _proc
+
             for iid, inst in self.app.instances.items():
                 module = self.app._inst_modules.get(iid, self.app.active_module)
                 ok, err = write_colors_to_frag(
@@ -450,6 +458,14 @@ class TabMain:
         targets = (list(self.app.instances.items())
                    if all_inst and hasattr(self.app, "instances")
                    else [(self.app._active_inst_id, self.app.active_instance)])
+
+        if hasattr(self.app, 'instances'):
+            from gui.glava import adopt_instance
+            for _iid in list(self.app.instances.keys()):
+                if self.app.processes.get(_iid) is None:
+                    _pid, _proc = adopt_instance(_iid)
+                    if _proc is not None:
+                        self.app.processes[_iid] = _proc
 
         for iid, inst in targets:
             if inst is None:
