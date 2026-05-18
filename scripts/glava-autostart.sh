@@ -90,6 +90,8 @@ for inst in instances:
         )
         log(f"inst {inst_id}: started (module={module}, pid={proc.pid})")
         started += 1
+        import time
+        time.sleep(2)   # daj X11/WM czas na obsłużenie poprzedniej instancji
         # Zapisz PID do pliku zeby GUI moglo adoptowac proces
         pid_dir  = os.path.join(HOME, ".config/GlavaMP")
         pid_path = os.path.join(pid_dir, f"inst-{inst_id}.pid")
