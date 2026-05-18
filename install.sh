@@ -467,6 +467,10 @@ INST1_DIR="$TARGET_HOME/.config/glava-inst-1"
 if [ ! -d "$INST1_DIR/glava" ]; then
     mkdir -p "$INST1_DIR"
     cp -r "$GLAVA_CONFIG/." "$INST1_DIR/glava"
+    echo "radial" > "$INST1_DIR/glava/active_module"
+    sed -i "s/^#request mod .*/#request mod radial/" "$INST1_DIR/glava/rc.glsl"
+    chown -R "$TARGET_USER:$TARGET_USER" "$INST1_DIR"
+    info "Installed: instance directory glava-inst-1 (module: radial)"
     chown -R "$TARGET_USER:$TARGET_USER" "$INST1_DIR"
     info "Installed: instance directory glava-inst-1"
 else
