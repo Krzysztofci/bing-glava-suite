@@ -69,10 +69,11 @@ class GlavaInstance:
     # a nie symlinkowane, inaczej wszystkie instancje dzielą te same pliki frag
     SHADER_DIRS = {"bars", "wave", "circle", "graph", "radial"}
 
-    def create(self):
+    def create(self, source=None):
         """
         Tworzy strukturę katalogów instancji.
-        Szablon: ~/.config/glava, fallback: /etc/xdg/glava.
+        source — GlavaInstance do skopiowania; None = szablon ~/.config/glava.
+        Fallback szablonu: /etc/xdg/glava.
         """
         if self.exists():
             return
@@ -80,7 +81,11 @@ class GlavaInstance:
         os.makedirs(os.path.dirname(self.glava_dir), exist_ok=True)
         os.makedirs(self.conf_dir, exist_ok=True)
 
-        base_src = self.DEFAULT_GLAVA_DIR if os.path.exists(self.DEFAULT_GLAVA_DIR) else "/etc/xdg/glava"
+        if source is not None and os.path.isdir(source.glava_dir):
+            base_src = source.glava_dir
+        else:
+            base_src = self.DEFAULT_GLAVA_DIR if os.path.exists(self.DEFAULT_GLAVA_DIR) else "/etc/xdg/glava"
+
         if os.path.exists(base_src):
             shutil.copytree(base_src, self.glava_dir, symlinks=True, dirs_exist_ok=True)
 #    def create(self, source_inst=None):

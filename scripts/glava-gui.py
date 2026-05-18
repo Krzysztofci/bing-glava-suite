@@ -488,15 +488,14 @@ class GlavaGUI:
         if frame is not None and not frame.winfo_children():
             self._build_inst_frame(inst_id)
 
-    def _on_inst_add(self, module_name):
+    def _on_inst_add(self, module_name, source_inst=None):
         """
-        Użytkownik wybrał moduł z menu [+].
-        Tworzy nową instancję, jej katalog konfiguracyjny (kopia inst 0),
-        rejestruje, dodaje zakładkę i uruchamia GLava.
+        Tworzy nową instancję.
+        source_inst — GlavaInstance źródłowa (duplikowanie); None = szablon.
         """
         iid  = next_inst_id()
         inst = GlavaInstance(iid)
-        inst.create()                           # kopiuje pliki GLSL z inst 0
+        inst.create(source=source_inst)
         register_instance(iid, module=module_name)
 
         self.instances[iid]     = inst
@@ -571,7 +570,8 @@ class GlavaGUI:
         """Menu kontekstowe zakładki."""
         if action == "duplicate":
             module = self._inst_modules.get(inst_id, self.active_module)
-            self._on_inst_add(module)
+            source_inst = self.instances.get(inst_id)
+            self._on_inst_add(module, source_inst=source_inst)
         elif action == "rename":
             # InstanceTabBar już pokazał dialog i zmienił etykietę w UI.
             # Synchronizujemy nową nazwę do instances.json.

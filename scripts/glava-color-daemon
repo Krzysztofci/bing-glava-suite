@@ -36,8 +36,9 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # --- Uruchom GLava jeśli nie działa ---
+# GUI zarządza instancjami przez instances.json:
 if [ ! -f "$DISABLE_FLAG" ] && ! pgrep -x glava >/dev/null; then
-    glava --desktop >/dev/null 2>&1 &
+    python3 "$HOME/.local/bin/glava-colors-auto-mi" >> "$LOG" 2>&1
     echo "$(date '+%F %T') - GLava uruchomiona przy starcie daemona." >> "$LOG"
 fi
 
@@ -80,7 +81,7 @@ update_colors() {
     ls -t "$BACKUP_DIR"/*.bak 2>/dev/null | tail -n +21 | xargs -r rm --
 
     # Generuj nowe kolory z tapety
-    "$HOME/.local/bin/glava-colors-auto" >> "$LOG" 2>&1
+    python3 "$HOME/.local/bin/glava-colors-auto-mi" >> "$LOG" 2>&1
     echo "$(date '+%F %T') - GLava zaktualizowana." >> "$LOG"
 }
 

@@ -122,3 +122,67 @@ def shader_supports_hsv(module, live_path=None, tmpl_path=None):
             with open(path) as f:
                 return "#define HSV_MODE" in f.read()
     return False
+# DODAĆ na końcu colors.py:
+
+def extract_colors_from_wallpaper(wallpaper_path):
+    """
+    Analizuje tapetę algorytmem KMeans (3 klastry).
+    Zwraca {'top': '#rrggbb', 'mid': '#rrggbb', 'bottom': '#rrggbb'}
+    lub None jeśli błąd.
+    """
+    try:
+        from PIL import Image
+        import numpy as np
+        from sklearn.cluster import KMeans
+
+        img = Image.open(wallpaper_path).convert("RGB")
+        img.thumbnail((200, 200))
+        pixels = np.array(img).reshape(-1, 3)
+        kmeans = KMeans(n_clusters=3, n_init=10)
+        kmeans.fit(pixels)
+        centers = sorted(kmeans.cluster_centers_.astype(int),
+                         key=lambda c: sum(c))
+        def to_hex(rgb):
+            return "#{:02x}{:02x}{:02x}".format(*rgb)
+        return {
+            "bottom": to_hex(centers[0]),
+            "mid":    to_hex(centers[1]),
+            "top":    to_hex(centers[2]),
+        }
+    except Exception as e:
+        return None
+
+
+def apply_colors_from_wallpaper(wallpaper_path, instances, inst_modules,
+                                 gradient_mode="rgb", after_fn=None):
+    """
+    Wyciąga kolory z tapety i zapisuje do wszystkich podanych instancji.
+
+    instances   — dict {inst_id: GlavaInstance}
+    inst_modules — dict {inst_id: module_name}
+    gradient_mode — 'rgb' lub 'hsv'
+    after_fn    — callable(inst_id, new_proc) wywoływany po restarcie każdej instancji
+
+    Zwraca (colors, errors) — dict kolorów i lista błędów.
+    """
+    from .glava import glava_restart_instance
+
+    colors = extract_colors_from_wallpaper(wallpaper_path)
+    if colors is None:
+        return None, ["Nie można wczytać tapety: " + wallpaper_path]
+
+    errors = []
+    for iid, inst in instances.items():
+        module = inst_modules.get(iid, "graph")
+        ok, err = write_colors_to_frag(
+            module, colors, gradient_mode,
+            tmpl_path=inst.module_tmpl(module),
+            live_path=inst.module_frag(module),
+        )
+        if not ok:
+            errors.append(f"inst-{iid}: {err}")
+            continue
+        if after_fn:
+            after_fn(iid, inst, module)
+
+    return colors, errors

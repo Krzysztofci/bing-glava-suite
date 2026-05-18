@@ -326,8 +326,15 @@ class TabMain:
             for iid, inst in self.app.instances.items():
                 proc = self.app.processes.get(iid)
                 module = self.app._inst_modules.get(iid, self.app.active_module)
-                glava_restart_instance(instance=inst, module=module, proc=proc)
-            self.app.root.after(700, self.app.update_status)
+                self.app.processes[iid] = None
+
+                def _after(new_proc, _iid=iid):
+                    self.app.processes[_iid] = new_proc
+                    self.app.root.after(0, self.app.update_status)
+
+                glava_restart_instance(instance=inst, module=module,
+                                       proc=proc, after_fn=_after)
+
         else:
             ok, err = write_colors_to_frag(
                 self.app.active_module,
@@ -424,14 +431,7 @@ class TabMain:
         self.app.root.after(4000, self.app.update_status)
 
     def _restore_auto(self):
-        import re as _re
-        from PIL import Image
-        import numpy as np
-        from sklearn.cluster import KMeans
-
-        for flag in (FLAG_RED, FLAG_MANUAL):
-            if os.path.exists(flag):
-                os.remove(flag)
+        from .colors import extract_colors_from_wallpaper
 
         wallpaper = os.path.expanduser("~/Pictures/Bing/bing_today.jpg")
         if not os.path.exists(wallpaper):
@@ -439,21 +439,11 @@ class TabMain:
                                                 "Brak tapety: " + wallpaper))
             return
 
-        # KMeans — raz dla wszystkich
-        img = Image.open(wallpaper).convert("RGB")
-        img.thumbnail((200, 200))
-        pixels = np.array(img).reshape(-1, 3)
-        kmeans = KMeans(n_clusters=3, n_init=10)
-        kmeans.fit(pixels)
-        centers = sorted(kmeans.cluster_centers_.astype(int),
-                         key=lambda c: sum(c))
-        def to_hex(rgb):
-            return "#{:02x}{:02x}{:02x}".format(*rgb)
-        colors = {
-            "bottom": to_hex(centers[0]),
-            "mid":    to_hex(centers[1]),
-            "top":    to_hex(centers[2]),
-        }
+        colors = extract_colors_from_wallpaper(wallpaper)
+        if colors is None:
+            messagebox.showerror("", self.T.get("error_kmeans",
+                                                "Błąd analizy tapety."))
+            return
 
         all_inst = (hasattr(self, "all_inst_restore_var") and
                     self.all_inst_restore_var.get())
@@ -471,9 +461,20 @@ class TabMain:
                 live_path=inst.module_frag(module),
             )
             proc = self.app.processes.get(iid)
-            glava_restart_instance(instance=inst, module=module, proc=proc)
+            self.app.processes[iid] = None
 
-        self.app.root.after(700, self.app.update_status)
+            def _after(new_proc, _iid=iid):
+                self.app.processes[_iid] = new_proc
+                self.app.root.after(0, self.app.update_status)
+
+            glava_restart_instance(instance=inst, module=module,
+                                   proc=proc, after_fn=_after)
+
+        for flag in (FLAG_RED, FLAG_MANUAL):
+            if os.path.exists(flag):
+                os.remove(flag)
+
+        self.app.root.after(0, self.app.update_status)
 
     def _toggle_glava(self):
         glava_toggle()

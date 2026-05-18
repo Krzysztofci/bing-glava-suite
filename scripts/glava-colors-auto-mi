@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# =============================================================================
+# glava-colors-auto-mi
+# Wieloinstancyjna wersja glava-colors-auto.
+# Czyta instances.json, aktualizuje kolory per-instancja z tapety Bing
+# i restartuje każdą instancję GLava z właściwym XDG_CONFIG_HOME.
+#
+# Wywołanie: python3 glava-colors-auto-mi [--force]
+#   --force  — ignoruje flagi FLAG_MANUAL i FLAG_RED
+# =============================================================================
+
+import os
+import sys
+import json
+import subprocess
+import time
+
+USER_HOME      = os.path.expanduser("~")
+CONFIG_HOME    = os.path.join(USER_HOME, ".config")
+GLAVAMP_DIR    = os.path.join(CONFIG_HOME, "GlavaMP")
+INSTANCES_FILE = os.path.join(GLAVAMP_DIR, "instances.json")
+SETTINGS_FILE  = os.path.join(CONFIG_HOME, "GlavaMP", "gui_settings.json")
+WALLPAPER      = os.path.join(USER_HOME, "Pictures", "Bing", "bing_today.jpg")
+FLAG_MANUAL    = os.path.join(CONFIG_HOME, "glava", "manual.shift")
+FLAG_RED       = os.path.join(CONFIG_HOME, "glava", "red.shift")
+DISABLE_FLAG   = os.path.join(CONFIG_HOME, "glava", ".glava_disabled")
+
+# Dodaj ścieżkę do modułów GUI
+GLAVAMP_LIB = os.path.join(USER_HOME, ".local", "bin", "GlavaMP")
+if GLAVAMP_LIB not in sys.path:
+    sys.path.insert(0, GLAVAMP_LIB)
+
+FORCE = "--force" in sys.argv
+
+
+def log(msg):
+    print(msg, flush=True)
+
+
+def load_instances():
+    if not os.path.exists(INSTANCES_FILE):
+        return []
+    try:
+        with open(INSTANCES_FILE) as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def load_gradient_mode():
+    try:
+        with open(SETTINGS_FILE) as f:
+            return json.load(f).get("gradient_mode", "rgb")
+    except Exception:
+        return "rgb"
+
+
+def read_pid(inst_id):
+    path = os.path.join(GLAVAMP_DIR, f"inst-{inst_id}.pid")
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def is_pid_running(pid):
+    if pid is None:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def stop_instance(inst_id):
+    """Zatrzymuje instancję przez PID."""
+    pid = read_pid(inst_id)
+    if is_pid_running(pid):
+        try:
+            import signal
+            os.kill(pid, signal.SIGTERM)
+            # Poczekaj max 2s
+            for _ in range(20):
+                time.sleep(0.1)
+                if not is_pid_running(pid):
+                    break
+            else:
+                os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    # Wyczyść PID
+    pid_path = os.path.join(GLAVAMP_DIR, f"inst-{inst_id}.pid")
+    try:
+        os.remove(pid_path)
+    except FileNotFoundError:
+        pass
+
+
+def start_instance(inst_id, xdg_dir):
+    """Startuje instancję GLava z właściwym XDG_CONFIG_HOME."""
+    if os.path.exists(DISABLE_FLAG):
+        log(f"  inst-{inst_id}: GLava wyłączona (.glava_disabled), pomijam start.")
+        return None
+    env = os.environ.copy()
+    env["XDG_CONFIG_HOME"] = xdg_dir
+    try:
+        proc = subprocess.Popen(
+            ["glava", "--desktop"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+        )
+        # Zapisz PID
+        pid_path = os.path.join(GLAVAMP_DIR, f"inst-{inst_id}.pid")
+        os.makedirs(GLAVAMP_DIR, exist_ok=True)
+        with open(pid_path, "w") as f:
+            f.write(str(proc.pid))
+        log(f"  inst-{inst_id}: uruchomiono PID {proc.pid}")
+        return proc
+    except Exception as e:
+        log(f"  inst-{inst_id}: błąd startu: {e}")
+        return None
+
+
+def main():
+    # Sprawdź flagi trybu
+    if not FORCE:
+        if os.path.exists(FLAG_MANUAL):
+            log("Tryb GUI aktywny (manual.shift) — pomijam.")
+            sys.exit(0)
+        if os.path.exists(FLAG_RED):
+            log("Tryb RED aktywny (red.shift) — pomijam.")
+            sys.exit(0)
+
+    if not os.path.exists(WALLPAPER):
+        log(f"Brak tapety: {WALLPAPER}")
+        sys.exit(1)
+
+    # Importuj extract_colors_from_wallpaper z gui/colors.py
+    try:
+        from gui.colors import extract_colors_from_wallpaper, write_colors_to_frag
+        from gui.instance import GlavaInstance
+    except ImportError as e:
+        log(f"Błąd importu modułów GUI: {e}")
+        sys.exit(1)
+
+    gradient_mode = load_gradient_mode()
+    log(f"Tryb gradientu: {gradient_mode}")
+
+    colors = extract_colors_from_wallpaper(WALLPAPER)
+    if colors is None:
+        log("Błąd analizy tapety KMeans.")
+        sys.exit(1)
+    log(f"Kolory: {colors}")
+
+    instances = load_instances()
+    if not instances:
+        log("Brak instancji w instances.json — nic do zrobienia.")
+        sys.exit(0)
+
+    for entry in instances:
+        iid    = entry.get("inst_id")
+        module = entry.get("module", "graph")
+        inst   = GlavaInstance(iid)
+
+        if not inst.exists():
+            log(f"  inst-{iid}: katalog nie istnieje, pomijam.")
+            continue
+
+        log(f"  inst-{iid}: moduł={module}, xdg={inst.xdg_dir}")
+
+        # Zapisz kolory do frag
+        ok, err = write_colors_to_frag(
+            module, colors, gradient_mode,
+            tmpl_path=inst.module_tmpl(module),
+            live_path=inst.module_frag(module),
+        )
+        if not ok:
+            log(f"  inst-{iid}: błąd zapisu kolorów: {err}")
+            continue
+
+        # Restart instancji
+        stop_instance(iid)
+        time.sleep(0.3)
+        start_instance(iid, inst.xdg_dir)
+
+    log("Gotowe.")
+    # Usuń flagi — aktualizacja była automatyczna, nie ręczna
+    for flag in (FLAG_MANUAL, FLAG_RED):
+        try:
+            os.remove(flag)
+        except FileNotFoundError:
+            pass
+
+
+if __name__ == "__main__":
+    main()
