@@ -31,16 +31,20 @@ fi
 
 # Parsuj instances.json przez python3 (dostepny wsedzie gdzie tkinter dziala)
 python3 - << 'PYEOF'
-import json, os, subprocess, sys
+import json, os, subprocess, sys, datetime
 
-HOME = os.path.expanduser("~")
+HOME           = os.path.expanduser("~")
 INSTANCES_FILE = os.path.join(HOME, ".config/GlavaMP/instances.json")
-LOG_FILE = os.path.join(HOME, ".local/logs/glava-autostart.log")
+LOG_FILE       = os.path.join(HOME, ".local/logs/glava-autostart.log")
+DISABLE_FLAG   = os.path.join(HOME, ".config/GlavaMP/.glava_disabled")
 
 def log(msg):
     with open(LOG_FILE, "a") as f:
-        import datetime
         f.write(f"[{datetime.datetime.now()}] glava-autostart: {msg}\n")
+
+if os.path.exists(DISABLE_FLAG):
+    log("GLava disabled (.glava_disabled) — skipping autostart")
+    sys.exit(0)
 
 try:
     with open(INSTANCES_FILE) as f:

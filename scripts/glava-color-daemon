@@ -9,7 +9,7 @@
 #   manual.shift   — tryb GUI (kolory ustawione ręcznie), daemon nie nadpisuje
 #   .glava_disabled — GLava wyłączona przez użytkownika, demon jej nie uruchamia
 # =============================================================================
-DISABLE_FLAG="$HOME/.config/glava/.glava_disabled"
+DISABLE_FLAG="$HOME/.config/GlavaMP/.glava_disabled"
 FLAG_RED="$HOME/.config/glava/red.shift"
 FLAG_MANUAL="$HOME/.config/glava/manual.shift"
 LOG="$HOME/.local/logs/glava-color-daemon.log"

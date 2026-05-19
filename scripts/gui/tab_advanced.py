@@ -122,8 +122,19 @@ class TabAdvanced:
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
 
-        ttk.Label(lf, text=T.get("audio_affects_all",
-                                   "⚠ Wpływa na wszystkie moduły")).pack(anchor="w", pady=(0, 4))
+        expert_row = ttk.Frame(lf)
+        expert_row.pack(fill="x", pady=(0, 4))
+        ttk.Label(expert_row, text=T.get("audio_affects_all",
+                                   "⚠ Wpływa na wszystkie moduły")).pack(side="left")
+        if not hasattr(self.app, "expert_mode"):
+            self.app.expert_mode = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            expert_row,
+            text=T.get("label_expert_mode", "Tryb expert"),
+            variable=self.app.expert_mode,
+            style="Switch",
+            command=self._on_expert_toggle,
+        ).pack(side="right", padx=(10, 0))
 
         # Zmienne
         buf_cur  = self._read_request_int("setbufsize",    4096)
@@ -469,6 +480,10 @@ class TabAdvanced:
                 with open(log) as f:
                     last = "".join(f.readlines()[-40:])
                 messagebox.showinfo("Log (ostatnie 40 linii)", last)
+
+    def _on_expert_toggle(self):
+        """Przebuduj sekcję audio po zmianie trybu expert."""
+        self.app._on_expert_toggle()
 
     def _test_strut(self):
         T = self.T

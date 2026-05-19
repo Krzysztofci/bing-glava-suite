@@ -393,6 +393,33 @@ class TabMain:
                     tmpl_path=self._tmpl_frag(),
                 ) else ""))
 
+    def refresh_gradient_mode(self):
+        """Odczytuje tryb gradientu z aktywnego shadera i aktualizuje przełącznik."""
+        from .colors import shader_supports_hsv
+        import re as _re
+        live = self._live_frag()
+        if not os.path.exists(live):
+            return
+        try:
+            with open(live) as f:
+                src = f.read()
+            m = _re.search(r'#define HSV_MODE ([01])', src)
+            if m:
+                mode = "hsv" if m.group(1) == "1" else "rgb"
+                self.gradient_mode = mode
+                self.gradient_var.set(mode)
+        except Exception:
+            pass
+        self._update_hsv_warn()
+
+    def refresh_active_instance(self):
+        """Odświeża UI tab_main po zmianie aktywnej instancji."""
+        self._load_colors_from_live()
+        for key in self.color_btns:
+            self._update_color_btn(key, self.current_colors[key])
+        self.refresh_gradient_mode()
+        self.refresh_geometry()
+
     def _load_preset(self):
         name = self.preset_var.get()
         if name and name in self.presets:

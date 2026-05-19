@@ -282,13 +282,16 @@ class GlavaGUI:
         right = ttk.Frame(header)
         right.pack(side="right")
 
-        self.expert_mode = tk.BooleanVar(value=False)
+        from gui.core import GLAVA_DISABLE_FLAG
+        self.glava_enabled_var = tk.BooleanVar(
+            value=not os.path.exists(GLAVA_DISABLE_FLAG)
+        )
         ttk.Checkbutton(
             right,
-            text=T.get("label_expert_mode", "Tryb expert"),
-            variable=self.expert_mode,
+            text=T.get("label_glava_enabled", "GLava"),
+            variable=self.glava_enabled_var,
             style="Switch",
-            command=self._on_expert_toggle,
+            command=self._on_glava_toggle,
         ).pack(side="right", padx=(10, 0))
 
         ttk.Label(right,
@@ -409,8 +412,10 @@ class GlavaGUI:
         self.root.after(50, self._show_main)
         self._sync_processes_from_pids()
 
+    # PRZED:
     def _sync_processes_from_pids(self):
         """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
+        print(f"DEBUG sync instances={list(self.instances.keys())} processes={list(self.processes.keys())}")
         from gui.glava import adopt_instance
         for iid in list(self.instances.keys()):
             current = self.processes.get(iid)
@@ -423,6 +428,35 @@ class GlavaGUI:
                 _pid, proc = adopt_instance(iid)
                 if proc is not None:
                     self.processes[iid] = proc
+        # Powtarzaj co 3 sekundy
+        self.root.after(3000, self._sync_processes_from_pids)
+
+# PO:
+    def _sync_processes_from_pids(self):
+        """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
+        from gui.glava import adopt_instance, read_pid
+        for iid in list(self.instances.keys()):
+            current = self.processes.get(iid)
+            file_pid = read_pid(iid)
+
+            # Sprawdź czy aktualny proc zgadza się z PID w pliku
+            if current is not None:
+                current_pid = getattr(current, 'pid', None)
+                if current.poll() is not None:
+                    # Proces martwy
+                    self.processes[iid] = None
+                    current = None
+                elif file_pid is not None and current_pid != file_pid:
+                    # Daemon zmienił proces — adoptuj nowy
+                    self.processes[iid] = None
+                    current = None
+
+            # Jeśli brak proc — spróbuj adoptować z PID pliku
+            if current is None:
+                _pid, proc = adopt_instance(iid)
+                if proc is not None:
+                    self.processes[iid] = proc
+
         # Powtarzaj co 3 sekundy
         self.root.after(3000, self._sync_processes_from_pids)
     
@@ -506,6 +540,9 @@ class GlavaGUI:
         frame = self.inst_bar.get_frame(inst_id)
         if frame is not None and not frame.winfo_children():
             self._build_inst_frame(inst_id)
+        # Odśwież UI tab_main dla nowej aktywnej instancji
+        if hasattr(self, "_tab_main_ref"):
+            self._tab_main_ref.refresh_active_instance()
 
     def _on_inst_add(self, module_name, source_inst=None):
         """
@@ -836,6 +873,39 @@ class GlavaGUI:
     def _on_expert_toggle(self):
         self.rebuild_module_tab()
         self._rebuild_advanced_tab()
+
+    def _on_glava_toggle(self):
+        """Włącza/wyłącza wszystkie instancje GLava bez zamykania zakładek."""
+        from gui.core import GLAVA_DISABLE_FLAG
+        from gui.glava import glava_stop_instance, glava_restart_instance
+        enabled = self.glava_enabled_var.get()
+        if enabled:
+            # Usuń flagę i uruchom wszystkie instancje
+            try:
+                os.remove(GLAVA_DISABLE_FLAG)
+            except FileNotFoundError:
+                pass
+            for iid, inst in self.instances.items():
+                module = self._inst_modules.get(iid, self.active_module)
+                proc   = self.processes.get(iid)
+                self.processes[iid] = None
+                def _after(new_proc, _iid=iid):
+                    self.processes[_iid] = new_proc
+                    self.root.after(0, self.update_status)
+                glava_restart_instance(instance=inst, module=module,
+                                       proc=proc, after_fn=_after)
+        else:
+            # Postaw flagę i zatrzymaj wszystkie instancje
+            os.makedirs(os.path.dirname(GLAVA_DISABLE_FLAG), exist_ok=True)
+            open(GLAVA_DISABLE_FLAG, "w").close()
+            for iid in list(self.processes.keys()):
+                proc = self.processes.pop(iid, None)
+                glava_stop_instance(proc)
+                clear_pid(iid)
+            # Dodatkowo pkill na wypadek procesów poza kontrolą GUI
+            import subprocess as _sp
+            _sp.run(["pkill", "-x", "glava"], capture_output=True)
+            self.root.after(500, self.update_status)
 
     def _rebuild_advanced_tab(self):
         frame = self.frames.get("advanced")

@@ -22,6 +22,7 @@ BIN_DIR        = os.path.join(USER_HOME, ".local/bin")
 RC_GLSL        = os.path.join(GLAVA_DIR, "rc.glsl")
 FLAG_RED       = os.path.join(GLAVA_DIR, "red.shift")
 FLAG_MANUAL    = os.path.join(GLAVA_DIR, "manual.shift")
+GLAVA_DISABLE_FLAG = os.path.join(USER_HOME, ".config/GlavaMP/.glava_disabled")
 WALLPAPER_LOCK = os.path.join(CONFIG_DIR, "wallpaper.lock")
 ACTIVE_MODULE_FILE = os.path.join(GLAVA_DIR, "active_module")
 

@@ -23,7 +23,7 @@ SETTINGS_FILE  = os.path.join(CONFIG_HOME, "GlavaMP", "gui_settings.json")
 WALLPAPER      = os.path.join(USER_HOME, "Pictures", "Bing", "bing_today.jpg")
 FLAG_MANUAL    = os.path.join(CONFIG_HOME, "glava", "manual.shift")
 FLAG_RED       = os.path.join(CONFIG_HOME, "glava", "red.shift")
-DISABLE_FLAG   = os.path.join(CONFIG_HOME, "glava", ".glava_disabled")
+DISABLE_FLAG   = os.path.join(CONFIG_HOME, "GlavaMP", ".glava_disabled")
 
 # Dodaj ścieżkę do modułów GUI
 GLAVAMP_LIB = os.path.join(USER_HOME, ".local", "bin", "GlavaMP")
