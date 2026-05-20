@@ -112,6 +112,13 @@ class TabMain:
         self.all_inst_colors_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(apply_row, text=T.get("chk_all_instances", "Wszystkie"),
                         variable=self.all_inst_colors_var).pack(side="left")
+        restore_row = ttk.Frame(lf)
+        restore_row.pack(fill="x", pady=(0, 3))
+        ttk.Button(restore_row, text=T.get("btn_sync_wallpaper", "Sync with Wallpaper (auto mode)"),
+                   command=self._restore_auto).pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self.all_inst_restore_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(restore_row, text=T.get("chk_all_instances", "Wszystkie"),
+                        variable=self.all_inst_restore_var).pack(side="left")
         ttk.Button(lf, text=T.get("btn_capture", "Capture current from screen"),
                    command=self._capture_colors).pack(fill="x", pady=(0, 5))
         grad_row = ttk.Frame(lf)
@@ -179,17 +186,10 @@ class TabMain:
                    "Fetch Bing wallpaper (desktop only)"),           "Accent.TButton", self._fetch_wallpaper_user),
             (T.get("btn_fetch_wallpaper_full",
                    "Fetch Bing wallpaper (desktop + login screen)"), "Accent.TButton", self._fetch_wallpaper_full),
-            (T.get("btn_toggle_glava",  "Enable / Disable GLava"),   "",               self._toggle_glava),
         ]:
             ttk.Button(lf, text=text, command=cmd,
                        style=style).pack(fill="x", pady=2)
-        restore_row = ttk.Frame(lf)
-        restore_row.pack(fill="x", pady=2)
-        ttk.Button(restore_row, text=T.get("btn_restore_auto", "Restore Bing (auto)"),
-                   command=self._restore_auto).pack(side="left", fill="x", expand=True, padx=(0, 4))
-        self.all_inst_restore_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(restore_row, text=T.get("chk_all_instances", "Wszystkie"),
-                        variable=self.all_inst_restore_var).pack(side="left")
+
         # Geometria GLava
         lf = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
                             padding=(15, 10))
