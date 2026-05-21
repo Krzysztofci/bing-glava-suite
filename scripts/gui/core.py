@@ -32,6 +32,8 @@ PRESETS_FILE   = os.path.join(CONFIG_DIR, "presets.json")        # profile kolor
 PROFILES_FILE  = os.path.join(CONFIG_DIR, "profiles.json")     # profile szaderów
 
 WALLPAPER      = os.path.join(USER_HOME, "Pictures/Bing/bing_today.jpg")
+BING_METADATA   = os.path.join(USER_HOME, "Pictures/Bing/metadata.json")
+BING_THUMBS_DIR = os.path.join(USER_HOME, "Pictures/Bing/thumbs")
 
 # Katalog lang — szukamy względem lokalizacji tego pliku
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))

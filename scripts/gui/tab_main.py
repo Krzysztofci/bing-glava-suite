@@ -87,7 +87,6 @@ class TabMain:
     # ── LEWA ─────────────────────────────────────────────────────────────────
     def _build_left(self, col):
         T = self.T
-        # Motyw GLava
         # Kolory
         lf = ttk.LabelFrame(col, text=T.get("section_colors", "Colors"),
                             padding=(15, 10))
@@ -146,55 +145,22 @@ class TabMain:
         btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x")
         ttk.Button(btn_row, text=T.get("btn_load", "Load"),
-                   command=self._load_preset).pack(side="left", expand=True,
+                   command=self._load_preset,
+                   style="Accent.TButton").pack(side="left", expand=True,
                                                    fill="x", padx=(0, 2))
         ttk.Button(btn_row, text=T.get("btn_save_new", "Save new"),
                    command=self._save_preset).pack(side="left", expand=True,
                                                    fill="x", padx=(0, 2))
         ttk.Button(btn_row, text=T.get("btn_delete", "Delete"),
                    command=self._delete_preset,
-                   style="Accent.TButton").pack(side="left", expand=True, fill="x")
-        # Ustawienia
-        lf = ttk.LabelFrame(col, text=T.get("section_settings", "Settings"),
-                            padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10)
-        s_row = ttk.Frame(lf)
-        s_row.pack(fill="x", pady=(0, 5))
-        ttk.Label(s_row, text=T.get("label_region", "Bing region") + ":").pack(side="left")
-        self.region_var = tk.StringVar(value=self.bing_cfg.get("BING_REGION", "de-DE"))
-        ttk.Combobox(s_row, textvariable=self.region_var, values=BING_REGIONS,
-                     width=7, state="readonly").pack(side="left", padx=(5, 10))
-        ttk.Button(s_row, text=T.get("btn_save_settings", "Save settings"),
-                   command=self._save_settings).pack(side="left")
-        lock_text = (T.get("btn_unlock_wallpaper", "Unlock wallpaper")
-                     if os.path.exists(WALLPAPER_LOCK)
-                     else T.get("btn_lock_wallpaper", "Lock wallpaper"))
-        self.lock_btn = ttk.Button(lf, text=lock_text,
-                                   command=self._toggle_lock,
-                                   style="Accent.TButton")
-        self.lock_btn.pack(fill="x")
+                   style="Danger.TButton").pack(side="left", expand=True, fill="x")
 
-    # ── PRAWA ─────────────────────────────────────────────────────────────────
-    def _build_right(self, col):
-        T = self.T
-        # Tryby
-        lf = ttk.LabelFrame(col, text=T.get("section_modes", "Modes"),
-                            padding=(15, 10))
-        lf.pack(fill="x", padx=10, pady=10)
-        for text, style, cmd in [
-            (T.get("btn_fetch_wallpaper",
-                   "Fetch Bing wallpaper (desktop only)"),           "Accent.TButton", self._fetch_wallpaper_user),
-            (T.get("btn_fetch_wallpaper_full",
-                   "Fetch Bing wallpaper (desktop + login screen)"), "Accent.TButton", self._fetch_wallpaper_full),
-        ]:
-            ttk.Button(lf, text=text, command=cmd,
-                       style=style).pack(fill="x", pady=2)
-
-        # Geometria GLava
+    # ── GLava Geometry ────────────────────────────────────────────────────
         lf = ttk.LabelFrame(col, text=T.get("section_geometry", "GLava geometry"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-        rc_path = (self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
+        rc_path = (self.app.get_active_rc_glsl()
+                   if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
         geo = read_geometry(rc_path)
         if geo is None:
             si  = get_screen_info()
@@ -219,7 +185,115 @@ class TabMain:
                    command=self._apply_geometry,
                    style="Accent.TButton").pack(fill="x")
 
-    # ── CALLBACKI ─────────────────────────────────────────────────────────────
+    # ── PRAWA ─────────────────────────────────────────────────────────────────
+    def _build_right(self, col):
+        T = self.T
+    
+        # ── Wallpaper ──────────────────────────────────────────────────────────
+        lf = ttk.LabelFrame(col, text=T.get("section_wallpaper", "Wallpaper"),
+                            padding=(15, 10))
+        lf.pack(fill="x", padx=10, pady=10)
+    
+        # --- wiersz: strzałka | miniatura w Card | strzałka ---
+        nav_row = ttk.Frame(lf)
+        nav_row.pack(fill="x", pady=(0, 4))
+    
+        self._wp_regions   = list(BING_REGIONS)          # lista regionów
+        self._wp_region_idx = 0                           # aktywny indeks
+        try:
+            self._wp_region_idx = self._wp_regions.index(
+                self.bing_cfg.get("BING_REGION", "de-DE"))
+        except ValueError:
+            pass
+    
+        self._btn_prev = ttk.Button(nav_row, text="‹", width=2,
+                                    command=self._wp_prev)
+        self._btn_prev.pack(side="left", padx=(0, 4))
+    
+        # Ramka Card wokół miniatury
+        card = ttk.Frame(nav_row, style="Card", padding=4)
+        card.pack(side="left", expand=True)
+    
+        self._thumb_placeholder = tk.PhotoImage(width=249, height=140)
+        self._thumb_label = tk.Label(card, image=self._thumb_placeholder,
+                                     bg="#2a2a2a", relief="flat")
+        self._thumb_label.pack()
+    
+        self._btn_next = ttk.Button(nav_row, text="›", width=2,
+                                    command=self._wp_next)
+        self._btn_next.pack(side="left", padx=(4, 0))
+    
+        # --- wskaźnik regionu ---
+        self._region_indicator_var = tk.StringVar()
+        ttk.Label(lf, textvariable=self._region_indicator_var,
+                  font=(None, 10)).pack()
+        self._update_region_indicator()
+    
+        # --- lock wallpaper jako Switch ---
+        self._lock_var = tk.BooleanVar(value=os.path.exists(WALLPAPER_LOCK))
+        self.lock_btn = ttk.Checkbutton(
+            lf,
+            text=T.get("btn_lock_wallpaper", "Lock wallpaper"),
+            style="Switch",
+            variable=self._lock_var,
+            command=self._toggle_lock,
+        )
+        self.lock_btn.pack(anchor="w", pady=(6, 0))
+    
+        # --- tytuł ---
+        ttk.Label(lf, text=T.get("label_wp_title", "Tytuł:"),
+                  font=(None, 10)).pack(anchor="w", pady=(6, 0))
+        self._wp_title_var = tk.StringVar(value="—")
+        ttk.Label(lf, textvariable=self._wp_title_var,
+                  wraplength=400, justify="left",
+                  font=(None, 10)).pack(anchor="w")
+    
+        # --- copyright ---
+        ttk.Label(lf, text=T.get("label_wp_copyright", "Copyright:"),
+                  font=(None, 10)).pack(anchor="w", pady=(4, 0))
+        self._wp_copy_var = tk.StringVar(value="—")
+        ttk.Label(lf, textvariable=self._wp_copy_var,
+                  wraplength=400, justify="left",
+                  font=(None, 10)).pack(anchor="w")
+    
+        ttk.Separator(lf, orient="horizontal").pack(fill="x", pady=8)
+    
+        # --- fetch ---
+        fetch_row = ttk.Frame(lf)
+        fetch_row.pack(fill="x", pady=(0, 6))
+        ttk.Button(fetch_row,
+                   text=T.get("btn_fetch_wallpaper", "Fetch user"),
+                   command=self._fetch_wallpaper_user,
+                   style="Accent.TButton").pack(side="left", expand=True,
+                                                fill="x", padx=(0, 4))
+        ttk.Button(fetch_row,
+                   text=T.get("btn_fetch_wallpaper_full", "Fetch with loginscreen"),
+                   command=self._fetch_wallpaper_full).pack(side="left", expand=True,
+                                                            fill="x")
+    
+    
+        # ── GLava Geometry przeniesiona do lewej kolumny──────────────────────
+        
+    
+        self._load_wp_thumbnail()
+        self._start_meta_watch()
+        # ── CALLBACKI ─────────────────────────────────────────────────────────────
+    def _start_meta_watch(self):
+        if not os.path.exists(core.BING_METADATA):
+            return
+        self._meta_watcher = subprocess.Popen(
+            ["inotifywait", "-e", "close_write", core.BING_METADATA],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        self.app.root.after(1000, self._check_meta_watcher)
+
+    def _check_meta_watcher(self):
+        if self._meta_watcher.poll() is not None:
+            self._load_wp_thumbnail()
+            self._start_meta_watch()
+        else:
+            self.app.root.after(1000, self._check_meta_watcher)
+
     def refresh_geometry(self):
         rc_path = (self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
         geo = read_geometry(rc_path)
@@ -250,6 +324,57 @@ class TabMain:
         self.app.rebuild_module_tab()
         self._update_hsv_warn()
 
+    def _wp_prev(self):
+        self._wp_region_idx = (self._wp_region_idx - 1) % len(self._wp_regions)
+        self._update_region_indicator()
+        self._load_wp_thumbnail()
+        self._save_region()
+
+    def _wp_next(self):
+        self._wp_region_idx = (self._wp_region_idx + 1) % len(self._wp_regions)
+        self._update_region_indicator()
+        self._load_wp_thumbnail()
+        self._save_region()
+
+    def _update_region_indicator(self):
+        region = self._wp_regions[self._wp_region_idx]
+        total  = len(self._wp_regions)
+        self._region_indicator_var.set(
+            f"{region}  ·  {self._wp_region_idx + 1} / {total}")
+
+    def _load_wp_thumbnail(self):
+        if not hasattr(self, "_thumb_label"):
+            return
+        region = self._wp_regions[self._wp_region_idx]
+        # Wczytaj metadane
+        meta = {}
+        if os.path.exists(core.BING_METADATA):
+            try:
+                import json
+                with open(core.BING_METADATA, encoding="utf-8") as f:
+                    meta = json.load(f)
+            except Exception:
+                pass
+        region_meta = meta.get(region, {})
+        # Tytuł i copyright
+        title = region_meta.get("title", "—")
+        if title in ("Info", "", "—"):
+            title = meta.get("en-US", {}).get("title", "—")
+        self._wp_title_var.set(title)
+        self._wp_copy_var.set(region_meta.get("copyright", "—"))
+        # Miniatura
+        thumb_file = region_meta.get("thumb_file", "")
+        if thumb_file and os.path.exists(thumb_file):
+            try:
+                from PIL import Image, ImageTk
+                img = Image.open(thumb_file).resize((249, 140), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self._thumb_label.config(image=photo)
+                self._thumb_label._photo = photo  # zapobiegamy GC
+            except Exception:
+                self._thumb_label.config(image=self._thumb_placeholder)
+        else:
+            self._thumb_label.config(image=self._thumb_placeholder)
     def _update_geometry_for_module(self, module):
         try:
             from .geometry import get_screen_info, calc_geometry, write_geometry
@@ -564,14 +689,15 @@ class TabMain:
             else:
                 glava_restart(self.app.active_module, after_fn=self.app.update_status)
 
+    def _save_region(self):
+        region = self._wp_regions[self._wp_region_idx]
+        self.bing_cfg["BING_REGION"] = region
+        write_bing_config(self.bing_cfg)
     def _save_settings(self):
-        self.bing_cfg["BING_REGION"] = self.region_var.get()
+        self.bing_cfg["BING_REGION"] = self._wp_regions[self._wp_region_idx]
         write_bing_config(self.bing_cfg)
         messagebox.showinfo("", self.T.get("settings_saved", "Settings saved."))
 
     def _toggle_lock(self):
-        locked = toggle_wallpaper_lock(WALLPAPER_LOCK)
-        self.lock_btn.config(
-            text=self.T.get("btn_unlock_wallpaper") if locked else self.T.get("btn_lock_wallpaper")
-        )
+        toggle_wallpaper_lock(WALLPAPER_LOCK)
         self.app.update_status()

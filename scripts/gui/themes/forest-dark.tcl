@@ -528,7 +528,21 @@ namespace eval ttk::theme::forest-dark {
             -background [list selected $colors(-selectbg)] \
             -foreground [list selected $colors(-selectfg)]
 
-        # Sashes
-        #ttk::style map TPanedwindow -background [list hover $colors(-bg)]
+        # Danger button (czerwony - używa rect-danger)
+        ttk::style layout Danger.TButton {
+            DangerButton.button -children {
+                DangerButton.padding -children {
+                    DangerButton.label -side left -expand true
+                }
+            }
+        }
+        ttk::style element create DangerButton.button image \
+            [list $I(rect-danger) \
+                disabled $I(rect-danger) \
+                pressed $I(rect-danger) \
+                active $I(rect-danger-hover) \
+            ] -border 4 -sticky nsew
+        ttk::style configure Danger.TButton \
+            -padding {8 4 8 4} -width -10 -anchor center -foreground "#ffcdd2"
     }
 }

@@ -40,7 +40,12 @@ done
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 LOCK_FILE="$TARGET_HOME/.config/GlavaMP/wallpaper.lock"
 if [ -f "$LOCK_FILE" ]; then
+
+    META_SCRIPT="/usr/local/bin/GlavaMP/bing-fetch-meta.sh"
+    [ -f "$META_SCRIPT" ] && sudo -u "$TARGET_USER" bash "$META_SCRIPT" >> /dev/null 2>&1 &
     exit 0
+
+
 fi
 CONFIG_FILE="$TARGET_HOME/.config/bing-glava/config"
 PICTURES_DIR="$TARGET_HOME/Pictures/Bing"
@@ -125,4 +130,10 @@ if pgrep -u "$TARGET_USER" -x "cinnamon" > /dev/null; then
         gsettings set org.cinnamon.desktop.background picture-uri "file://$FULL_PATH" 2>/dev/null
     sudo -u "$TARGET_USER" DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
         gsettings set org.cinnamon.desktop.background picture-options 'zoom' 2>/dev/null
+fi
+
+# --- KROK 7: Pobierz metadane i miniatury dla wszystkich regionów ---
+META_SCRIPT="/usr/local/bin/GlavaMP/bing-fetch-meta.sh"
+if [ -f "$META_SCRIPT" ]; then
+    sudo -u "$TARGET_USER" bash "$META_SCRIPT" >> /dev/null 2>&1 &
 fi

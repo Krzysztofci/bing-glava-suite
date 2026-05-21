@@ -216,6 +216,11 @@ cp "$SCRIPT_DIR/scripts/bing-downloader.sh" /usr/local/bin/bing-downloader.sh
 chmod 755 /usr/local/bin/bing-downloader.sh
 chown root:root /usr/local/bin/bing-downloader.sh
 info "Installed: /usr/local/bin/bing-downloader.sh"
+mkdir -p /usr/local/bin/GlavaMP
+cp "$SCRIPT_DIR/scripts/bing-fetch-meta.sh" /usr/local/bin/GlavaMP/bing-fetch-meta.sh
+chmod 755 /usr/local/bin/GlavaMP/bing-fetch-meta.sh
+chown root:root /usr/local/bin/GlavaMP/bing-fetch-meta.sh
+info "Installed: /usr/local/bin/GlavaMP/bing-fetch-meta.sh"
 
 # =============================================================================
 # STEP 6: User scripts → ~/.local/bin/
