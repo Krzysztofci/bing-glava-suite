@@ -232,7 +232,7 @@ class GlavaGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_window(self):
-        self.root.title(self.T.get("title", "GLava Control Center"))
+        self.root.withdraw()
         self.root.resizable(True, True)
         self.root.minsize(WIN_W_MIN, WIN_H_MIN)
 
@@ -412,26 +412,6 @@ class GlavaGUI:
         self.root.after(50, self._show_main)
         self._sync_processes_from_pids()
 
-    # PRZED:
-    def _sync_processes_from_pids(self):
-        """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
-        print(f"DEBUG sync instances={list(self.instances.keys())} processes={list(self.processes.keys())}")
-        from gui.glava import adopt_instance
-        for iid in list(self.instances.keys()):
-            current = self.processes.get(iid)
-            # Sprawdź czy aktualny proc jeszcze żyje
-            if current is not None and current.poll() is not None:
-                self.processes[iid] = None
-                current = None
-            # Jeśli brak proc — spróbuj adoptować z PID pliku
-            if current is None:
-                _pid, proc = adopt_instance(iid)
-                if proc is not None:
-                    self.processes[iid] = proc
-        # Powtarzaj co 3 sekundy
-        self.root.after(3000, self._sync_processes_from_pids)
-
-# PO:
     def _sync_processes_from_pids(self):
         """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
         from gui.glava import adopt_instance, read_pid
@@ -840,6 +820,9 @@ class GlavaGUI:
     def _on_close(self):
         self._save_window_state()
         self._save_active_instance()
+        for after_id in str(self.root.tk.call("after", "info")).split():
+            try: self.root.after_cancel(after_id)
+            except: pass
         self.root.destroy()
 
     def _save_active_instance(self):
