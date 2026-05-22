@@ -361,7 +361,9 @@ class TabMain:
         # Tytuł i copyright
         title = region_meta.get("title", "—")
         if title in ("Info", "", "—"):
-            title = meta.get("en-US", {}).get("title", "—")
+            copyright = region_meta.get("copyright", "")
+            idx = copyright.find(" (©")
+            title = copyright[:idx] if idx > 0 else copyright
         self._wp_title_var.set(title)
         self._wp_copy_var.set(region_meta.get("copyright", "—"))
         # Miniatura

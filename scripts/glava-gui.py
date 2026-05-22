@@ -17,7 +17,8 @@
 # =============================================================================
 
 import tkinter as tk
-from tkinter import ttk
+
+from tkinter import ttk, messagebox
 import os
 import sys
 import json
@@ -347,6 +348,8 @@ class GlavaGUI:
             on_add=self._on_inst_add,
             on_close=self._on_inst_close,
             on_action=self._on_inst_action,
+            on_save_workspace=self._save_workspace,
+            on_load_workspace=self._load_workspace,
             content_parent=self.main_border,
         )
         self.inst_bar.pack(side="left", fill="x", expand=True)
@@ -641,6 +644,10 @@ class GlavaGUI:
             if inst_id == self._active_inst_id:
                 self.active_module = module
                 self.rebuild_module_tab()
+        elif action == "save_workspace":
+            self._save_workspace()
+        elif action == "load_workspace":
+            self._load_workspace()
 
     # ─────────────────────────────────────────────────────────────────────────
     # API dla tab_main / tab_module — operują na active_instance
@@ -806,6 +813,122 @@ class GlavaGUI:
             self.root.after_cancel(self._resize_after)
         self._resize_after = self.root.after(500, self._save_window_state)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Workspace save/load
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _save_workspace(self):
+        import json, datetime
+
+        # Dialog TTK
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.T.get("workspace_save", "Zapisz workspace"))
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+        ttk.Label(dlg, text=self.T.get("workspace_name", "Nazwa workspace:")).pack(padx=20, pady=(15, 4), anchor="w")
+        name_var = tk.StringVar()
+        entry = ttk.Entry(dlg, textvariable=name_var, width=30)
+        entry.pack(padx=20, pady=(0, 10))
+        entry.focus_set()
+        result = [None]
+        def _ok():
+            result[0] = name_var.get().strip()
+            dlg.destroy()
+        def _cancel():
+            dlg.destroy()
+        btn_row = ttk.Frame(dlg)
+        btn_row.pack(padx=20, pady=(0, 15), fill="x")
+        ttk.Button(btn_row, text="OK", style="Accent.TButton", command=_ok).pack(side="left", expand=True, fill="x", padx=(0, 4))
+        ttk.Button(btn_row, text=self.T.get("btn_cancel", "Anuluj"), command=_cancel).pack(side="left", expand=True, fill="x")
+        entry.bind("<Return>", lambda e: _ok())
+        entry.bind("<Escape>", lambda e: _cancel())
+        dlg.wait_window()
+        name = result[0]
+        if not name:
+            return
+
+        ws_dir = os.path.join(os.path.expanduser("~"), ".config", "GlavaMP", "workspaces")
+        os.makedirs(ws_dir, exist_ok=True)
+        ws = {
+            "name": name,
+            "created": datetime.datetime.now().isoformat(),
+            "gradient_mode": self.settings.get("gradient_mode", "rgb"),
+            "bing_region": __import__("gui.core", fromlist=["read_bing_config"]).read_bing_config().get("BING_REGION", "de-DE"),
+            "instances": []
+        }
+        from gui.instance import GlavaInstance
+        from gui.colors import read_colors_from_frag
+        from gui.geometry import read_geometry
+        from gui.modules.glsl_io import read_all_defines
+        for iid in list(self.instances.keys()):
+            inst = GlavaInstance(iid)
+            module = self._inst_modules.get(iid, self.active_module)
+            colors = read_colors_from_frag(inst.module_frag(module)) or {}
+            geo    = read_geometry(inst.rc_glsl) or (0, 0, 0, 0)
+            glsl_files = {}
+            for glsl_name in [f"{module}.glsl", "rc.glsl", "smooth_parameters.glsl"]:
+                glsl_path = os.path.join(inst.glava_dir, glsl_name)
+                if os.path.exists(glsl_path):
+                    glsl_files[glsl_name] = read_all_defines(glsl_path)
+            ws["instances"].append({
+                "inst_id": iid,
+                "name":    self.inst_bar._tabs.get(iid, {}).get("label", f"inst-{iid}"),
+                "module":  module,
+                "colors":  colors,
+                "geometry": {"x": geo[0], "y": geo[1], "w": geo[2], "h": geo[3]},
+                "glsl":    glsl_files,
+            })
+        ws_path = os.path.join(ws_dir, f"{name}.json")
+        with open(ws_path, "w", encoding="utf-8") as f:
+            json.dump(ws, f, ensure_ascii=False, indent=2)
+        self.update_status()
+
+    def _load_workspace(self):
+        import json
+        ws_dir = os.path.join(os.path.expanduser("~"), ".config", "GlavaMP", "workspaces")
+        os.makedirs(ws_dir, exist_ok=True)
+        files = sorted(f for f in os.listdir(ws_dir) if f.endswith(".json"))
+        if not files:
+            messagebox.showinfo("", self.T.get("workspace_empty", "Brak zapisanych workspace."))
+            return
+        names = [f[:-5] for f in files]
+
+        # Dialog TTK z listą
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.T.get("workspace_load", "Wczytaj workspace"))
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+        ttk.Label(dlg, text=self.T.get("workspace_choose", "Wybierz workspace:")).pack(padx=20, pady=(15, 4), anchor="w")
+        lb = tk.Listbox(dlg, height=8, width=30, selectmode="single")
+        lb.pack(padx=20, pady=(0, 10))
+        for n in names:
+            lb.insert("end", n)
+        lb.selection_set(0)
+        result = [None]
+        def _ok():
+            sel = lb.curselection()
+            if sel:
+                result[0] = names[sel[0]]
+            dlg.destroy()
+        def _cancel():
+            dlg.destroy()
+        btn_row = ttk.Frame(dlg)
+        btn_row.pack(padx=20, pady=(0, 15), fill="x")
+        ttk.Button(btn_row, text="OK", style="Accent.TButton", command=_ok).pack(side="left", expand=True, fill="x", padx=(0, 4))
+        ttk.Button(btn_row, text=self.T.get("btn_cancel", "Anuluj"), command=_cancel).pack(side="left", expand=True, fill="x")
+        lb.bind("<Double-Button-1>", lambda e: _ok())
+        lb.bind("<Return>", lambda e: _ok())
+        lb.bind("<Escape>", lambda e: _cancel())
+        dlg.wait_window()
+        name = result[0]
+        if not name:
+            return
+        fname = os.path.join(ws_dir, name + ".json")
+        with open(fname, encoding="utf-8") as f:
+            ws = json.load(f)
+        messagebox.showinfo("", self.T.get("workspace_loaded", f"Wczytano: {name}"))
     def _save_window_state(self):
         try:
             geo = self.root.geometry()

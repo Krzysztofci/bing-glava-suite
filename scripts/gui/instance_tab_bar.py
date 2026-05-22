@@ -49,6 +49,7 @@ class InstanceTabBar(ttk.Frame):
                  on_select=None,
                  on_add=None,
                  on_load_workspace=None,
+                 on_save_workspace=None,
                  on_close=None,
                  on_action=None,
                  modules=None,
@@ -59,6 +60,7 @@ class InstanceTabBar(ttk.Frame):
         self._on_select         = on_select
         self._on_add            = on_add
         self._on_load_workspace = on_load_workspace
+        self._on_save_workspace = on_save_workspace
         self._on_close          = on_close
         self._on_action         = on_action
         self._modules           = modules or _GLAVA_MODULES
@@ -136,6 +138,19 @@ class InstanceTabBar(ttk.Frame):
         )
         # sticky="s" trzyma przycisk przy dolnej krawędzi wiersza
         self._btn_add.grid(row=0, column=1, sticky="s", padx=2, pady=(0, 2))
+        style.configure("TabWS.Toolbutton", padding=[4, 0], relief="flat", borderwidth=0, font=("TkDefaultFont", 10, "bold"))
+        self._btn_save_ws = ttk.Button(
+            tab_row, text="🖫",
+            style="TabWS.Toolbutton", width=2,
+            command=lambda: self._call("on_save_workspace")
+        )
+        self._btn_save_ws.grid(row=0, column=2, sticky="s", padx=2, pady=(0, 2))
+        self._btn_load_ws = ttk.Button(
+            tab_row, text="🗁",
+            style="TabWS.Toolbutton", width=2,
+            command=lambda: self._call("on_load_workspace")
+        )
+        self._btn_load_ws.grid(row=0, column=3, sticky="s", padx=2, pady=(0, 2))
 
         # 4. SEPARATOR w GRIDzie (row 1)
         self._line = tk.Frame(self.nav_container, height=1, bg=border_color)

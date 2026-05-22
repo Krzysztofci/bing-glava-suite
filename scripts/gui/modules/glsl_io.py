@@ -321,3 +321,14 @@ def tip(parent, label, text):
     lbl.bind("<Enter>", show)
     lbl.bind("<Leave>", hide)
     return lbl
+
+def read_all_defines(path):
+    """Czyta wszystkie #define z pliku .glsl. Zwraca dict {klucz: wartość_str}."""
+    result = {}
+    if not os.path.exists(path):
+        return result
+    with open(path) as f:
+        content = f.read()
+    for m in re.finditer(r'^#define\s+(\w+)\s+(\S+)', content, re.MULTILINE):
+        result[m.group(1)] = m.group(2)
+    return result
