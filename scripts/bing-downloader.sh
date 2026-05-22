@@ -42,7 +42,7 @@ LOCK_FILE="$TARGET_HOME/.config/GlavaMP/wallpaper.lock"
 if [ -f "$LOCK_FILE" ]; then
 
     META_SCRIPT="/usr/local/bin/GlavaMP/bing-fetch-meta.sh"
-    [ -f "$META_SCRIPT" ] && sudo -u "$TARGET_USER" bash "$META_SCRIPT" >> /dev/null 2>&1 &
+    [ -f "$META_SCRIPT" ] && sudo -u "$TARGET_USER" bash "$META_SCRIPT" "$TARGET_USER" >> /dev/null 2>&1 &
     exit 0
 
 
@@ -135,5 +135,5 @@ fi
 # --- KROK 7: Pobierz metadane i miniatury dla wszystkich regionów ---
 META_SCRIPT="/usr/local/bin/GlavaMP/bing-fetch-meta.sh"
 if [ -f "$META_SCRIPT" ]; then
-    sudo -u "$TARGET_USER" bash "$META_SCRIPT" >> /dev/null 2>&1 &
+    sudo -u "$TARGET_USER" bash "$META_SCRIPT" "$TARGET_USER" >> /dev/null 2>&1 &
 fi

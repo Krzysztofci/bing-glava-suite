@@ -6,7 +6,9 @@
 # Uruchamiany przez cron lub ręcznie.
 # =============================================================================
 
-PICTURES_DIR="$HOME/Pictures/Bing"
+TARGET_USER="${1:-$(whoami)}"
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+PICTURES_DIR="$TARGET_HOME/Pictures/Bing"
 THUMBS_DIR="$PICTURES_DIR/thumbs"
 META_FILE="$PICTURES_DIR/metadata.json"
 BING_REGIONS=("de-DE" "en-US" "en-GB" "fr-FR" "es-ES" "it-IT" "pt-BR" "ja-JP" "zh-CN" "pl-PL")
@@ -108,7 +110,7 @@ thumbs_dir = '$THUMBS_DIR'
 try:
     with open(meta_file) as f:
         old = json.load(f)
-    active_thumbs = set(v.get('thumb_file','') for v in old.values())
+    active_thumbs = set()
 except:
     active_thumbs = set()
 
