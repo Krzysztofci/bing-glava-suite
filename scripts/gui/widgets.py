@@ -64,6 +64,7 @@ class SimpleSlider(tk.Frame):
                                 variable=self._var,
                                 command=self._on_cmd)
         self._scale.pack(side="left", fill="x", expand=True)
+        self._scale.bind("<ButtonRelease-1>", self._on_release)
 
         self._entry_var = tk.StringVar(value=self._fmt(float(value)))
         self._entry = ttk.Entry(self, textvariable=self._entry_var,
@@ -83,9 +84,10 @@ class SimpleSlider(tk.Frame):
         self._value = fv
         self._var.set(fv)
         self._entry_var.set(self._fmt(fv))
-        if self.on_change:
-            self.on_change(fv)
 
+    def _on_release(self, e):
+        if self.on_change:
+            self.on_change(self._value)
     def _on_entry(self, e):
         try:
             fv = float(self._entry_var.get())
