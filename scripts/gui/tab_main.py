@@ -107,21 +107,15 @@ class TabMain:
         apply_row.pack(fill="x", pady=(0, 3))
         ttk.Button(apply_row, text=T.get("btn_apply_manual", "Apply colors (manual mode)"),
                    command=self._apply_colors,
-                   style="Accent.TButton").pack(side="left", fill="x", expand=True, padx=(0, 4))
-        self.all_inst_colors_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(apply_row, text=T.get("chk_all_instances", "Wszystkie"),
-                        variable=self.all_inst_colors_var).pack(side="left")
+                   style="Accent.TButton").pack(fill="x")
         restore_row = ttk.Frame(lf)
         restore_row.pack(fill="x", pady=(0, 3))
         ttk.Button(restore_row, text=T.get("btn_sync_wallpaper", "Sync with Wallpaper (auto mode)"),
-                   command=self._restore_auto).pack(side="left", fill="x", expand=True, padx=(0, 4))
-        self.all_inst_restore_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(restore_row, text=T.get("chk_all_instances", "Wszystkie"),
-                        variable=self.all_inst_restore_var).pack(side="left")
+                   command=self._restore_auto).pack(fill="x")
         ttk.Button(lf, text=T.get("btn_capture", "Capture current from screen"),
-                   command=self._capture_colors).pack(fill="x", pady=(0, 5))
+                   command=self._capture_colors).pack(fill="x", pady=(0, 3))
         grad_row = ttk.Frame(lf)
-        grad_row.pack(fill="x")
+        grad_row.pack(fill="x", pady=(0, 3))
         ttk.Label(grad_row, text=T.get("label_gradient", "Gradient:")).pack(side="left")
         self.gradient_var = tk.StringVar(value=self.gradient_mode)
         for val, lbl in (("rgb", "RGB"), ("hsv", "HSV")):
@@ -131,6 +125,9 @@ class TabMain:
         self.hsv_warn = tk.Label(grad_row, text="", fg="#e65100")
         self.hsv_warn.pack(side="left")
         self._update_hsv_warn()
+        self.all_inst_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(grad_row, text=T.get("chk_all_instances", "Wszystkie"),
+                        variable=self.all_inst_var).pack(side="right")
         # Profile kolorów
         lf = ttk.LabelFrame(col, text=T.get("section_profiles", "Color profiles"),
                             padding=(15, 10))
@@ -281,18 +278,20 @@ class TabMain:
     def _start_meta_watch(self):
         if not os.path.exists(core.BING_METADATA):
             return
-        self._meta_watcher = subprocess.Popen(
-            ["inotifywait", "-e", "close_write", core.BING_METADATA],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        self.app.root.after(1000, self._check_meta_watcher)
+        self._meta_watch_active = True
+        import threading
+        t = threading.Thread(target=self._meta_watch_thread, daemon=True)
+        t.start()
 
-    def _check_meta_watcher(self):
-        if self._meta_watcher.poll() is not None:
-            self._load_wp_thumbnail()
-            self._start_meta_watch()
-        else:
-            self.app.root.after(1000, self._check_meta_watcher)
+    def _meta_watch_thread(self):
+        while getattr(self, "_meta_watch_active", False):
+            proc = subprocess.Popen(
+                ["inotifywait", "-e", "close_write", core.BING_METADATA],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            proc.wait()
+            if getattr(self, "_meta_watch_active", False):
+                self.app.root.after(0, self._load_wp_thumbnail)
 
     def refresh_geometry(self):
         rc_path = (self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else None) or core.RC_GLSL
@@ -300,6 +299,9 @@ class TabMain:
         if geo and hasattr(self, "geo_vars"):
             for k, v in zip(("x", "y", "w", "h"), geo):
                 self.geo_vars[k].set(str(v))
+
+    def destroy(self):
+        self._meta_watch_active = False
 
     def _apply_module(self):
         module = self.module_var.get()
@@ -428,8 +430,7 @@ class TabMain:
             self._save_last_session()
 
     def _apply_colors(self):
-        all_inst = (hasattr(self, "all_inst_colors_var") and
-                    self.all_inst_colors_var.get())
+        all_inst = self.all_inst_var.get() if hasattr(self, "all_inst_var") else False
 
         if all_inst and hasattr(self.app, "instances"):
             any_err = False
@@ -498,12 +499,33 @@ class TabMain:
         self.app.settings["gradient_mode"] = mode
         from .core import save_settings
         save_settings(self.app.settings)
-        set_gradient_mode(
-            self.app.active_module, mode,
-            live_path=self._live_frag(),
-            tmpl_path=self._tmpl_frag(),
-        )
-        if hasattr(self.app, 'restart_active_instance'):
+        all_inst = self.all_inst_var.get() if hasattr(self, "all_inst_var") else False
+        targets = (list(self.app.instances.items())
+                   if all_inst and hasattr(self.app, "instances")
+                   else [(self.app._active_inst_id, self.app.active_instance)])
+        for iid, inst in targets:
+            if inst is None:
+                continue
+            set_gradient_mode(
+                self.app._inst_modules.get(iid, self.app.active_module), mode,
+                live_path=inst.module_frag(self.app._inst_modules.get(iid, self.app.active_module)),
+                tmpl_path=inst.module_tmpl(self.app._inst_modules.get(iid, self.app.active_module)),
+            )
+        if all_inst and hasattr(self.app, 'instances'):
+            prev_iid  = self.app._active_inst_id
+            prev_inst = self.app.active_instance
+            for iid, inst in list(self.app.instances.items()):
+                if inst is None:
+                    continue
+                self.app._active_inst_id  = iid
+                self.app.active_instance  = inst
+                self.app.restart_active_instance(
+                    module=self.app._inst_modules.get(iid, self.app.active_module),
+                    after_fn=None)
+            self.app._active_inst_id = prev_iid
+            self.app.active_instance = prev_inst
+            self.app.update_status()
+        elif hasattr(self.app, 'restart_active_instance'):
             self.app.restart_active_instance(after_fn=self.app.update_status)
         else:
             glava_restart(self.app.active_module, after_fn=self.app.update_status)
@@ -605,8 +627,9 @@ class TabMain:
                                                 "Błąd analizy tapety."))
             return
 
-        all_inst = (hasattr(self, "all_inst_restore_var") and
-                    self.all_inst_restore_var.get())
+        all_inst = self.all_inst_var.get() if hasattr(self, "all_inst_var") else False
+
+
         targets = (list(self.app.instances.items())
                    if all_inst and hasattr(self.app, "instances")
                    else [(self.app._active_inst_id, self.app.active_instance)])
