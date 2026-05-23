@@ -22,6 +22,12 @@ else
     OLD_META="{}"
 fi
 
+# Sprawdz polaczenie sieciowe
+if ! curl -s --connect-timeout 5 "https://www.bing.com" > /dev/null 2>&1; then
+    echo "Brak polaczenia z siecia. Pomijam aktualizacje miniatur."
+    exit 0
+fi
+
 NEW_META="{}"
 
 for REGION in "${BING_REGIONS[@]}"; do

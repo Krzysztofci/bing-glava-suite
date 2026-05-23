@@ -550,13 +550,18 @@ class GlavaGUI:
                 update_instance(iid, name=actual_label)
             except Exception:
                 pass
-
         # Uruchom GLava dla nowej instancji
         def _after_start(proc):
             self.processes[iid] = proc
             self.root.after(0, self.update_status)
-
         if start:
+            from gui.core import GLAVA_DISABLE_FLAG
+            if os.path.exists(GLAVA_DISABLE_FLAG):
+                try:
+                    os.remove(GLAVA_DISABLE_FLAG)
+                except FileNotFoundError:
+                    pass
+                self.glava_enabled_var.set(True)
             glava_restart_instance(
                 instance=inst,
                 module=module_name,
