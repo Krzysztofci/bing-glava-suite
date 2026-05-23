@@ -527,9 +527,8 @@ class GlavaGUI:
         if hasattr(self, "_tab_main_ref"):
             self._tab_main_ref.refresh_active_instance()
 
-    def _on_inst_add(self, module_name, source_inst=None):
-        """
-        Tworzy nową instancję.
+    def _on_inst_add(self, module_name, source_inst=None, start=True):
+        """"Tworzy nową instancję.
         source_inst — GlavaInstance źródłowa (duplikowanie); None = szablon.
         """
         iid  = next_inst_id()
@@ -557,12 +556,13 @@ class GlavaGUI:
             self.processes[iid] = proc
             self.root.after(0, self.update_status)
 
-        glava_restart_instance(
-            instance=inst,
-            module=module_name,
-            proc=self.processes.get(iid),
-            after_fn=_after_start,
-        )
+        if start:
+            glava_restart_instance(
+                instance=inst,
+                module=module_name,
+                proc=self.processes.get(iid),
+                after_fn=_after_start,
+            )
 
     def _on_inst_close(self, inst_id):
         """
@@ -928,7 +928,49 @@ class GlavaGUI:
         fname = os.path.join(ws_dir, name + ".json")
         with open(fname, encoding="utf-8") as f:
             ws = json.load(f)
-        messagebox.showinfo("", self.T.get("workspace_loaded", f"Wczytano: {name}"))
+        # Wczytaj ustawienia globalne
+        self.settings["gradient_mode"] = ws.get("gradient_mode", "rgb")
+        from gui.core import save_settings
+        save_settings(self.settings)
+
+        # Wczytaj per instancja
+        from gui.instance import GlavaInstance
+        from gui.modules.glsl_io import write_define_raw
+        from gui.geometry import write_geometry
+        # Zamknij wszystkie obecne instancje
+        for iid in list(self.instances.keys()):
+            self._on_inst_close(iid)
+        # Utwórz nowe instancje według workspace
+        for inst_data in ws.get("instances", []):
+            module = inst_data.get("module", "bars")
+            self._on_inst_add(module, start=False)
+            iid = max(self.instances.keys())
+            from gui.instance import GlavaInstance
+            from gui.modules.glsl_io import write_define_raw
+            from gui.geometry import write_geometry
+            inst = GlavaInstance(iid)
+            for glsl_name, defines in inst_data.get("glsl", {}).items():
+                glsl_path = os.path.join(inst.glava_dir, glsl_name)
+                if os.path.exists(glsl_path):
+                    for key, val in defines.items():
+                        write_define_raw(glsl_path, key, val)
+            geo = inst_data.get("geometry", {})
+            if geo:
+                write_geometry(inst.rc_glsl,
+                               geo["x"], geo["y"], geo["w"], geo["h"])
+            colors = inst_data.get("colors", {})
+            if colors:
+                from gui.colors import write_colors_to_frag
+                gradient = ws.get("gradient_mode", "rgb")
+                write_colors_to_frag(module, colors, gradient,
+                                     live_path=inst.module_frag(module),
+                                     tmpl_path=inst.module_tmpl(module))
+            self._active_inst_id = iid
+            self.active_instance = inst
+            self.rebuild_module_tab()
+            self.restart_active_instance(module=module, after_fn=None)
+        self.update_status()
+        messagebox.showinfo("", f"Wczytano: {name}")
     def _save_window_state(self):
         try:
             geo = self.root.geometry()
