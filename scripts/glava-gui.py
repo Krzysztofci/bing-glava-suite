@@ -352,37 +352,44 @@ class GlavaGUI:
         # ── Aktywny panel — domyslnie Main po pelnym renderze
         self._active_panel = "instances"
         self.root.after(50, self._show_main)
-        self._sync_processes_from_pids()
+        self._start_pid_watch()
 
-    def _sync_processes_from_pids(self):
-        """Synchronizuje self.processes z plikami PID — daemon mógł zmienić procesy."""
+    def _start_pid_watch(self):
+        import threading
+        self._pid_watch_active = True
+        t = threading.Thread(target=self._pid_watch_thread, daemon=True)
+        t.start()
+
+    def _pid_watch_thread(self):
+        import subprocess
+        pid_dir = os.path.join(os.path.expanduser("~"), ".config/GlavaMP")
+        while getattr(self, "_pid_watch_active", False):
+            proc = subprocess.Popen(
+                ["inotifywait", "-e", "close_write", "-e", "delete", pid_dir],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            proc.wait()
+            if getattr(self, "_pid_watch_active", False):
+                self.root.after(0, self._sync_once)
+
+    def _sync_once(self):
         from gui.glava import adopt_instance, read_pid
         for iid in list(self.instances.keys()):
             current = self.processes.get(iid)
             file_pid = read_pid(iid)
-
-            # Sprawdź czy aktualny proc zgadza się z PID w pliku
             if current is not None:
-                current_pid = getattr(current, 'pid', None)
+                current_pid = getattr(current, "pid", None)
                 if current.poll() is not None:
-                    # Proces martwy
                     self.processes[iid] = None
                     current = None
                 elif file_pid is not None and current_pid != file_pid:
-                    # Daemon zmienił proces — adoptuj nowy
                     self.processes[iid] = None
                     current = None
-
-            # Jeśli brak proc — spróbuj adoptować z PID pliku
             if current is None:
                 _pid, proc = adopt_instance(iid)
                 if proc is not None:
                     self.processes[iid] = proc
-
-        # Powtarzaj co 3 sekundy
-        self.root.after(3000, self._sync_processes_from_pids)
-    
-
+        self.root.after(0, self.update_status)
     # ─────────────────────────────────────────────────────────────────────────
     # Budowanie zawartości zakładki instancji
     # ─────────────────────────────────────────────────────────────────────────
@@ -517,7 +524,8 @@ class GlavaGUI:
         """
         # Zatrzymaj tylko ten proces i usun jego PID
         proc = self.processes.pop(inst_id, None)
-        glava_stop_instance(proc)
+        import threading
+        threading.Thread(target=glava_stop_instance, args=(proc,), daemon=True).start()
         clear_pid(inst_id)
 
         # Usuń zakładkę z UI
@@ -906,6 +914,7 @@ class GlavaGUI:
 
     def _on_close(self):
         self._save_window_state()
+        self._pid_watch_active = False
         self._save_active_instance()
         for after_id in str(self.root.tk.call("after", "info")).split():
             try: self.root.after_cancel(after_id)
