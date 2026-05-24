@@ -6,10 +6,10 @@
 # =============================================================================
 
 import tkinter as tk
-from tkinter import ttk, messagebox, colorchooser
+from tkinter import ttk, messagebox
 import os, re, subprocess
 
-from .core import BIN_DIR, RC_GLSL
+from .core import RC_GLSL
 from .geometry import get_screen_info
 from .modules import glsl_io
 

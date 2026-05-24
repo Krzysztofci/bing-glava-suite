@@ -13,7 +13,7 @@ import re
 import threading
 import time
 
-from .core import RC_GLSL, FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK, BIN_DIR
+from .core import RC_GLSL, FLAG_RED, FLAG_MANUAL, BIN_DIR
 
 AUTOSTART_FILE  = os.path.expanduser("~/.config/autostart/glava.desktop")
 _PID_DIR        = os.path.expanduser("~/.config/GlavaMP")

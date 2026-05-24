@@ -4,8 +4,8 @@
 # konfiguracyjnym. Fundament architektury multi-instancji.
 # =============================================================================
 import os
-#import glob
 import shutil
+import json
 
 USER_HOME = os.path.expanduser("~")
 
@@ -149,7 +149,6 @@ class GlavaInstance:
 # Rejestr instancji — instances.json
 # =============================================================================
 
-import json
 
 INSTANCES_FILE = os.path.join(USER_HOME, ".config/GlavaMP/instances.json")
 
