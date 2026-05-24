@@ -441,7 +441,7 @@ class TabAdvanced:
                         glava_stop_instance(p)
                         time.sleep(0.5)
                         new_proc = glava_start(instance=ins)
-                        self.app.processes[i] = new_proc
+                        self.app.root.after(0, lambda i=i, p=new_proc: self.app.processes.update({i: p}))
                     t = threading.Thread(target=_do, daemon=True)
                     threads.append(t)
                 for t in threads:
