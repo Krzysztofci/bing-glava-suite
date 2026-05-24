@@ -29,7 +29,7 @@ import subprocess
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, _SCRIPT_DIR)
 
-from gui.theme   import apply_theme, COLORS, TFrame, TLabel, TSeparator, get_theme_names
+from gui.theme   import apply_theme
 from gui.widgets import _ensure_shift_style
 from gui.core    import (
     load_settings, save_settings, load_lang, available_langs,
@@ -38,9 +38,9 @@ from gui.core    import (
     CONFIG_DIR,
 )
 from gui.glava   import (
-    glava_is_running, glava_start,
-    glava_stop_instance, glava_restart_instance, glava_stop_all,
-    adopt_instance, write_pid, clear_pid, read_pid, is_pid_running,
+    glava_is_running,
+    glava_stop_instance, glava_restart_instance,
+    adopt_instance, clear_pid, read_pid,
     read_rc_module,
 )
 from gui.instance import (
@@ -166,67 +166,6 @@ class GlavaGUI:
 
             cleaned.append(entry)
 
-        save_instances(cleaned)
-
-#    def _load_saved_instances(self):
-#        """
-#        Wczytuje rejestr instancji z instances.json i odtwarza
-#        self.instances / self.processes / self._inst_modules.
-#        Instancje, których katalog konfiguracyjny nie istnieje, są pomijane
-#        i usuwane z rejestru (sprzątanie po nieprawidłowym zamknięciu).
-#        """
-#        from gui.instance import load_instances, save_instances
-#
-#        saved   = load_instances()          # [{inst_id, name, module, active}, ...]
-#        cleaned = []
-#
-#        for entry in saved:
-#            iid    = entry["inst_id"]
-#            inst   = GlavaInstance(iid)
-#
-#            # inst_id=0 zawsze jest ważna (domyślny ~/.config/glava)
-#            if iid != 0 and not inst.exists():
-#                continue    # katalog zniknął — pomijamy, nie dodajemy do cleaned
-#
-#            # Zrodlo prawdy: rc.glsl instancji
-#            # Fallback 1: instances.json
-#            # Fallback 2: aktywny modul globalny (tylko dla inst 0)
-#            # NIGDY nie uzywamy hardkodowanego "bars"
-#            rc_module  = read_rc_module(inst.rc_glsl)
-#            json_module = entry.get("module")
-#            if rc_module:
-#                module = rc_module
-#            elif json_module and json_module in GLAVA_MODULES:
-#                module = json_module
-#            elif iid == 0:
-#                module = read_active_module() or GLAVA_MODULES[0]
-#            else:
-#                module = GLAVA_MODULES[0]
-#            entry["module"] = module   # zaktualizuj wpis do zapisu
-#
-#            self.instances[iid]     = inst
-#            self._inst_modules[iid] = module
-#
-#            # Sprobuj adoptowac istniejacy proces (z autostartu lub poprzedniej sesji)
-#            _pid, adopted_proc = adopt_instance(iid)
-#            if adopted_proc is not None:
-#                self.processes[iid] = adopted_proc
-#            else:
-#                self.processes[iid] = None
-#
-#            cleaned.append(entry)
-#
-#        # Upewnij się że inst 0 zawsze jest
-#        if 0 not in self.instances:
-#            inst0 = GlavaInstance(0)
-#            self.instances[0]     = inst0
-#            self.processes[0]     = None
-#            self._inst_modules[0] = self.active_module
-#            cleaned.insert(0, {"inst_id": 0, "name": "Default",
-#                                "module": self.active_module, "active": True})
-#
-#        # Zapisz oczyszczony rejestr (usuwa instancje bez katalogu)
-#        save_instances(cleaned)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Okno
