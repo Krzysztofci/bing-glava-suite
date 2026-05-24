@@ -5,9 +5,9 @@
 # =============================================================================
 import os, math
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
+from ..core import SMOOTH_PARAMS
 from ..widgets import SimpleSlider
 from . import glsl_io
 from ..core import get_shader_profiles_for_module
@@ -279,7 +279,8 @@ class WaveParamWidget(BaseParamWidget):
                    command=self._save_profile).pack(side="left", expand=True,
                                                      fill="x", padx=(0, 2))
         ttk.Button(btn_row, text=self.T.get("btn_delete", "Usuń"),
-                   command=self._delete_profile).pack(side="left")
+                   command=self._delete_profile,
+                   style="Danger.TButton").pack(side="left")
 
         ttk.Button(lf, text=self.T.get("btn_reset_shader_wave", "Reset szadera wave"),
                    command=self._reset_shader,

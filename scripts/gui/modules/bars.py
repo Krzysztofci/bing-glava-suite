@@ -11,9 +11,9 @@
 
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
-from ..core import CONFIG_DIR, GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS
+from ..core import RC_GLSL, SMOOTH_PARAMS
 
 from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
                      COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
@@ -240,8 +240,7 @@ class BarsParamWidget(BaseParamWidget):
             btn_row,
             text=self.T.get("btn_delete", "Delete"),
             command=self._delete_profile,
-            # Styl z Twojego przykładu            
-        ).pack(side="left")
+            style="Danger.TButton").pack(side="left")
         ttk.Button(lf, text=self.T.get("btn_reset_shader_bars", "Reset bars shader"),
             command=self._reset_shader,
             style="Accent.TButton"
