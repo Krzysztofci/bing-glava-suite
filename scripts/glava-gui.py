@@ -715,36 +715,14 @@ class GlavaGUI:
         if self.active_instance is None:
             return None
         return self.active_instance.glava_dir
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Kompatybilność wsteczna (tab_main, tab_module, tab_advanced używają tych)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def _module_tab_label(self):
-        name = self.T.get(f"module_{self.active_module}", self.active_module.capitalize())
-        return f"{name} ✦"
-
+# ─────────────────────────────────────────────────────────────────────────
     def _on_tab_changed(self, event=None):
         pass  # zastąpione przez _on_inst_select
-
-    def _show_tab(self, key):
-        if key == "main":
-            self._show_main()
-        elif key == "advanced":
-            self._show_advanced()
-        else:
-            self._show_instances()
-
     def _refresh_module_tab_label(self):
         iid  = self._active_inst_id
         mod  = self._inst_modules.get(iid, self.active_module)
         name = self.T.get(f"module_{mod}", mod.capitalize())
         self.inst_bar.set_label(iid, f"{name} ✦")
-
-    def _populate_tabs(self):
-        """Kompatybilność wsteczna."""
-        self._populate_static_tabs()
-
     def rebuild_module_tab(self):
         """Przebudowuje zakładkę aktywnej instancji (po zmianie modułu)."""
         self._build_inst_frame(self._active_inst_id)
