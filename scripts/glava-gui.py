@@ -473,7 +473,7 @@ class GlavaGUI:
         if hasattr(self, "_tab_main_ref"):
             self._tab_main_ref.refresh_active_instance()
 
-    def _on_inst_add(self, module_name, source_inst=None, start=True):
+    def _on_inst_add(self, module_name, source_inst=None, start=True, label=None):
         """"Tworzy nową instancję.
         source_inst — GlavaInstance źródłowa (duplikowanie); None = szablon.
         """
@@ -486,7 +486,7 @@ class GlavaGUI:
         self.processes[iid]     = None
         self._inst_modules[iid] = module_name
 
-        self.inst_bar.add_tab(iid, module=module_name, select=True)
+        self.inst_bar.add_tab(iid, module=module_name, label=label, select=True)
         self._build_inst_frame(iid)
 
         # Synchronizuj faktyczną etykietę (wygenerowaną przez add_tab) do rejestru
@@ -784,7 +784,6 @@ class GlavaGUI:
             "name": name,
             "created": datetime.datetime.now().isoformat(),
             "gradient_mode": self.settings.get("gradient_mode", "rgb"),
-            "bing_region": __import__("gui.core", fromlist=["read_bing_config"]).read_bing_config().get("BING_REGION", "de-DE"),
             "instances": []
         }
         from gui.instance import GlavaInstance
@@ -867,13 +866,21 @@ class GlavaGUI:
         from gui.instance import GlavaInstance
         from gui.modules.glsl_io import write_define_raw
         from gui.geometry import write_geometry
+        # Włącz GLava jeśli był wyłączony
+        from gui.core import GLAVA_DISABLE_FLAG
+        if os.path.exists(GLAVA_DISABLE_FLAG):
+            try:
+                os.remove(GLAVA_DISABLE_FLAG)
+            except FileNotFoundError:
+                pass
+            self.glava_enabled_var.set(True)
         # Zamknij wszystkie obecne instancje
         for iid in list(self.instances.keys()):
             self._on_inst_close(iid)
         # Utwórz nowe instancje według workspace
         for inst_data in ws.get("instances", []):
             module = inst_data.get("module", "bars")
-            self._on_inst_add(module, start=False)
+            self._on_inst_add(module, start=False, label=inst_data.get("name"))
             iid = max(self.instances.keys())
             from gui.instance import GlavaInstance
             from gui.modules.glsl_io import write_define_raw
@@ -898,6 +905,9 @@ class GlavaGUI:
             self._active_inst_id = iid
             self.active_instance = inst
             self.rebuild_module_tab()
+            saved_name = inst_data.get("name")
+            if saved_name:
+                self.inst_bar.set_label(iid, saved_name)
             self.restart_active_instance(module=module, after_fn=None)
         self.update_status()
         messagebox.showinfo("", f"Wczytano: {name}")
