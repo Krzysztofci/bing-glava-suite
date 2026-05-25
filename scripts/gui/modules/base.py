@@ -343,8 +343,8 @@ def make_detachable_lf(parent, title, build_fn, current, root, on_close_fn):
     lf.pack(fill="x", padx=10, pady=10)
 
     def _place_icon(event=None):
-        btn = ttk.Label(lf, text=" ⊞ ", cursor="hand2")
-        btn.place(relx=1.0, x=-4, y=-30, anchor="ne")
+        btn = ttk.Label(lf, text=" ⧉ ", cursor="hand2", font=("TkDefaultFont", 12))
+        btn.place(relx=1.0, x=-4, y=-33, anchor="ne")
         btn.bind("<Button-1>",
                  lambda e: detach_section(title, build_fn, current,
                                           root, on_close_fn))
