@@ -1,4 +1,4 @@
-# Testing Guide — bing-glava-suite v0.5.0
+# Testing Guide — bing-glava-suite v1.0.0 (MULTI-INSTANCE)
 
 ---
 
