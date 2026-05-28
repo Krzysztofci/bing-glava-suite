@@ -88,7 +88,7 @@ def read_active_module():
 
 
 def write_active_module(module):
-    os.makedirs(CONFIG_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(ACTIVE_MODULE_FILE), exist_ok=True)
     with open(ACTIVE_MODULE_FILE, "w") as f:
         f.write(module)
 

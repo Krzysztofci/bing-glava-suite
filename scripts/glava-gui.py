@@ -522,11 +522,14 @@ class GlavaGUI:
         - usuwa katalog konfiguracyjny instancji
         - wyrejestrowuje z instances.json
         """
-        # Zatrzymaj tylko ten proces i usun jego PID
+        # Zatrzymaj tylko ten proces i usuń jego PID
+        # clear_pid wewnątrz wątku — po potwierdzeniu że proces zginął
         proc = self.processes.pop(inst_id, None)
+        def _stop_and_clear(_proc=proc, _iid=inst_id):
+            glava_stop_instance(_proc)   # synchroniczne — czeka na zakończenie
+            clear_pid(_iid)              # dopiero teraz usuwamy PID
         import threading
-        threading.Thread(target=glava_stop_instance, args=(proc,), daemon=True).start()
-        clear_pid(inst_id)
+        threading.Thread(target=_stop_and_clear, daemon=True).start()
 
         # Usuń zakładkę z UI
         self.inst_bar.remove_tab(inst_id)
@@ -582,16 +585,29 @@ class GlavaGUI:
             inst = self.instances.get(inst_id)
             if inst is None:
                 return
-            proc = self.processes.get(inst_id)
-            def _after(new_proc, _iid=inst_id):
-                self.processes[_iid] = new_proc
-                self.root.after(0, self.update_status)
-            glava_restart_instance(
-                instance=inst,
-                module=module,
-                proc=proc,
-                after_fn=_after,
-            )
+            # Debounce — anuluj poprzednie oczekujące wywołanie dla tej instancji
+            if not hasattr(self, "_shader_after"):
+                self._shader_after = {}
+            if inst_id in self._shader_after and self._shader_after[inst_id]:
+                try:
+                    self.root.after_cancel(self._shader_after[inst_id])
+                except Exception:
+                    pass
+                self._shader_after[inst_id] = None
+            def _do_change_shader(_iid=inst_id, _inst=inst, _module=module):
+                self._shader_after[_iid] = None
+                proc = self.processes.get(_iid)
+                self.processes[_iid] = None
+                def _after(new_proc, __iid=_iid):
+                    self.processes[__iid] = new_proc
+                    self.root.after(0, self.update_status)
+                glava_restart_instance(
+                    instance=_inst,
+                    module=_module,
+                    proc=proc,
+                    after_fn=_after,
+                )
+            self._shader_after[inst_id] = self.root.after(300, _do_change_shader)
             # Odbuduj zakładkę jeśli to aktywna instancja
             if inst_id == self._active_inst_id:
                 self.active_module = module
@@ -967,6 +983,13 @@ class GlavaGUI:
         """Włącza/wyłącza wszystkie instancje GLava bez zamykania zakładek."""
         from gui.core import GLAVA_DISABLE_FLAG
         from gui.glava import glava_stop_instance, glava_restart_instance
+
+        # Blokada przed race condition przy szybkim klikaniu.
+        # Kolejne kliknięcia podczas trwającej operacji są ignorowane.
+        if getattr(self, "_toggle_in_progress", False):
+            return
+        self._toggle_in_progress = True
+
         enabled = self.glava_enabled_var.get()
         if enabled:
             # Usuń flagę i uruchom wszystkie instancje
@@ -974,6 +997,8 @@ class GlavaGUI:
                 os.remove(GLAVA_DISABLE_FLAG)
             except FileNotFoundError:
                 pass
+            inst_count = [len(self.instances)]
+            _lock = __import__("threading").Lock()
             for iid, inst in self.instances.items():
                 module = self._inst_modules.get(iid, self.active_module)
                 proc   = self.processes.get(iid)
@@ -981,6 +1006,10 @@ class GlavaGUI:
                 def _after(new_proc, _iid=iid):
                     self.processes[_iid] = new_proc
                     self.root.after(0, self.update_status)
+                    with _lock:
+                        inst_count[0] -= 1
+                        if inst_count[0] == 0:
+                            self._toggle_in_progress = False
                 glava_restart_instance(instance=inst, module=module,
                                        proc=proc, after_fn=_after)
         else:
@@ -994,6 +1023,7 @@ class GlavaGUI:
             # Dodatkowo pkill na wypadek procesów poza kontrolą GUI
             import subprocess as _sp
             _sp.run(["pkill", "-x", "glava"], capture_output=True)
+            self._toggle_in_progress = False
             self.root.after(500, self.update_status)
 
     def _rebuild_advanced_tab(self):

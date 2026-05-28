@@ -41,8 +41,6 @@ def bars_widget(fake_app, tmp_glava_dir, monkeypatch):
     import gui.modules.base as base_mod
     import gui.core as core
     monkeypatch.setattr(core, "GLAVA_DIR", tmp_glava_dir)
-    monkeypatch.setattr(bars_mod, "GLAVA_DIR", tmp_glava_dir)
-    monkeypatch.setattr(base_mod, "GLAVA_DIR", tmp_glava_dir)
     T = core.load_lang("pl")
     frame = tk.Frame(fake_app.root)
     w = bars_mod.BarsParamWidget(frame, fake_app, T)

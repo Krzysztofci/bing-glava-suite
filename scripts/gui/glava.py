@@ -119,12 +119,26 @@ class _AdoptedProcess:
             pass
 
     def wait(self, timeout=None):
-        """Czeka az proces sie zakonczy."""
+        """
+        Czeka az proces sie zakonczy.
+        Uzywa /proc/<pid>/status zamiast os.kill — poprawnie wykrywa zombie
+        (procesy zakonczone ale nie zebrane przez rodzica).
+        """
         import time
         deadline = time.time() + (timeout or 5)
         while time.time() < deadline:
-            if not is_pid_running(self.pid):
+            proc_status = f"/proc/{self.pid}/status"
+            if not os.path.exists(proc_status):
                 return
+            try:
+                with open(proc_status) as f:
+                    for line in f:
+                        if line.startswith("State:"):
+                            if "Z" in line:  # zombie — faktycznie martwy
+                                return
+                            break
+            except OSError:
+                return  # proces zniknął w trakcie czytania
             time.sleep(0.1)
 
     def __repr__(self):
@@ -177,18 +191,37 @@ def glava_start(extra_flags=None, env=None, instance=None):
 def glava_stop_instance(proc):
     """
     Zatrzymuje konkretna instancje GLava podana jako Popen lub _AdoptedProcess.
-    Probuje SIGTERM, po 2s SIGKILL.
+    Strategia: SIGTERM → czeka az PID fizycznie zniknie z /proc → SIGKILL.
+    Gwarantuje ze proces nie zyje przed powrotem z funkcji.
     Usuwa plik PID jesli proc jest _AdoptedProcess.
     """
     if proc is None:
         return
+    pid = getattr(proc, "pid", None)
     try:
         if proc.poll() is None:
             proc.terminate()
-            try:
-                proc.wait(timeout=2)
-            except (subprocess.TimeoutExpired, Exception):
-                proc.kill()
+            # Czekaj az PID fizycznie zniknie — max 2s
+            if pid is not None:
+                deadline = time.time() + 2.0
+                while time.time() < deadline:
+                    try:
+                        os.kill(pid, 0)
+                        time.sleep(0.05)
+                    except (ProcessLookupError, OSError):
+                        break  # proces fizycznie zniknął
+                else:
+                    # Po 2s wciąż żyje — SIGKILL
+                    try:
+                        proc.kill()
+                        time.sleep(0.05)
+                    except (ProcessLookupError, OSError):
+                        pass
+            else:
+                try:
+                    proc.wait(timeout=2)
+                except (subprocess.TimeoutExpired, Exception):
+                    proc.kill()
     except OSError:
         pass
     # Usun plik PID

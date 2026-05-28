@@ -22,14 +22,14 @@ class GlavaInstance:
     Instancja 0 jest domyślna i wskazuje na oryginalny ~/.config/glava/.
     """
 
-    DEFAULT_GLAVA_DIR = os.path.join(USER_HOME, ".config/glava")
-    DEFAULT_CONF_DIR  = os.path.join(USER_HOME, ".config/GlavaMP")
-
-    def __init__(self, inst_id=0):
+    def __init__(self, inst_id=0, home=None):
         self.inst_id = inst_id
-        self.xdg_dir   = os.path.expanduser(f"~/.config/glava-inst-{inst_id}")
-        self.glava_dir = os.path.join(self.xdg_dir, "glava")
-        self.conf_dir  = os.path.expanduser(f"~/.config/GlavaMP/inst-{inst_id}")
+        _home = home or USER_HOME
+        self.xdg_dir          = os.path.join(_home, f".config/glava-inst-{inst_id}")
+        self.glava_dir        = os.path.join(self.xdg_dir, "glava")
+        self.conf_dir         = os.path.join(_home, f".config/GlavaMP/inst-{inst_id}")
+        self.DEFAULT_GLAVA_DIR = os.path.join(_home, ".config/glava")
+        self.DEFAULT_CONF_DIR  = os.path.join(_home, ".config/GlavaMP")
 
     # ── Ścieżki plików ────────────────────────────────────────────────────────
 
