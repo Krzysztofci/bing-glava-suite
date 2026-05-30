@@ -35,13 +35,6 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-# --- Uruchom GLava jeśli nie działa ---
-# GUI zarządza instancjami przez instances.json:
-if [ ! -f "$DISABLE_FLAG" ] && ! pgrep -x glava >/dev/null; then
-    python3 "$HOME/.local/bin/glava-colors-auto-mi" >> "$LOG" 2>&1
-    echo "$(date '+%F %T') - GLava uruchomiona przy starcie daemona." >> "$LOG"
-fi
-
 # --- Sprawdź czy tapeta jest nowsza niż shader (nadrobienie przegapionych zmian) ---
 SHADER_TIME=$(stat -c "%Y" "$GLAVA_DIR/graph/1.frag" 2>/dev/null || echo 0)
 WALLPAPER_TIME=$(stat -c "%Y" "$WALLPAPER" 2>/dev/null || echo 0)

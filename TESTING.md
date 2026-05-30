@@ -73,8 +73,8 @@ sudo ./install.sh
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Uruchom GUI z 3 instancjami | Liczba procesów == 3 |
-| 2 | Zamknij GUI (X lub Alt+F4) | Wszystkie 3 procesy zatrzymane |
-| 3 | `pgrep -x glava` | Brak wyniku (puste) |
+| 2 | Zamknij GUI (X lub Alt+F4) | GUI zamknięte, procesy GLava **działają dalej** (toggle OFF przed zamknięciem aby zatrzymać) |
+| 3 | `pgrep -x glava | wc -l` | Liczba == 3 (procesy nadal żyją) |
 
 ### Scenariusz 2.5 — Restart systemu
 | Krok | Akcja | Oczekiwany wynik |
@@ -113,7 +113,8 @@ sudo ./install.sh
 | 2 | Zamknij zakładkę instancji 2 | Liczba == 2 |
 | 3 | Sprawdź `~/.config/GlavaMP/instances.json` | Wpis instancji 2 usunięty |
 | 4 | Sprawdź `~/.config/glava-inst-2/` | Katalog usunięty |
-| 5 | Zamknij ostatnią instancję | Liczba == 0 |
+| 5 | Zamknij instancję 1 | Liczba == 1 |
+| 6 | Zamknij ostatnią pozostałą instancję | Liczba == 0 |
 
 ### Scenariusz 3.4 — Zmiana nazwy instancji
 | Krok | Akcja | Oczekiwany wynik |
@@ -131,7 +132,7 @@ sudo ./install.sh
 |---|---|---|
 | 1 | Otwórz zakładkę Main aktywnej instancji | Widoczne 3 przyciski kolorów (top/mid/bottom) |
 | 2 | Kliknij kolor "top" → wybierz czerwony | Przycisk zmienia kolor |
-| 3 | GLava restartuje się automatycznie (300ms debounce) | Wizualizacja zmienia kolory |
+| 3 | Kliknij przycisk "Zastosuj kolory" | GLava restartuje się, wizualizacja zmienia kolory (brak auto-restartu po zmianie koloru) |
 | 4 | Sprawdź czy kolory zostały zapisane do `1.frag` | `cat ~/.config/glava-inst-0/glava/bars/1.frag \| grep "vec3 top"` |
 
 ### Scenariusz 4.2 — Gradient RGB vs HSV
@@ -225,7 +226,7 @@ sudo ./install.sh
 | 3 | Zmień parametry na inne | — |
 | 4 | Wybierz "Bass heavy" z listy → Zastosuj | Parametry wracają do zapisanych |
 | 5 | Usuń profil | Znika z listy |
-| 6 | Sprawdź `~/.config/GlavaMP/inst-0/profiles.json` | Plik odzwierciedla stan |
+| 6 | Sprawdź `~/.config/GlavaMP/profiles.json` | Plik odzwierciedla stan |
 
 ### Scenariusz 6.4 — Wygładzanie audio (zakładka Audio)
 | Krok | Akcja | Oczekiwany wynik |

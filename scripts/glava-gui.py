@@ -322,7 +322,8 @@ class GlavaGUI:
             import re as _re
             is_auto = (name is None
                        or name == "Default"
-                       or bool(_re.fullmatch(r'Instance \d+', name)))
+                       or bool(_re.fullmatch(r'Instance \d+', name))
+                       or bool(_re.fullmatch(r'(?:Bars|Wave|Circle|Graph|Radial) \u2726\d*', name)))
             label_to_pass = None if is_auto else name
 
             # Wybierz zakladke oznaczona jako active w instances.json

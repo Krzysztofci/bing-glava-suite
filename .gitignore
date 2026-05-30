@@ -22,3 +22,10 @@ Thumbs.db
 *.tmp
 *.bak
 *.orig
+
+# Testy i Coverage
+htmlcov/
+.coverage
+.pytest_cache/
+bing-glava-suite.zip
+diffp.tx

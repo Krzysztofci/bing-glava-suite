@@ -150,6 +150,12 @@ class _AdoptedProcess:
 # =============================================================================
 
 def glava_start(extra_flags=None, env=None, instance=None):
+    import traceback, datetime
+    _LOG = os.path.expanduser("~/.local/logs/glava-start.log")
+    os.makedirs(os.path.dirname(_LOG), exist_ok=True)
+    with open(_LOG, "a") as _f:
+        _f.write(f"\n{datetime.datetime.now()}  instance={instance!r}\n")
+        traceback.print_stack(file=_f, limit=5)
     """
     Uruchamia jedną instancję GLava i zwraca obiekt Popen.
 
