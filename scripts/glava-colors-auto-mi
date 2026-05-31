@@ -191,7 +191,11 @@ def main():
             log(f"  inst-{iid}: błąd zapisu kolorów: {err}")
             continue
 
-        # Restart instancji
+        # Restart tylko jeśli proces już działa
+        pid = read_pid(iid)
+        if not is_pid_running(pid):
+            log(f"  inst-{iid}: proces nie działa — pomijam restart, kolory zapisane.")
+            continue
         stop_instance(iid)
         time.sleep(1.5)
         start_instance(iid, inst.xdg_dir)
