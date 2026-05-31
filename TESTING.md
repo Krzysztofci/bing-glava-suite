@@ -25,8 +25,9 @@ sudo ./install.sh
 | 2 | Przejdź przez wszystkie kroki instalatora | Każdy krok kończy się bez błędów |
 | 3 | Sprawdź czy GLava działa: `glava --desktop` | GLava uruchamia się na pulpicie |
 | 4 | Uruchom GUI: `glava-gui` | Okno GUI otwiera się |
-| 5 | Sprawdź czy daemon działa: `systemctl --user status glava-color-daemon` | Status: active (running) |
-| 6 | Sprawdź liczbę procesów: `pgrep -x glava \| wc -l` | Liczba == liczba instancji w GUI |
+| 5 | Wykonaj polecenie z końca instalatora lub przeloguj się | Aby daemon wystartował bez restartu systemu uruchom polecenie podane przez instalator; po samym wylogowaniu daemon może być inactive |
+| 5a | Po restarcie systemu: `systemctl --user status glava-color-daemon` | Status: active (running) |
+| 6 | Sprawdź liczbę procesów: `pgrep -x glava | wc -l` | Liczba == liczba instancji w GUI |
 
 ### Scenariusz 1.2 — Reinstalacja (nadpisanie istniejącej)
 | Krok | Akcja | Oczekiwany wynik |
@@ -47,7 +48,7 @@ sudo ./install.sh
 ### Scenariusz 2.1 — Toggle on/off (podstawowy)
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
-| 1 | Uruchom GUI z 1 instancją | `pgrep -x glava \| wc -l` == 1 |
+| 1 | Uruchom GUI z 1 instancją | `pgrep -x glava | wc -l` == 1 |
 | 2 | Kliknij toggle GLava → OFF | Liczba procesów == 0 |
 | 3 | Kliknij toggle GLava → ON | Liczba procesów == 1 |
 | 4 | Sprawdź czy instancja działa poprawnie | GLava widoczny na pulpicie |
@@ -133,7 +134,7 @@ sudo ./install.sh
 | 1 | Otwórz zakładkę Main aktywnej instancji | Widoczne 3 przyciski kolorów (top/mid/bottom) |
 | 2 | Kliknij kolor "top" → wybierz czerwony | Przycisk zmienia kolor |
 | 3 | Kliknij przycisk "Zastosuj kolory" | GLava restartuje się, wizualizacja zmienia kolory (brak auto-restartu po zmianie koloru) |
-| 4 | Sprawdź czy kolory zostały zapisane do `1.frag` | `cat ~/.config/glava-inst-0/glava/bars/1.frag \| grep "vec3 top"` |
+| 4 | Sprawdź czy kolory zostały zapisane do `1.frag` | `cat ~/.config/glava-inst-{id}/glava/bars/1.frag | grep "vec3 top"` |
 
 ### Scenariusz 4.2 — Gradient RGB vs HSV
 | Krok | Akcja | Oczekiwany wynik |
@@ -234,14 +235,14 @@ sudo ./install.sh
 | 1 | Zmień "Grawitacja" na maksimum | Słupki opadają szybciej |
 | 2 | Zmień "Wygładzanie" na minimum | Wizualizacja bardziej responsywna |
 | 3 | Zmień "Klatek avg" | Płynniejsza ale wolniejsza wizualizacja |
-| 4 | Parametry wygładzania są wspólne dla wszystkich instancji | Zmiana na inst-0 wpływa na inst-1 |
+| 4 | Parametry wygładzania działają per instancja (nie globalnie) | Zmiana na inst-1 nie wpływa na inst-2 |
 
 ### Scenariusz 6.5 — Tryb Expert
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
-| 1 | Włącz tryb Expert (przełącznik w nagłówku) | Dodatkowe sekcje/suwaki pojawiają się w zakładce Module |
+| 1 | Włącz tryb Expert (przełącznik w zakładce Advanced, sekcja Audio) | Dodatkowe opcje konfiguracyjne bufora audio, rozmiaru i częstotliwości próbkowania |
 | 2 | Wyłącz tryb Expert | Dodatkowe elementy znikają |
-| 3 | Parametry ustawione w Expert zachowane po wyłączeniu | Wartości persystują |
+| 3 | Parametry Expert działają per instancja; po zamknięciu instancji są resetowane do wartości z katalogu wzorcowego | Znane ograniczenie — do poprawy w przyszłości |
 
 ---
 
@@ -250,7 +251,7 @@ sudo ./install.sh
 ### Scenariusz 7.1 — Ustawienia renderowania
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
-| 1 | Zmień framerate z 60 na 30 | GLava restartuje się z niższym FPS |
+| 1 | Zmień framerate z 60 na 30 | GLava aktywnej instancji restartuje się z niższym FPS (ustawienie per instancja, nie globalne) |
 | 2 | Włącz/wyłącz VSync | Zmiana zachowana w rc.glsl |
 | 3 | Zmień wersję shadera | rc.glsl zaktualizowany |
 | 4 | Sprawdź `~/.config/glava-inst-0/glava/rc.glsl` | Wartości zgodne z GUI |
@@ -287,9 +288,9 @@ sudo ./install.sh
 | 1 | Utwórz 3 instancje: bars, circle, wave | 3 procesy aktywne |
 | 2 | Każda instancja z unikalnymi kolorami i parametrami | — |
 | 3 | Zapisz workspace (akcja w zakładce instancji) | Plik workspace zapisany |
-| 4 | Zamknij GUI | Wszystkie procesy zatrzymane |
+| 4 | Zamknij GUI | Procesy GLava **działają dalej** — aby zatrzymać użyj toggle OFF przed zamknięciem GUI |
 | 5 | Uruchom GUI ponownie | — |
-| 6 | Wczytaj workspace | 3 instancje przywrócone |
+| 6 | Wczytaj workspace | Dokładnie 3 instancje przywrócone (nie mniej) |
 | 7 | Sprawdź procesy | Liczba == 3 |
 | 8 | Sprawdź kolory i parametry każdej instancji | Identyczne z zapisanymi |
 
@@ -356,9 +357,9 @@ sudo ./install.sh
 |---|---|---|
 | 1 | Uruchom GUI z 2 instancjami | — |
 | 2 | Uruchom audio: `bash tools/radio.sh` | GLava animuje się |
-| 3 | Co 10 minut sprawdź: `pgrep -x glava \| wc -l` | Zawsze == 2 |
+| 3 | Co 10 minut sprawdź: `pgrep -x glava | wc -l` | Zawsze == 2 |
 | 4 | Po 30 minutach sprawdź użycie RAM | Brak memory leak (RSS nie rośnie) |
-| 5 | Zamknij GUI | Liczba procesów == 0 |
+| 5 | Wyłącz GLava toggle OFF, następnie zamknij GUI | Liczba procesów == 0 |
 
 ### Scenariusz 11.2 — Cron i daemon
 | Krok | Akcja | Oczekiwany wynik |

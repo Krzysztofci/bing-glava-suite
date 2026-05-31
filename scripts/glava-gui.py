@@ -515,6 +515,7 @@ class GlavaGUI:
                 proc=self.processes.get(iid),
                 after_fn=_after_start,
             )
+        return iid
 
     def _on_inst_close(self, inst_id):
         """
@@ -813,6 +814,11 @@ class GlavaGUI:
         name = result[0]
         if not name:
             return
+        if any(c in name for c in '/\\:*?"<>|'):
+            messagebox.showerror("", 
+                self.T.get("workspace_name_invalid",
+                "Nazwa nie może zawierać znaków: / \\ : * ? \" < > |"))
+            return
 
         ws_dir = os.path.join(os.path.expanduser("~"), ".config", "GlavaMP", "workspaces")
         os.makedirs(ws_dir, exist_ok=True)
@@ -845,8 +851,12 @@ class GlavaGUI:
                 "glsl":    glsl_files,
             })
         ws_path = os.path.join(ws_dir, f"{name}.json")
-        with open(ws_path, "w", encoding="utf-8") as f:
-            json.dump(ws, f, ensure_ascii=False, indent=2)
+        try:
+            with open(ws_path, "w", encoding="utf-8") as f:
+                json.dump(ws, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            messagebox.showerror("", f"Nie można zapisać workspace: {e}")
+            return
         self.update_status()
 
     def _load_workspace(self):
@@ -916,8 +926,7 @@ class GlavaGUI:
         # Utwórz nowe instancje według workspace
         for inst_data in ws.get("instances", []):
             module = inst_data.get("module", "bars")
-            self._on_inst_add(module, start=False, label=inst_data.get("name"))
-            iid = max(self.instances.keys())
+            iid = self._on_inst_add(module, start=False, label=inst_data.get("name"))
             from gui.instance import GlavaInstance
             from gui.modules.glsl_io import write_define_raw
             from gui.geometry import write_geometry
