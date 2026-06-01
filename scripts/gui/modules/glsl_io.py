@@ -329,6 +329,6 @@ def read_all_defines(path):
         return result
     with open(path) as f:
         content = f.read()
-    for m in re.finditer(r'^#define\s+(\w+)\s+(\S+)', content, re.MULTILINE):
-        result[m.group(1)] = m.group(2)
+    for m in re.finditer(r'^#define\s+(\w+)\s+(.+)', content, re.MULTILINE):
+        result[m.group(1)] = m.group(2).strip()
     return result

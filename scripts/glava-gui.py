@@ -560,6 +560,14 @@ class GlavaGUI:
             self.active_instance = self.instances[first_id] if first_id is not None else None
             self.active_module   = self._inst_modules.get(first_id, read_active_module()) if first_id is not None else None
 
+        # Reset flag restartu dla zamkniętej instancji
+        if hasattr(self, "_restart_in_progress"):
+            self._restart_in_progress.pop(inst_id, None)
+        if hasattr(self, "_restart_pending"):
+            self._restart_pending.pop(inst_id, None)
+        if hasattr(self, "_restart_after"):
+            self._restart_after.pop(inst_id, None)
+
         self.update_status()
 
     def _on_inst_action(self, inst_id, action, *args):
@@ -660,32 +668,29 @@ class GlavaGUI:
                 pass
             self._restart_after[iid] = None
 
-        def _do_restart():
-            self._restart_after[iid] = None
-            self._restart_in_progress[iid] = True
-            old_proc = self.processes.get(iid)
-            self.processes[iid] = None
-
-            def _after(proc, _iid=iid, _fn=after_fn):
-                self.processes[_iid] = proc
-                self._restart_in_progress[_iid] = False
+        def _do_restart(_inst=inst, _iid=iid, _module=module):
+            self._restart_after[_iid] = None
+            self._restart_in_progress[_iid] = True
+            old_proc = self.processes.get(_iid)
+            self.processes[_iid] = None
+            def _after(proc, __iid=_iid, _fn=after_fn):
+                self.processes[__iid] = proc
+                self._restart_in_progress[__iid] = False
                 self.root.after(0, self.update_status)
                 if _fn:
                     self.root.after(0, _fn)
-                # Jeśli w trakcie restartu przyszły nowe zmiany — odpal ponownie
-                pending = self._restart_pending.pop(_iid, None)
+                pending = self._restart_pending.pop(__iid, None)
                 if pending:
                     pending_module, pending_fn = pending
                     self.root.after(0, lambda: self.restart_active_instance(
                         module=pending_module, after_fn=pending_fn))
-
             glava_restart_instance(
-                instance=inst,
-                module=module,
+                instance=_inst,
+                module=_module,
                 proc=old_proc,
                 after_fn=_after,
             )
-    
+
         self._restart_after[iid] = self.root.after(300, _do_restart)
 
     def get_active_rc_glsl(self):
@@ -923,6 +928,10 @@ class GlavaGUI:
         # Zamknij wszystkie obecne instancje
         for iid in list(self.instances.keys()):
             self._on_inst_close(iid)
+        # Reset wszystkich flag restartu
+        self._restart_in_progress = {}
+        self._restart_pending = {}
+        self._restart_after = {}
         # Utwórz nowe instancje według workspace
         for inst_data in ws.get("instances", []):
             module = inst_data.get("module", "bars")
