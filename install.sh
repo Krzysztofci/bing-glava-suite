@@ -625,7 +625,16 @@ if [ -d "/run/user/$TARGET_UID" ]; then
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
         systemctl --user enable glava-color-daemon.service
-    info "Service configured and enabled."
+    sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        systemctl --user start glava-color-daemon.service
+    info "Service configured, enabled and started."
+    echo ""
+    echo -e "  GLava will start automatically on next system boot."
+    echo -e "  To start it now without rebooting, run:"
+    echo -e "    ${BLD}glava-autostart.sh${RST}"
+    echo ""
 else
     warn "No active session — service will start on next login."
 fi
