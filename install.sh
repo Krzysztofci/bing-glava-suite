@@ -237,6 +237,13 @@ for script in glava-colorswitch glava-toggle glava-colors-auto \
     chmod 755 "$dst"
     chown "$TARGET_USER:$TARGET_USER" "$dst"
     info "Installed: $dst"
+    if ! grep -q 'LOCAL_BIN_PATH' "$TARGET_HOME/.bashrc" 2>/dev/null; then
+    echo '' >> "$TARGET_HOME/.bashrc"
+    echo '# LOCAL_BIN_PATH' >> "$TARGET_HOME/.bashrc"
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$TARGET_HOME/.bashrc"
+    chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.bashrc"
+    info "Added ~/.local/bin to PATH in .bashrc"
+fi
 done
 
 # =============================================================================
@@ -629,12 +636,14 @@ if [ -d "/run/user/$TARGET_UID" ]; then
         XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
         DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
         systemctl --user start glava-color-daemon.service
-    info "Service configured, enabled and started."
-    echo ""
-    echo -e "  GLava will start automatically on next system boot."
-    echo -e "  To start it now without rebooting, run:"
-    echo -e "    ${BLD}glava-autostart.sh${RST}"
-    echo ""
+    if sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        systemctl --user is-active --quiet glava-color-daemon.service; then
+        info "Service configured, enabled and started."
+    else
+        warn "Service enabled but failed to start — check: journalctl --user -u glava-color-daemon"
+    fi
 else
     warn "No active session — service will start on next login."
 fi
@@ -690,7 +699,4 @@ echo -e "  Wallpaper config:    ${BLD}$BING_CONF${RST}"
 echo -e "  Wallpapers:          ${BLD}$TARGET_HOME/Pictures/Bing/${RST}"
 echo -e "  Logs:                ${BLD}$LOG_DIR/${RST}"
 echo ""
-warn "To start the service without logging out:"
-echo -e "  ${BLD}systemctl --user start glava-color-daemon${RST}"
-echo ""
-info "Done! Log out and log back in to start everything automatically."
+info "Done! GLava will start automatically on next login."
