@@ -1,185 +1,193 @@
-# Architektura bing-glava-suite
+# Architecture — bing-glava-suite
 
-Dokument opisuje aktualne założenia architektoniczne projektu.
-Służy jako punkt odniesienia przy analizie kodu i pisaniu testów.
+Reference document for code analysis and test writing.
 
-> ⚠️ **Uwaga na nieaktualne komentarze w kodzie:**
-> Kilka miejsc w kodzie zawiera stare założenia które zostały zmienione
-> ale komentarze nie zostały zaktualizowane. Lista znanych przypadków
-> na końcu tego dokumentu.
+> 🇵🇱 [Polska wersja](ARCHITECTURE_PL.md)
+
+> ⚠️ **Note on stale comments in code:**
+> Some files contain old assumptions that have changed but whose comments
+> were not updated. Known cases listed at the end of this document.
 
 ---
 
-## 1. Instancje GLava
+## 1. GLava Instances
 
-### Każda instancja jest równorzędna
-- Nie ma instancji "chronionej" ani "domyślnej" — każdą można zamknąć i usunąć
-- Każda instancja ma własny `inst_id` (int, zaczyna od 0 lub 1 zależnie od kolejności tworzenia)
-- `next_inst_id()` zwraca najmniejszy wolny id ≥ 1; id=0 jest przydzielane przy pierwszym starcie
+### All instances are equal
+- No "protected" or "default" instance — any can be closed and deleted
+- Each instance has its own `inst_id` (int, starting from 1; id=0 reserved
+  for the first instance created on a fresh install)
+- `next_inst_id()` returns the smallest free id ≥ 1
 
-### Katalogi instancji
-Każda instancja ma dwa katalogi:
+### Instance directories
+Each instance has two directories:
 
 ```
-~/.config/glava-inst-{inst_id}/glava/   ← XDG_CONFIG_HOME dla GLava (rc.glsl, shadery)
-~/.config/GlavaMP/inst-{inst_id}/       ← dane GUI (profiles.json, presets.json)
+~/.config/glava-inst-{inst_id}/glava/   ← XDG_CONFIG_HOME for GLava (rc.glsl, shaders)
+~/.config/GlavaMP/inst-{inst_id}/       ← GUI data (profiles.json, presets.json)
 ```
 
-### ~/.config/glava — katalog WZORCOWY
-- `~/.config/glava/` jest **tylko szablonem** używanym przy tworzeniu nowych instancji
-- **Nie jest** katalogiem żadnej instancji
-- **Nie jest** powiązany z inst_id=0
-- Instancje są tworzone przez `GlavaInstance.create()` która kopiuje z tego szablonu
-- Fallback szablonu: `/etc/xdg/glava/`
+### ~/.config/glava — template directory
+- `~/.config/glava/` is **only a template** used when creating new instances
+- It is **not** the directory of any instance
+- It is **not** associated with inst_id=0
+- Instances are created by `GlavaInstance.create()` which copies from this template
+- Template fallback: `/etc/xdg/glava/`
 
-### Tworzenie instancji
+### Creating instances
 ```
 GlavaInstance(inst_id).create(source=None)
-  → kopiuje z ~/.config/glava/ (lub /etc/xdg/glava/)
-  → tworzy ~/.config/glava-inst-{id}/glava/
-  → tworzy ~/.config/GlavaMP/inst-{id}/
+  → copies from ~/.config/glava/ (or /etc/xdg/glava/)
+  → creates ~/.config/glava-inst-{id}/glava/
+  → creates ~/.config/GlavaMP/inst-{id}/
 ```
 
 ---
 
-## 2. Rejestr instancji
+## 2. Instance Registry
 
 ### instances.json
-- Lokalizacja: `~/.config/GlavaMP/instances.json`
-- Format: lista dict `[{inst_id, name, module, active}, ...]`
-- Przechowuje kolejność zakładek i stan sesji
-- **NIE jest** source of truth dla modułu — patrz sekcja 3
+- Location: `~/.config/GlavaMP/instances.json`
+- Format: list of dicts `[{inst_id, name, module, active}, ...]`
+- Stores tab order and session state
+- **NOT** the source of truth for module — see section 3
 
-### Funkcje rejestru (gui/instance.py)
+### Registry functions (gui/instance.py)
 - `load_instances()` / `save_instances()`
 - `register_instance(inst_id, name, module)`
-- `unregister_instance(inst_id)` — działa dla każdego inst_id
-- `update_instance(inst_id, **kwargs)` — aktualizuje name/module/active
-- `next_inst_id()` — zwraca najmniejszy wolny id ≥ 1
+- `unregister_instance(inst_id)` — works for any inst_id
+- `update_instance(inst_id, **kwargs)` — updates name/module/active
+- `next_inst_id()` — returns smallest free id ≥ 1
 
 ---
 
-## 3. Source of truth dla modułu
+## 3. Module Source of Truth
 
-**`rc.glsl` jest source of truth**, nie `instances.json`.
+**`rc.glsl` is the source of truth**, not `instances.json`.
 
-Linia `#request mod <nazwa>` w `rc.glsl` każdej instancji określa aktywny moduł.
-`instances.json` przechowuje moduł jako cache/hint przy ładowaniu — może być nieaktualny.
+The line `#request mod <name>` in each instance's `rc.glsl` determines the
+active module. `instances.json` stores the module as a cache/hint for loading
+— it may be stale.
 
-Przy starcie GUI: `_inst_modules` jest synchronizowany z `rc.glsl` każdej instancji,
-a dopiero potem może być uzupełniony z `instances.json` jako fallback.
+On GUI start: `_inst_modules` is synchronized from each instance's `rc.glsl`,
+then `instances.json` may be used as a fallback.
 
 ---
 
-## 4. Zarządzanie procesami
+## 4. Process Management
 
-### GUI przechowuje procesy
+### GUI stores processes
 ```python
 self.instances  : dict[inst_id, GlavaInstance]
 self.processes  : dict[inst_id, Popen | None]
 ```
 
-### Restart instancji
-Poprawna ścieżka: `restart_active_instance()` → `glava_restart_instance()`
-- Ustawia `XDG_CONFIG_HOME = instance.xdg_dir`
-- Zatrzymuje tylko ten jeden proces (SIGTERM → 2s → SIGKILL)
-- Zwraca nowy Popen przez `after_fn`
+### Restarting an instance
+Correct path: `restart_active_instance()` → `glava_restart_instance()`
+- Sets `XDG_CONFIG_HOME = instance.xdg_dir`
+- Stops only that one process (SIGTERM → 2s → SIGKILL)
+- Waits for process death before returning
+- Returns new Popen via `after_fn`
 
-Stara ścieżka (kompatybilność wsteczna): `glava_restart()`
-- Robi `pkill -x glava` — zabija **wszystkie** procesy
-- Startuje tylko jedną instancję
-- Używana tylko jako fallback gdy `app` nie ma `restart_active_instance`
+Legacy path (backward compatibility): `glava_restart()`
+- Does `pkill -x glava` — kills **all** processes
+- Starts only one instance
+- Used only as fallback when `app` lacks `restart_active_instance`
 
 ### Toggle on/off
-- **OFF**: `pkill -x glava` (celowo zabija wszystkie — w tym procesy poza kontrolą GUI)
-- **ON**: startuje wszystkie zarejestrowane instancje równolegle
-- Blokada `_toggle_in_progress` zapobiega race condition
+- **OFF**: `pkill -x glava` (intentionally kills all — including processes outside GUI control)
+- **ON**: starts all registered instances in parallel
+- `_toggle_in_progress` lock prevents race conditions
 
-### Zamknięcie GUI
-- Zamknięcie okna GUI **nie zatrzymuje** procesów GLava
-- Procesy działają dalej jako procesy tła
-- Aby zatrzymać GLava: użyj toggle OFF przed zamknięciem GUI
+### Closing GUI
+- Closing the GUI window **does not stop** GLava processes
+- Processes continue running as background processes
+- To stop GLava: use toggle OFF before closing GUI
 
 ---
 
-## 5. Ścieżki plików konfiguracyjnych
+## 5. Config File Paths
 
-### Globalne (współdzielone)
+### Global (shared)
 ```
 ~/.config/GlavaMP/
-├── instances.json      ← rejestr instancji
-├── gui.conf            ← geometria okna GUI
-├── gui_settings.json   ← ustawienia GUI (język, tryb expert)
-├── profiles.json       ← profile shaderów (GLOBALNE — per moduł, nie per instancja)
-├── presets.json        ← presety kolorów (3 kolory: top/mid/bottom)
-└── themes/             ← pliki Forest-ttk-theme
+├── instances.json      ← instance registry
+├── gui.conf            ← GUI window geometry
+├── gui_settings.json   ← GUI settings (language, expert mode)
+├── profiles.json       ← shader profiles (GLOBAL — per module, not per instance)
+├── presets.json        ← color presets (3 colors: top/mid/bottom)
+└── themes/             ← Forest-ttk-theme files
 ```
 
-### Per instancja
+### Per instance
 ```
 ~/.config/glava-inst-{id}/glava/
-├── rc.glsl                     ← konfiguracja główna + source of truth modułu
-├── smooth_parameters.glsl      ← parametry wygładzania
-├── bars.glsl / wave.glsl / …   ← parametry kształtu per moduł
-├── bars/ wave/ circle/ …       ← katalogi z 1.frag (kolory — izolowane per instancja)
-└── bars_colors.frag / …        ← szablony kolorów
+├── rc.glsl                     ← main config + module source of truth
+├── smooth_parameters.glsl      ← smoothing parameters
+├── bars.glsl / wave.glsl / …   ← shape parameters per module
+├── bars/ wave/ circle/ …       ← directories with 1.frag (colors — isolated per instance)
+└── bars_colors.frag / …        ← color templates
 
 ~/.config/GlavaMP/inst-{id}/
-├── profiles.json       ← UWAGA: plik istnieje w GlavaInstance.profiles_file
-│                          ale faktycznie nie jest używany — profile są globalne
-└── presets.json        ← j.w.
+├── profiles.json       ← NOTE: file exists at GlavaInstance.profiles_file
+│                          but is not actually used — profiles are global
+└── presets.json        ← same
 ```
-
-> ⚠️ `GlavaInstance.profiles_file` i `GlavaInstance.presets_file` wskazują na
-> `~/.config/GlavaMP/inst-{id}/` ale faktyczny zapis odbywa się przez `core.py`
-> do globalnego `~/.config/GlavaMP/profiles.json`. Per-instancja profile shaderów
-> nie są zaimplementowane.
 
 ---
 
-## 6. Etykiety zakładek
+## 6. Tab Labels
 
-Etykiety generowane automatycznie przez `add_tab`:
-- Pierwsza instancja modułu: `"Bars ✦"`, `"Wave ✦"`, `"Radial ✦"` itd.
-- Kolejne: `"Bars ✦2"`, `"Bars ✦3"` itd.
+Labels auto-generated by `add_tab`:
+- First instance of a module: `"Bars ✦"`, `"Wave ✦"`, `"Radial ✦"`, etc.
+- Subsequent: `"Bars ✦2"`, `"Bars ✦3"`, etc.
 
-Etykiety nadane ręcznie przez użytkownika (rename) są zachowywane między sesjami.
+Labels set manually by the user (rename) are preserved between sessions.
 
-Przy starcie GUI `is_auto` sprawdza czy nazwa jest autogenerowana:
+On GUI start `is_auto` checks whether the name is auto-generated:
 ```python
 is_auto = (name is None
            or name == "Default"
            or re.fullmatch(r'Instance \d+', name)
            or re.fullmatch(r'(?:Bars|Wave|Circle|Graph|Radial) ✦\d*', name))
 ```
-Jeśli `is_auto=True` — `add_tab` generuje świeżą etykietę.
-Jeśli `is_auto=False` — zachowana nazwa użytkownika.
+If `is_auto=True` — `add_tab` generates a fresh label.
+If `is_auto=False` — the user's name is preserved.
 
 ---
 
-## 7. Znane nieaktualne komentarze w kodzie
+## 7. i18n System
 
-| Plik | Linia | Stary komentarz | Aktualny stan |
-|------|-------|-----------------|---------------|
-| `glava-gui.py` | 13 | `"Instancja 0 jest domyślna i nieusuwalna"` | Każda instancja jest usuwalna |
-| `README.md` | struktura katalogów | `"glava/ ← Instance 0 (default, non-deletable)"` | `~/.config/glava/` to katalog wzorcowy, nie instancja |
-| `README.md` (PL) | struktura katalogów | `"glava/ ← Instancja 0 (domyślna, nieusuwalna)"` | j.w. |
+All UI strings go through `T.get(key, fallback)`:
+- `T` is an instance of the translator loaded from `lang/pl.json` or `lang/en.json`
+- Language switchable at runtime — GUI rebuilds via `while True` loop in `glava-gui.py`
+- `ask_string(parent, T, title, prompt)` — TTK replacement for `simpledialog.askstring`
+- `colorchooser.askcolor` — still uses system Tk dialog (TTK replacement planned for RC2)
 
 ---
 
-## 8. Zależności między modułami
+## 8. Module Dependencies
 
 ```
 glava-gui.py
-├── gui/instance.py         ← GlavaInstance, rejestr
-├── gui/instance_tab_bar.py ← pasek zakładek
-├── gui/glava.py            ← zarządzanie procesami
-├── gui/core.py             ← stałe, ścieżki, ustawienia
-├── gui/tab_main.py         ← panel główny (kolory, tapeta)
-├── gui/tab_advanced.py     ← panel zaawansowany (audio, FPS)
-├── gui/tab_module.py       ← panel modułu (parametry shadera)
+├── gui/instance.py         ← GlavaInstance, registry
+├── gui/instance_tab_bar.py ← tab bar widget
+├── gui/glava.py            ← process management
+├── gui/core.py             ← constants, paths, settings
+├── gui/tab_main.py         ← main panel (colors, wallpaper, geometry)
+├── gui/tab_advanced.py     ← advanced panel (audio, FPS, rendering)
+├── gui/tab_module.py       ← module panel (shader parameters)
 └── gui/modules/
-    ├── base.py             ← boilerplate suwaków, debounce
+    ├── base.py             ← slider boilerplate, debounce, ask_string helper
     ├── bars.py / wave.py / circle.py / graph.py / radial.py
-    └── glsl_io.py          ← odczyt/zapis plików GLSL
+    └── glsl_io.py          ← reading/writing GLSL files
 ```
+
+---
+
+## 9. Known Stale Comments in Code
+
+| File | Line | Old comment | Current state |
+|------|-------|-------------|---------------|
+| `glava-gui.py` | 13 | `"Instance 0 is default and non-deletable"` | All instances are deletable |
+| `README.md` | directory structure | `"glava/ ← Instance 0 (default, non-deletable)"` | `~/.config/glava/` is the template directory, not an instance |
+| `CHANGELOG.md` | v1.0.0 section | `"Instance 0 non-deletable by design"` | No longer accurate |
