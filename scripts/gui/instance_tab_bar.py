@@ -19,19 +19,19 @@
 
 import tkinter as tk
 from tkinter import ttk, simpledialog
+from .modules.base import ask_string
 
 _GLAVA_MODULES = ["bars", "wave", "circle", "graph", "radial"]
 
 _CONTEXT_ACTIONS = [
-    ("rename",         "Zmien nazwe"),
+    ("rename",         "menu_rename",         "Rename"),
     None,
-    ("change_shader",  "Zmien shader"),
+    ("change_shader",  "menu_change_shader",  "Change shader"),
     None,
-    ("save_session",   "Zapisz sesje"),
-    ("save_workspace", "Zapisz workspace"),
-    ("duplicate",      "Duplikuj"),
+    ("save_workspace", "menu_save_workspace", "Save workspace"),
+    ("duplicate",      "menu_duplicate",      "Duplicate"),
     None,
-    ("close",          "Zamknij"),
+    ("close",          "menu_close",          "Close"),
 ]
 
 class InstanceTabBar(ttk.Frame):
@@ -54,6 +54,7 @@ class InstanceTabBar(ttk.Frame):
                  on_action=None,
                  modules=None,
                  content_parent=None,
+                 T=None,
                  **kw):
         super().__init__(parent, **kw)
 
@@ -65,6 +66,7 @@ class InstanceTabBar(ttk.Frame):
         self._on_action         = on_action
         self._modules           = modules or _GLAVA_MODULES
         self._content_parent    = content_parent  # None = uzyj self
+        self.T                  = T
 
         # inst_id -> {"label", "dummy", "content"}
         self._tabs:          dict = {}
@@ -195,7 +197,7 @@ class InstanceTabBar(ttk.Frame):
                 command=lambda m=mod: self._call("on_add", m))
         self._add_menu.add_separator(background=bg)
         self._add_menu.add_command(
-            label="Wczytaj zestaw...",
+            label=self.T.get("menu_load_workspace", "Load workspace...") if self.T else "Load workspace...",
             command=lambda: self._call("on_load_workspace"))
 
     # -------------------------------------------------------------------------
@@ -236,7 +238,8 @@ class InstanceTabBar(ttk.Frame):
             if item is None:
                 menu.add_separator(background=bg)
             else:
-                key, lbl = item
+                key, i18n_key, fallback = item
+                lbl = self.T.get(i18n_key, fallback) if self.T else fallback
                 if key == "close":
                     menu.add_command(label=lbl, command=lambda i=inst_id: self._call("on_close", i))
                 elif key == "rename":
@@ -260,9 +263,11 @@ class InstanceTabBar(ttk.Frame):
         if inst_id not in self._tabs:
             return
         current = self._tabs[inst_id]["label"]
-        new_name = simpledialog.askstring(
-            "Zmien nazwe", "Nowa nazwa zakladki:",
-            initialvalue=current, parent=self._nb)
+        new_name = ask_string(
+            self._nb, self.T,
+            self.T.get("menu_rename", "Rename") if self.T else "Rename",
+            self.T.get("dialog_rename_prompt", "New tab name:") if self.T else "New tab name:",
+            initialvalue=current)
         if new_name and new_name.strip():
             name = new_name.strip()
             self._tabs[inst_id]["label"] = name

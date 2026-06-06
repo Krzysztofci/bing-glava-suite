@@ -21,6 +21,40 @@ from . import glsl_io
 RESTART_DELAY_MS = 300
 
 
+def ask_string(parent, T, title, prompt, initialvalue=""):
+    """TTK dialog zamiast simpledialog.askstring."""
+    result = [None]
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    dlg.transient(parent)
+    dlg.grab_set()
+    ttk.Label(dlg, text=prompt).pack(padx=20, pady=(15, 4), anchor="w")
+    var = tk.StringVar(value=initialvalue)
+    entry = ttk.Entry(dlg, textvariable=var, width=30)
+    entry.pack(padx=20, pady=(0, 10))
+    entry.focus_set()
+    entry.select_range(0, "end")
+    btn_row = ttk.Frame(dlg)
+    btn_row.pack(padx=20, pady=(0, 15), fill="x")
+    def _ok():
+        result[0] = var.get().strip() or None
+        dlg.destroy()
+    def _cancel():
+        dlg.destroy()
+    ok_text     = T.get("btn_apply", "OK")     if T else "OK"
+    cancel_text = T.get("btn_cancel", "Cancel") if T else "Cancel"
+    ttk.Button(btn_row, text=ok_text, style="Accent.TButton",
+               command=_ok).pack(side="left", expand=True, fill="x", padx=(0, 4))
+    ttk.Button(btn_row, text=cancel_text,
+               command=_cancel).pack(side="left", expand=True, fill="x")
+    dlg.bind("<Return>", lambda e: _ok())
+    dlg.bind("<Escape>", lambda e: _cancel())
+    dlg.wait_window()
+    return result[0]
+
+
+
 class BaseParamWidget:
     """
     Klasa bazowa dla BarsParamWidget, CircleParamWidget itd.
@@ -234,8 +268,9 @@ class BaseParamWidget:
             )
 
     def _save_profile(self):
-        name = simpledialog.askstring(
-            self.T.get("dialog_profile_title", "Nowy profil"),
+        name = ask_string(
+            self.parent, self.T,
+            self.T.get("dialog_profile_title", "New profile"),
             self.T.get("dialog_profile_name",  "Enter profile name:"),
         )
         if not name:
@@ -243,9 +278,9 @@ class BaseParamWidget:
         existing = get_shader_profiles_for_module(self.MODULE_NAME)
         if name in existing:
             if not messagebox.askyesno(
-                self.T.get("dialog_overwrite_title", "Nadpisać profil?"),
+                self.T.get("dialog_overwrite_title", "Overwrite profile?"),
                 self.T.get("dialog_overwrite_msg",
-                           "Profil '{}' już istnieje. Nadpisać?").format(name),
+                           "Profile '{}' already exists. Overwrite?").format(name),
             ):
                 return
         import importlib

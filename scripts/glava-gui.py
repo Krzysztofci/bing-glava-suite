@@ -290,6 +290,7 @@ class GlavaGUI:
             on_save_workspace=self._save_workspace,
             on_load_workspace=self._load_workspace,
             content_parent=self.main_border,
+            T=self.T,
         )
         self.inst_bar.pack(side="left", fill="x", expand=True)
 
@@ -798,7 +799,7 @@ class GlavaGUI:
         dlg.resizable(False, False)
         dlg.transient(self.root)
         dlg.grab_set()
-        ttk.Label(dlg, text=self.T.get("workspace_name", "Nazwa workspace:")).pack(padx=20, pady=(15, 4), anchor="w")
+        ttk.Label(dlg, text=self.T.get("workspace_name", "Enter name:")).pack(padx=20, pady=(15, 4), anchor="w")
         name_var = tk.StringVar()
         entry = ttk.Entry(dlg, textvariable=name_var, width=30)
         entry.pack(padx=20, pady=(0, 10))
@@ -860,7 +861,7 @@ class GlavaGUI:
             with open(ws_path, "w", encoding="utf-8") as f:
                 json.dump(ws, f, ensure_ascii=False, indent=2)
         except OSError as e:
-            messagebox.showerror("", f"Nie można zapisać workspace: {e}")
+            messagebox.showerror("", self.T.get("error_save_workspace", "Cannot save workspace:") + f" {e}")
             return
         self.update_status()
 
@@ -881,7 +882,11 @@ class GlavaGUI:
         dlg.transient(self.root)
         dlg.grab_set()
         ttk.Label(dlg, text=self.T.get("workspace_choose", "Wybierz workspace:")).pack(padx=20, pady=(15, 4), anchor="w")
-        lb = tk.Listbox(dlg, height=8, width=30, selectmode="single")
+        lb = tk.Listbox(dlg, height=8, width=30, selectmode="single",
+                relief="flat", bd=0, highlightthickness=1,
+                highlightbackground="#454545",
+                bg="#313131", fg="#eeeeee",
+                selectbackground="#217346", selectforeground="#ffffff")
         lb.pack(padx=20, pady=(0, 10))
         for n in names:
             lb.insert("end", n)
@@ -964,7 +969,7 @@ class GlavaGUI:
                 self.inst_bar.set_label(iid, saved_name)
             self.restart_active_instance(module=module, after_fn=None)
         self.update_status()
-        messagebox.showinfo("", f"Wczytano: {name}")
+        messagebox.showinfo("", self.T.get("workspace_loaded", "Loaded:") + f" {name}")
     def _save_window_state(self):
         try:
             geo = self.root.geometry()

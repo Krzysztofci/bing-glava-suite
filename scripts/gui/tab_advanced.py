@@ -468,7 +468,7 @@ class TabAdvanced:
         log = os.path.join(os.path.expanduser("~"),
                            ".local/logs/glava-color-daemon.log")
         if not os.path.exists(log):
-            messagebox.showinfo("", f"Brak pliku logu:\n{log}")
+            messagebox.showinfo("", self.T.get("error_no_log", "Log file not found:") + f"\n{log}")
             return
         try:
             subprocess.Popen(["xterm", "-e", f"tail -f '{log}'"])
@@ -479,7 +479,7 @@ class TabAdvanced:
             except Exception:
                 with open(log) as f:
                     last = "".join(f.readlines()[-40:])
-                messagebox.showinfo("Log (ostatnie 40 linii)", last)
+                messagebox.showinfo(self.T.get("log_title", "Log (last 40 lines)"), last)
 
     def _on_expert_toggle(self):
         """Przebuduj sekcję audio po zmianie trybu expert."""

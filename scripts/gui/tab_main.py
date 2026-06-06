@@ -8,6 +8,7 @@
 # =============================================================================
 import tkinter as tk
 from tkinter import ttk, colorchooser, messagebox, simpledialog
+from .modules.base import ask_string
 import os, subprocess
 from .core import (
     GLAVA_MODULES, BING_REGIONS, BIN_DIR,
@@ -309,7 +310,7 @@ class TabMain:
         write_active_module(module)
         tmpl = self._tmpl_frag(module)
         if not os.path.exists(tmpl):
-            messagebox.showerror("", f"Brak szablonu:\n{tmpl}")
+            messagebox.showerror("", self.T.get("error_no_template", "Missing template:") + f"\n{tmpl}")
             return
         self._update_geometry_for_module(module)
         if not os.path.exists(self._live_frag(module)):
@@ -425,7 +426,9 @@ class TabMain:
             self.color_btns[key].set_color(color)
 
     def _pick_color(self, key):
-        color = colorchooser.askcolor(color=self.current_colors[key])[1]
+        color = colorchooser.askcolor(
+            color=self.current_colors[key],
+            title=self.T.get("dialog_color_pick_title", "Pick color"))[1]
         if color:
             self.current_colors[key] = color
             self._update_color_btn(key, color)
@@ -578,7 +581,10 @@ class TabMain:
             self._apply_colors()
 
     def _save_preset(self):
-        name = simpledialog.askstring("Nowy profil kolorów", "Podaj nazwę:")
+        name = ask_string(
+            self.parent, self.T,
+            self.T.get("dialog_color_preset_title", "New color preset"),
+            self.T.get("dialog_color_preset_prompt", "Enter name:"))
         if name:
             self.presets[name] = self.current_colors.copy()
             save_color_presets(self.presets)
@@ -586,7 +592,7 @@ class TabMain:
 
     def _delete_preset(self):
         name = self.preset_var.get()
-        if name and messagebox.askyesno("", f"Usuń '{name}'?"):
+        if name and messagebox.askyesno("", self.T.get("dialog_delete_preset_confirm", "Delete") + f" '{name}'?"):
             del self.presets[name]
             save_color_presets(self.presets)
             self._refresh_preset_cb()
