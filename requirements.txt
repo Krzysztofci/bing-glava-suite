@@ -1,0 +1,7 @@
+# Python dependencies for bing-glava-suite
+# Install with: pip install -r requirements.txt --break-system-packages
+# Or via apt: python3-pil python3-numpy python3-sklearn
+
+Pillow>=9.0
+numpy>=1.21
+scikit-learn>=1.0

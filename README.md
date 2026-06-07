@@ -1,5 +1,11 @@
 # bing-glava-suite
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue?logo=linux&logoColor=white)](https://github.com/Krzysztofci/bing-glava-suite)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--RC1-orange)](https://github.com/Krzysztofci/bing-glava-suite/releases)
+[![Made for GLava](https://img.shields.io/badge/Made%20for-GLava-purple)](https://github.com/jarcode-foss/glava)
+
 **Multi-instance GLava visualization studio for Linux desktop.**
 
 Automated Bing wallpaper downloads + GLava audio visualizer with full
