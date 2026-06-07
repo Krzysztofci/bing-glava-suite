@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="description" content="GLava Master Panel — multi-instance GLava audio visualization studio for Linux. Automated Bing wallpaper color sync, shader profiles, full i18n. Linux Mint 22 / Ubuntu 24.04.">
+<meta name="keywords" content="glava, audio visualizer, linux, bing wallpaper, tkinter, linux mint, ubuntu, shader, opengl, multi-instance">
+<meta property="og:title" content="GLava Master Panel">
+<meta property="og:description" content="Multi-instance GLava audio visualization studio for Linux desktop.">
+<meta property="og:image" content="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/Demo-1.0.0-MI.gif">
+<meta property="og:url" content="https://krzysztofci.github.io/bing-glava-suite/">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GLava Master Panel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -669,6 +676,11 @@ footer a:hover { color: var(--accent2); }
       <p>The color daemon runs as a systemd user service — starts automatically on login, restarts on failure, no root required.</p>
     </div>
     <div class="feature-card reveal">
+      <div class="feature-icon">⚙️</div>
+      <h3>One-command installer</h3>
+      <p>A single <code>sudo ./install.sh</code> handles everything — scripts, GUI, systemd service, cron, autostart and PATH configuration. No manual steps required.</p>
+    </div>
+    <div class="feature-card reveal">
       <div class="feature-icon">🌲</div>
       <h3>Forest-ttk-theme UI</h3>
       <p>Clean, consistent dark/light interface built entirely on Forest-ttk-theme. No Tk Win95 artifacts — custom TTK dialogs throughout.</p>
@@ -705,10 +717,7 @@ footer a:hover { color: var(--accent2); }
       <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/radial.gif" alt="Radial shader">
       <div class="screenshot-label">Radial</div>
     </div>
-    <div class="screenshot-item reveal">
-      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/demo0.5.0.gif" alt="v0.5.0 demo">
-      <div class="screenshot-label">v0.5.0</div>
-    </div>
+
   </div>
 </section>
 
@@ -800,6 +809,12 @@ footer a:hover { color: var(--accent2); }
       <h3>Source code</h3>
       <p>Latest dev branch as a .zip archive.<br>Python 3.10+ required.</p>
       <span class="badge">ZIP</span>
+    </a>
+    <a class="download-card reveal disabled" href="#">
+      <div class="download-card-icon">🐧</div>
+      <h3>Debian compatibility</h3>
+      <p>Planned support for Debian 12 and other Debian-based distributions beyond Ubuntu/Mint.</p>
+      <span class="badge soon">Planned</span>
     </a>
     <a class="download-card reveal"
        href="https://github.com/Krzysztofci/bing-glava-suite/blob/dev/BUILDING.md"
