@@ -37,7 +37,15 @@ Tested on **Linux Mint 22 XFCE/Cinnamon**, Intel HD 3000 (ThinkPad T420).
 
 ## Screenshots
 
-*(add screenshots here)*
+![Multi-instance GUI demo](screenshots/Demo-1.0.0-MI.gif)
+
+| Bars | Graph | Circle |
+|------|-------|--------|
+| ![Bars](screenshots/bars.gif) | ![Graph](screenshots/graph.gif) | ![Circle](screenshots/circle.gif) |
+
+| Radial | Wave |
+|--------|------|
+| ![Radial](screenshots/radial.gif) | ![Wave](screenshots/wave.gif) |
 
 ---
 
