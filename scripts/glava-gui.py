@@ -837,17 +837,22 @@ class GlavaGUI:
         from gui.instance import GlavaInstance
         from gui.colors import read_colors_from_frag
         from gui.geometry import read_geometry
-        from gui.modules.glsl_io import read_all_defines
+        from gui.modules.glsl_io import read_all_defines, read_smooth
+        from gui.core import SMOOTH_PARAMS
         for iid in list(self.instances.keys()):
             inst = GlavaInstance(iid)
             module = self._inst_modules.get(iid, self.active_module)
             colors = read_colors_from_frag(inst.module_frag(module)) or {}
             geo    = read_geometry(inst.rc_glsl) or (0, 0, 0, 0)
             glsl_files = {}
-            for glsl_name in [f"{module}.glsl", "rc.glsl", "smooth_parameters.glsl"]:
+            for glsl_name in [f"{module}.glsl", "rc.glsl"]:
                 glsl_path = os.path.join(inst.glava_dir, glsl_name)
                 if os.path.exists(glsl_path):
                     glsl_files[glsl_name] = read_all_defines(glsl_path)
+            # smooth_parameters.glsl używa #request — czytamy osobno
+            if os.path.exists(inst.smooth_glsl):
+                glsl_files["smooth_parameters.glsl"] = read_smooth(
+                    inst.smooth_glsl, SMOOTH_PARAMS)
             ws["instances"].append({
                 "inst_id": iid,
                 "name":    self.inst_bar._tabs.get(iid, {}).get("label", f"inst-{iid}"),
@@ -945,9 +950,16 @@ class GlavaGUI:
             from gui.modules.glsl_io import write_define_raw
             from gui.geometry import write_geometry
             inst = GlavaInstance(iid)
+            from gui.modules.glsl_io import write_define_raw, write_smooth
+            from gui.core import SMOOTH_PARAMS
             for glsl_name, defines in inst_data.get("glsl", {}).items():
                 glsl_path = os.path.join(inst.glava_dir, glsl_name)
-                if os.path.exists(glsl_path):
+                if not os.path.exists(glsl_path):
+                    continue
+                if glsl_name == "smooth_parameters.glsl":
+                    # Parametry wygładzania są #request — używamy write_smooth
+                    write_smooth(glsl_path, defines, SMOOTH_PARAMS)
+                else:
                     for key, val in defines.items():
                         write_define_raw(glsl_path, key, val)
             geo = inst_data.get("geometry", {})
@@ -1047,6 +1059,17 @@ class GlavaGUI:
                 proc   = self.processes.get(iid)
                 self.processes[iid] = None
                 def _after(new_proc, _iid=iid):
+                    # Jeśli użytkownik zdążył wyłączyć toggle zanim wątek wrócił,
+                    # nie rejestruj nowego procesu — zatrzymaj go od razu.
+                    if not self.glava_enabled_var.get():
+                        if new_proc is not None:
+                            glava_stop_instance(new_proc)
+                        with _lock:
+                            inst_count[0] -= 1
+                            if inst_count[0] == 0:
+                                self._toggle_in_progress = False
+                                self.root.after(0, self.update_status)
+                        return
                     self.processes[_iid] = new_proc
                     self.root.after(0, self.update_status)
                     with _lock:
@@ -1066,8 +1089,9 @@ class GlavaGUI:
             # Dodatkowo pkill na wypadek procesów poza kontrolą GUI
             import subprocess as _sp
             _sp.run(["pkill", "-x", "glava"], capture_output=True)
+            # Zwolnij lock dopiero po zakończeniu pkill, nie przed
+            self.root.after(0, self.update_status)
             self._toggle_in_progress = False
-            self.root.after(500, self.update_status)
 
     def _rebuild_advanced_tab(self):
         frame = self.frames.get("advanced")
