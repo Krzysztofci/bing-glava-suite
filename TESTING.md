@@ -80,9 +80,9 @@ sudo ./install.sh
 ### Scenariusz 2.5 — Restart systemu
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
-| 1 | Uruchom GUI z N instancjami, zapisz workspace | N procesów aktywnych |
+| 1 | Uruchom GUI z N instancjami | N procesów aktywnych |
 | 2 | Zamknij GUI, zrestartuj system | — |
-| 3 | Po restarcie uruchom GUI | GUI wczytuje zapisany workspace |
+| 3 | Po restarcie uruchom GUI | GUI przywraca ostatnio używane instancje (workspace wczytuje się ręcznie przez przycisk wczytaj) |
 | 4 | Sprawdź liczbę procesów | Liczba == N (nie 2N) |
 
 ---
@@ -92,10 +92,10 @@ sudo ./install.sh
 ### Scenariusz 3.1 — Dodawanie instancji
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
-| 1 | Uruchom GUI (1 instancja domyślna) | Liczba procesów == 1 |
-| 2 | Dodaj instancję: przycisk `+` → wybierz shader | Nowa zakładka pojawia się |
-| 3 | Sprawdź procesy | Liczba == 2 |
-| 4 | Dodaj jeszcze 2 instancje | Liczba == 4 |
+| 1 | Uruchom GUI | Jeśli brak zapisanych instancji — GUI uruchamia się bez kart i bez procesów |
+| 2 | Dodaj instancję: przycisk `+` → wybierz shader | Nowa zakładka pojawia się, liczba procesów == 1 |
+| 3 | Dodaj kolejną instancję: przycisk `+` → wybierz **inny** shader | Liczba == 2; każda instancja wymaga ręcznego wyboru shadera |
+| 4 | Dodaj jeszcze 2 instancje z różnymi shaderami | Liczba == 4 |
 | 5 | Każda instancja ma inny shader | Wizualizacje różnią się |
 
 ### Scenariusz 3.2 — Duplikowanie instancji
@@ -111,10 +111,10 @@ sudo ./install.sh
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Uruchom GUI z 3 instancjami | Liczba procesów == 3 |
-| 2 | Zamknij zakładkę instancji 2 | Liczba == 2 |
-| 3 | Sprawdź `~/.config/GlavaMP/instances.json` | Wpis instancji 2 usunięty |
-| 4 | Sprawdź `~/.config/glava-inst-2/` | Katalog usunięty |
-| 5 | Zamknij instancję 1 | Liczba == 1 |
+| 2 | Zamknij jedną zakładkę instancji | Liczba == 2 |
+| 3 | Sprawdź `~/.config/GlavaMP/instances.json` | Wpis zamkniętej instancji usunięty |
+| 4 | Sprawdź `ls ~/.config/glava-inst-*/` | Katalog zamkniętej instancji usunięty |
+| 5 | Zamknij kolejną instancję | Liczba == 1 |
 | 6 | Zamknij ostatnią pozostałą instancję | Liczba == 0 |
 
 ### Scenariusz 3.4 — Zmiana nazwy instancji
@@ -134,7 +134,7 @@ sudo ./install.sh
 | 1 | Otwórz zakładkę Main aktywnej instancji | Widoczne 3 przyciski kolorów (top/mid/bottom) |
 | 2 | Kliknij kolor "top" → wybierz czerwony | Przycisk zmienia kolor |
 | 3 | Kliknij przycisk "Zastosuj kolory" | GLava restartuje się, wizualizacja zmienia kolory (brak auto-restartu po zmianie koloru) |
-| 4 | Sprawdź czy kolory zostały zapisane do `1.frag` | `cat ~/.config/glava-inst-{id}/glava/bars/1.frag | grep "vec3 top"` |
+| 4 | Sprawdź czy kolory zostały zapisane do `1.frag` | `cat ~/.config/glava-inst-{id}/glava/{shader}/1.frag | grep "vec3 top"` (podmień `{shader}` na aktywny moduł instancji) |
 
 ### Scenariusz 4.2 — Gradient RGB vs HSV
 | Krok | Akcja | Oczekiwany wynik |
@@ -158,9 +158,9 @@ sudo ./install.sh
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Upewnij się że `~/Pictures/Bing/bing_today.jpg` istnieje | — |
-| 2 | Kliknij "Zastosuj kolory z tapety" | KMeans ekstrakcja, GLava restartuje się |
+| 2 | Kliknij "Zastosuj kolory z tapety" z opcją **All** | KMeans ekstrakcja, GLava restartuje się |
 | 3 | Kolory instancji zmienione zgodnie z tapetą | Widoczna w podglądzie miniatura |
-| 4 | Sprawdź wszystkie instancje | Każda instancja zaktualizowana |
+| 4 | Sprawdź wszystkie instancje | Każda instancja otrzymuje ten sam zestaw kolorów (opcja All) |
 
 ### Scenariusz 4.5 — Blokada tapety
 | Krok | Akcja | Oczekiwany wynik |
@@ -256,14 +256,7 @@ sudo ./install.sh
 | 3 | Zmień wersję shadera | rc.glsl zaktualizowany |
 | 4 | Sprawdź `~/.config/glava-inst-0/glava/rc.glsl` | Wartości zgodne z GUI |
 
-### Scenariusz 7.2 — Flagi okna GLava
-| Krok | Akcja | Oczekiwany wynik |
-|---|---|---|
-| 1 | Włącz "Floating window" | GLava zachowuje się jak pływające okno |
-| 2 | Włącz "Decorated" | GLava ma ramkę okna |
-| 3 | Zmiany aplikowane do WSZYSTKICH instancji | `grep setfloating ~/.config/glava-inst-*/glava/rc.glsl` |
-
-### Scenariusz 7.3 — Diagnostyka
+### Scenariusz 7.2 — Diagnostyka
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Kliknij "Test geometrii" | Messagebox z 7 wartościami (screen_w, screen_h, work_h, top, bottom, left, right) |
@@ -271,7 +264,7 @@ sudo ./install.sh
 | 3 | Kliknij "Pokaż logi" | Otwiera terminal z `tail -f` na logu daemona |
 | 4 | Logi zawierają wpisy z aktualnej sesji | Brak błędów krytycznych |
 
-### Scenariusz 7.4 — Motyw GUI
+### Scenariusz 7.3 — Motyw GUI
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Zmień motyw forest-dark → forest-light | GUI zmienia wygląd natychmiastowo |
@@ -292,14 +285,14 @@ sudo ./install.sh
 | 5 | Uruchom GUI ponownie | — |
 | 6 | Wczytaj workspace | Dokładnie 3 instancje przywrócone (nie mniej) |
 | 7 | Sprawdź procesy | Liczba == 3 |
-| 8 | Sprawdź kolory i parametry każdej instancji | Identyczne z zapisanymi |
+| 8 | Sprawdź kolory i parametry każdej instancji | Identyczne z zapisanymi, włącznie z wartościami wygładzania |
 
 ### Scenariusz 8.2 — Workspace po restarcie systemu
 | Krok | Akcja | Oczekiwany wynik |
 |---|---|---|
 | 1 | Zapisz workspace z N instancjami | — |
 | 2 | Zrestartuj system | — |
-| 3 | Uruchom GUI | Workspace automatycznie wczytany (jeśli autostart włączony) |
+| 3 | Uruchom GUI | GUI przywraca ostatnio używane instancje; workspace wczytaj ręcznie |
 | 4 | Liczba procesów == N | Brak zdublowania |
 
 ---
