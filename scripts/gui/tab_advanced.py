@@ -426,27 +426,38 @@ class TabAdvanced:
                 self.app.root.after_cancel(self._rjob)
             except Exception:
                 pass
-        # Restartuj wszystkie instancje rownoleggle
+        # Restartuj wszystkie instancje równolegle
         if hasattr(self.app, 'instances') and hasattr(self.app, 'processes'):
             def _restart_all():
-                from .glava import glava_restart_instance
                 import threading
+                # Sprawdź czy jakikolwiek restart już trwa — jeśli tak, pomiń
+                rip = getattr(self.app, '_restart_in_progress', {})
+                if any(rip.values()):
+                    return
+                if not hasattr(self.app, '_restart_in_progress'):
+                    self.app._restart_in_progress = {}
                 threads = []
-                for iid, inst in self.app.instances.items():
-                    mod = self.app._inst_modules.get(iid, self.app.active_module)
+                for iid, inst in list(self.app.instances.items()):
+                    # Nie startuj wątku jeśli ta instancja już się restartuje
+                    if self.app._restart_in_progress.get(iid):
+                        continue
+                    self.app._restart_in_progress[iid] = True
                     proc = self.app.processes.get(iid)
-                    def _do(i=iid, ins=inst, m=mod, p=proc):
+                    def _do(i=iid, ins=inst, p=proc):
                         from .glava import glava_stop_instance, glava_start
                         import time
                         glava_stop_instance(p)
                         time.sleep(0.5)
                         new_proc = glava_start(instance=ins)
-                        self.app.root.after(0, lambda i=i, p=new_proc: self.app.processes.update({i: p}))
+                        def _done(i=i, new_proc=new_proc):
+                            self.app.processes[i] = new_proc
+                            self.app._restart_in_progress[i] = False
+                            self.app.update_status()
+                        self.app.root.after(0, _done)
                     t = threading.Thread(target=_do, daemon=True)
                     threads.append(t)
                 for t in threads:
                     t.start()
-                self.app.root.after(0, self.app.update_status)
             self._rjob = self.app.root.after(500, _restart_all)
         elif hasattr(self.app, 'restart_active_instance'):
             self._rjob = self.app.root.after(
