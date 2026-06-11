@@ -2,7 +2,31 @@
 
 ---
 
-## [1.0.0-RC1] — 2026-06-xx
+## [1.0.0-RC2] — 2026-06-11
+
+### Bug fixes after RC1 testing
+
+- **fix:** Duplicate GLava processes when changing FPS or audio parameters
+  in the Advanced tab — `_debounce_request` now respects the
+  `_restart_in_progress` lock used by the rest of the GUI
+- **fix:** Toggle on/off deadlock — rapidly clicking the toggle could leave
+  the lock permanently set, making it impossible to re-enable GLava without
+  restarting the GUI; fixed by releasing the lock when no instances are registered
+- **fix:** Workspace save/load did not preserve smoothing parameters
+  (`gravity`, `smooth factor`, `avg frames`, `FFT scale`, `bass cutoff`);
+  values were read with a `#define`-only parser but `smooth_parameters.glsl`
+  uses `#request` exclusively — both save and load paths corrected
+
+### Documentation
+- ROADMAP and ROADMAP_PL: Wayland entry removed (X11-only by design),
+  GitHub Issues linked for all planned features
+- TESTING.md: corrected scenario descriptions 2.5, 3.1, 3.3, 4.1, 4.4,
+  7.2 (removed), 8.1, 8.2 based on RC1 testing findings
+- GitHub Pages project website added with feature matrix and screenshots
+
+---
+
+## [1.0.0-RC1] — 2026-06-07
 
 ### Release Candidate 1 — Multi-instance GLava Studio
 
@@ -57,11 +81,12 @@ is stable; known issues are documented below.
   both launch instances resulting in 2× expected processes. Workaround: use
   toggle OFF/ON in GUI after login.
 - **Color picker** — uses system `colorchooser` dialog (Tk); does not match
-  Forest-ttk-theme visually. Custom TTK color picker planned for RC2.
-- **Shader profiles** — currently global per module, not per instance.
-  Per-instance profiles planned for a future release.
+  Forest-ttk-theme visually. Custom TTK color picker planned for a future release.
 - **Workspace auto-load** — workspace is not automatically loaded on GUI start;
   must be loaded manually via the 🗁 button.
+
+> Issues fixed in RC2: duplicate processes on Advanced tab parameter change,
+> toggle deadlock, workspace smoothing parameters not saved/restored.
 
 ---
 
