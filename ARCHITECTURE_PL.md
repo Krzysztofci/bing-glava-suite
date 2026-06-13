@@ -87,6 +87,10 @@ Poprawna ścieżka: `restart_active_instance()` → `glava_restart_instance()`
 - Zatrzymuje tylko ten jeden proces (SIGTERM → 2s → SIGKILL)
 - Czeka na faktyczne zakończenie procesu przed powrotem
 - Zwraca nowy Popen przez `after_fn`
+- Przyjmuje opcjonalny parametr `instance=` — gdy podany, operuje na tej
+  konkretnej instancji zamiast na aktywnej; używany przez odpięte panele,
+  żeby zapisy i restarty zawsze trafiały do właściwej instancji niezależnie
+  od tego, która karta jest aktualnie aktywna w oknie głównym
 
 Stara ścieżka (kompatybilność wsteczna): `glava_restart()`
 - Robi `pkill -x glava` — zabija **wszystkie** procesy
