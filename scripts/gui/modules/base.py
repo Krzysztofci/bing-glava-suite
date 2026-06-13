@@ -72,12 +72,22 @@ class BaseParamWidget:
     MODULE_NAME:  str  = ""
     SHAPE_PARAMS: list = None  # podklasa ustawia własną listę; radial używa SHAPE_INT/FLOAT_PARAMS
 
-    def __init__(self, parent, app, T):
-        self.parent = parent
-        self.app    = app
-        self.T      = T
-        self.vars   = {}
+    def __init__(self, parent, app, T, instance=None):
+        self.parent    = parent
+        self.app       = app
+        self.T         = T
+        self.vars      = {}
+        # Gdy podane przez detach_section — ten widżet zawsze operuje na tej
+        # konkretnej instancji, niezależnie od aktywnej karty w oknie głównym.
+        # Gdy None — stare zachowanie: używa app.active_instance.
+        self._instance = instance
         self._init_extra()
+
+    def _get_instance(self):
+        """Instancja docelowa: zamrożona (odpięty panel) lub aktywna (zakładka)."""
+        if self._instance is not None:
+            return self._instance
+        return getattr(self.app, "active_instance", None)
 
     def _init_extra(self):
         """Hook dla podklas — dodatkowa inicjalizacja w __init__."""
@@ -117,25 +127,26 @@ class BaseParamWidget:
                 self.app.root.after_cancel(self._rjob)
             except Exception:
                 pass
-        mod = self.MODULE_NAME
+        mod  = self.MODULE_NAME
+        inst = self._get_instance()   # zamrożona lub active — pobrana TERAZ
         if hasattr(self.app, 'restart_active_instance'):
             self._rjob = self.app.root.after(
                 RESTART_DELAY_MS,
-                lambda: self.app.restart_active_instance(
+                lambda i=inst: self.app.restart_active_instance(
                     module=mod,
+                    instance=i,
                     after_fn=self.app.update_status,
                 ),
             )
         else:
             from gui.glava import glava_restart
-            instance = getattr(self.app, "active_instance", None)
             self._rjob = self.app.root.after(
                 RESTART_DELAY_MS,
-                lambda: glava_restart(
+                lambda i=inst: glava_restart(
                     mod,
                     extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                     after_fn=self.app.update_status,
-                    instance=instance,
+                    instance=i,
                 ),
             )
 
@@ -251,12 +262,22 @@ class BaseParamWidget:
         # Każdy moduł eksportuje apply_params i collect_params na poziomie modułu.
         # Importujemy dynamicznie żeby uniknąć cyklicznych importów.
         import importlib
-        mod = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
-        mod.apply_params(profiles[name], self.app)
+        mod  = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
+        inst = self._get_instance()
+        # apply_params czyta app.active_instance — tymczasowo ustawiamy
+        # zamrożoną instancję żeby zapis trafił do właściwego pliku GLSL
+        _orig = getattr(self.app, "active_instance", None)
+        if inst is not None:
+            self.app.active_instance = inst
+        try:
+            mod.apply_params(profiles[name], self.app)
+        finally:
+            self.app.active_instance = _orig
         self.app.rebuild_module_tab()
         if hasattr(self.app, 'restart_active_instance'):
             self.app.restart_active_instance(
                 module=self.MODULE_NAME,
+                instance=inst,
                 after_fn=self.app.update_status,
             )
         else:
@@ -265,6 +286,7 @@ class BaseParamWidget:
                 self.MODULE_NAME,
                 extra_flags=getattr(self.app, "extra_flags", "--desktop"),
                 after_fn=self.app.update_status,
+                instance=inst,
             )
 
     def _save_profile(self):
@@ -284,8 +306,16 @@ class BaseParamWidget:
             ):
                 return
         import importlib
-        mod = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
-        save_shader_profile_for_module(self.MODULE_NAME, name, mod.collect_params(self.app))
+        mod  = importlib.import_module(f"gui.modules.{self.MODULE_NAME}")
+        inst = self._get_instance()
+        _orig = getattr(self.app, "active_instance", None)
+        if inst is not None:
+            self.app.active_instance = inst
+        try:
+            params = mod.collect_params(self.app)
+        finally:
+            self.app.active_instance = _orig
+        save_shader_profile_for_module(self.MODULE_NAME, name, params)
         self._refresh_cb()
         self.profile_var.set(name)
 
@@ -318,39 +348,35 @@ class BaseParamWidget:
     @property
     def _module_glsl(self):
         try:
-            return self.app.active_instance.module_glsl(self.MODULE_NAME)
+            return self._get_instance().module_glsl(self.MODULE_NAME)
         except AttributeError:
             return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
 
     @property
     def _smooth_glsl(self):
         try:
-            return self.app.active_instance.smooth_glsl
+            return self._get_instance().smooth_glsl
         except AttributeError:
             return os.path.join(GLAVA_DIR, "smooth_parameters.glsl")
 
-
     @property
     def _glsl(self):
-        """Ścieżka do pliku GLSL aktywnego modułu (zastępuje _bars_glsl() itp.)"""
         try:
-            return self.app.active_instance.module_glsl(self.MODULE_NAME)
+            return self._get_instance().module_glsl(self.MODULE_NAME)
         except AttributeError:
             return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}.glsl")
 
     @property
     def _tmpl(self):
-        """Ścieżka do pliku template kolorów (zastępuje _bars_tmpl() itp.)"""
         try:
-            return self.app.active_instance.module_tmpl(self.MODULE_NAME)
+            return self._get_instance().module_tmpl(self.MODULE_NAME)
         except AttributeError:
             return os.path.join(GLAVA_DIR, f"{self.MODULE_NAME}_colors.frag")
 
     @property
     def _frag(self):
-        """Ścieżka do 1.frag aktywnego modułu (zastępuje _bars_1frag() itp.)"""
         try:
-            return self.app.active_instance.module_frag(self.MODULE_NAME)
+            return self._get_instance().module_frag(self.MODULE_NAME)
         except AttributeError:
             return os.path.join(GLAVA_DIR, self.MODULE_NAME, "1.frag")
     # ── Detachable sections ───────────────────────────────────────────────────
@@ -402,15 +428,34 @@ def detach_section(title, build_fn, current, root, on_close_fn):
 
     frame = ttk.Frame(tw, padding=(8, 8))
     frame.pack(fill="both", expand=True)
-    # Odczytaj świeże wartości z pliku zamiast zamrożonego snapshotu
+
     try:
         import importlib
-        widget = build_fn.__self__
-        mod = importlib.import_module(f"gui.modules.{widget.MODULE_NAME}")
-        current = mod.collect_params(widget.app)
+        orig_widget     = build_fn.__self__
+        frozen_instance = getattr(orig_widget.app, "active_instance", None)
+
+        # collect_params(app) czyta app.active_instance — tymczasowo podmieniamy
+        # na zamrożoną instancję żeby odczytać właściwy plik GLSL
+        _orig = getattr(orig_widget.app, "active_instance", None)
+        if frozen_instance is not None:
+            orig_widget.app.active_instance = frozen_instance
+        try:
+            mod_py  = importlib.import_module(f"gui.modules.{orig_widget.MODULE_NAME}")
+            current = mod_py.collect_params(orig_widget.app)
+        finally:
+            orig_widget.app.active_instance = _orig
+
+        # Nowy widżet z zamrożoną instancją — odizolowany od okna głównego.
+        # Wszelkie _debounce, _schedule_restart i _apply_profile tego widżetu
+        # zawsze trafią do frozen_instance, nie do aktualnie aktywnej karty.
+        WidgetClass      = type(orig_widget)
+        detached_widget  = WidgetClass(frame, orig_widget.app, orig_widget.T,
+                                       instance=frozen_instance)
+        method_name      = build_fn.__func__.__name__
+        getattr(detached_widget, method_name)(frame, current)
     except Exception:
-        pass  # fallback do przekazanego current
-    build_fn(frame, current)
+        # Fallback: stare zachowanie (bez zamrożenia instancji)
+        build_fn(frame, current)
 
     btn_frame = ttk.Frame(tw)
     btn_frame.pack(fill="x", padx=8, pady=(0, 8))
