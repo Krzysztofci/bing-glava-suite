@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="description" content="GLava Master Panel — multi-instance GLava audio visualization studio for Linux. Automated Bing wallpaper color sync, shader profiles, full i18n. Linux Mint 22 / Ubuntu 24.04.">
+<meta name="keywords" content="glava, audio visualizer, linux, bing wallpaper, tkinter, linux mint, ubuntu, shader, opengl, multi-instance">
+<meta property="og:title" content="GLava Master Panel">
+<meta property="og:description" content="Multi-instance GLava audio visualization studio for Linux desktop.">
+<meta property="og:image" content="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/Demo-1.0.0-MI.gif">
+<meta property="og:url" content="https://krzysztofci.github.io/bing-glava-suite/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLava Master Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #1a1a1a;
+  --bg2:       #222222;
+  --bg3:       #2a2a2a;
+  --border:    #3a3a3a;
+  --accent:    #217346;
+  --accent2:   #29a35a;
+  --accent3:   #1a5c38;
+  --text:      #e8e8e8;
+  --text2:     #aaaaaa;
+  --text3:     #666666;
+  --danger:    #c0392b;
+  --orange:    #e67e22;
+  --blue:      #2980b9;
+  --mono:      'JetBrains Mono', monospace;
+  --display:   'Syne', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── NOISE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  height: 56px;
+  background: rgba(26,26,26,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav-logo .dot {
+  width: 10px; height: 10px;
+  background: var(--accent2);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--accent2); }
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 7rem 2rem 4rem;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+  z-index: 1;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.15;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+}
+
+.hero-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(33,115,70,0.12) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.hero-tag {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 14px;
+  font-size: 0.75rem;
+  color: var(--accent2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  animation: fadeUp 0.6s ease both;
+}
+
+.hero-tag::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--accent2);
+  border-radius: 50%;
+}
+
+h1 {
+  position: relative;
+  z-index: 2;
+  font-family: var(--display);
+  font-size: clamp(2.8rem, 7vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+
+h1 span {
+  background: linear-gradient(135deg, var(--accent2), #4dd68a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  position: relative;
+  z-index: 2;
+  max-width: 580px;
+  color: var(--text2);
+  font-size: 1rem;
+  line-height: 1.8;
+  margin-bottom: 0.75rem;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+
+.hero-origin {
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
+  color: var(--text3);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.7;
+  margin-bottom: 2.5rem;
+  animation: fadeUp 0.6s 0.25s ease both;
+}
+
+.hero-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 3.5rem;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.65rem 1.5rem;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent2);
+}
+
+.btn-primary:hover {
+  background: var(--accent2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(33,115,70,0.35);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  transform: translateY(-1px);
+}
+
+.hero-demo {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 860px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  animation: fadeUp 0.8s 0.4s ease both;
+}
+
+.hero-demo img {
+  width: 100%;
+  display: block;
+}
+
+.demo-bar {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+/* ── SECTIONS ── */
+section {
+  position: relative;
+  z-index: 1;
+  padding: 5rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 0.75rem;
+}
+
+h2 {
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+  line-height: 1.15;
+}
+
+.section-desc {
+  color: var(--text2);
+  max-width: 580px;
+  margin-bottom: 3rem;
+  font-size: 0.95rem;
+}
+
+/* ── FEATURES GRID ── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.feature-card {
+  background: var(--bg2);
+  padding: 2rem;
+  transition: background 0.2s;
+}
+
+.feature-card:hover { background: var(--bg3); }
+
+.feature-icon {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.feature-card p {
+  font-size: 0.85rem;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+/* ── SCREENSHOTS ── */
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.screenshot-item {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.screenshot-item:hover {
+  border-color: var(--accent2);
+  transform: translateY(-2px);
+}
+
+.screenshot-item img {
+  width: 100%;
+  display: block;
+}
+
+.screenshot-label {
+  background: var(--bg3);
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── INSTALL ── */
+.install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.install-step {
+  background: var(--bg2);
+  padding: 1.5rem 2rem;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.step-num {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent2);
+  line-height: 1.4;
+}
+
+.step-content h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.step-content p {
+  font-size: 0.82rem;
+  color: var(--text2);
+}
+
+.code-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--accent2);
+  overflow-x: auto;
+  line-height: 1.8;
+  margin: 1.5rem 0;
+}
+
+.code-block .comment { color: var(--text3); }
+.code-block .cmd { color: var(--text); }
+
+/* ── DOWNLOAD ── */
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.download-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 1.75rem;
+  transition: border-color 0.2s, transform 0.2s;
+  text-decoration: none;
+  color: var(--text);
+  display: block;
+}
+
+.download-card:hover {
+  border-color: var(--accent2);
+  transform: translateY(-2px);
+}
+
+.download-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.download-card-icon { font-size: 2rem; margin-bottom: 1rem; }
+
+.download-card h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.download-card p {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+.download-card .badge {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--accent3);
+  color: var(--accent2);
+  border-radius: 2px;
+}
+
+.download-card .badge.soon {
+  background: #2c2200;
+  color: var(--orange);
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem;
+  text-align: center;
+  color: var(--text3);
+  font-size: 0.78rem;
+  line-height: 2;
+}
+
+footer a { color: var(--text2); text-decoration: none; }
+footer a:hover { color: var(--accent2); }
+
+/* ── DIVIDER ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .hero-actions { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">
+    <span class="dot"></span>
+    GLava Master Panel
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#screenshots">Screenshots</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#download">Download</a></li>
+    <li><a href="https://github.com/Krzysztofci/bing-glava-suite" target="_blank">GitHub ↗</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-tag">v1.0.0-RC3 — Multi-instance Studio</div>
+
+  <h1>GLava<br><span>Master Panel</span></h1>
+
+  <p class="hero-sub">
+    Multi-instance GLava audio visualization studio for Linux desktop.
+    Run Bars, Wave, Circle, Graph and Radial simultaneously —
+    each isolated, each yours.
+  </p>
+
+  <p class="hero-origin">
+    Like many good tools, this started as a personal itch — a small script
+    to sync Bing wallpaper colors with GLava. Step by step it grew into
+    a full-featured shader management studio. Born from
+    <em>bing-glava-suite</em>, built for everyone.
+  </p>
+
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="#install">
+      ⬇ Install
+    </a>
+    <a class="btn btn-secondary" href="https://github.com/Krzysztofci/bing-glava-suite" target="_blank">
+      ★ GitHub
+    </a>
+    <a class="btn btn-secondary" href="#download">
+      GLava .deb
+    </a>
+  </div>
+
+  <div class="hero-demo">
+    <div class="demo-bar">
+      <div class="demo-dot" style="background:#c0392b"></div>
+      <div class="demo-dot" style="background:#e67e22"></div>
+      <div class="demo-dot" style="background:#27ae60"></div>
+      <span style="font-size:0.75rem;color:#666;margin-left:8px">glavamasterpanel</span>
+    </div>
+    <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/Demo-1.0.0-MI.gif" alt="GLava Master Panel multi-instance demo">
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FEATURES -->
+<section id="features">
+  <p class="section-label reveal">What it does</p>
+  <h2 class="reveal">Everything you need<br>to run GLava.</h2>
+  <p class="section-desc reveal">
+    A complete control panel for the GLava audio visualizer —
+    from per-instance shader tuning to automated Bing wallpaper color sync.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon">⬡</div>
+      <h3>Multi-instance</h3>
+      <p>Run Bars, Wave, Circle, Graph and Radial simultaneously. Each instance has its own isolated config directory, GLava process and shader settings.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🎨</div>
+      <h3>KMeans color sync</h3>
+      <p>Automatically extracts dominant colors from your Bing wallpaper and applies them to all running GLava instances in real time.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🖼</div>
+      <h3>Automated Bing wallpaper</h3>
+      <p>Daily wallpaper downloads with region selection. Lock your favorite wallpaper or let it update automatically on a cron schedule.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">💾</div>
+      <h3>Workspaces & profiles</h3>
+      <p>Save and restore complete multi-instance setups as workspaces. Shader profiles let you store and recall parameter sets per module.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">📐</div>
+      <h3>Geometry auto-detection</h3>
+      <p>Automatically calculates correct GLava window size and position based on your screen resolution, taskbar height and side panels.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🌍</div>
+      <h3>Full i18n — PL / EN</h3>
+      <p>Complete Polish and English UI with runtime language switching. All dialogs, menus and tooltips fully translated.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🎛</div>
+      <h3>Shader parameter control</h3>
+      <p>Dedicated control panels for each module — shape, smoothing, dynamics, flags. Debounced sliders restart GLava only when you stop dragging.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🔧</div>
+      <h3>Systemd user service</h3>
+      <p>The color daemon runs as a systemd user service — starts automatically on login, restarts on failure, no root required.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">⚙️</div>
+      <h3>One-command installer</h3>
+      <p>A single <code>sudo ./install.sh</code> handles everything — scripts, GUI, systemd service, cron, autostart and PATH configuration. No manual steps required.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🌲</div>
+      <h3>Forest-ttk-theme UI</h3>
+      <p>Clean, consistent dark/light interface built entirely on Forest-ttk-theme. No Tk Win95 artifacts — custom TTK dialogs throughout.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SCREENSHOTS -->
+<section id="screenshots">
+  <p class="section-label reveal">Gallery</p>
+  <h2 class="reveal">See it in action.</h2>
+  <p class="section-desc reveal">GLava shaders running on Linux Mint 22 XFCE, Intel HD 3000.</p>
+
+  <!-- SHOWCASE -->
+  <div style="margin-bottom:3rem;">
+    <div class="reveal" style="margin-bottom:2rem;">
+      <div style="border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.5);">
+        <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/Multi_instance_one_screen.png" alt="Multiple GLava instances on one screen" style="width:100%;display:block;">
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:1rem;align-items:flex-start;">
+        <span style="font-size:1.5rem;">⬡</span>
+        <div>
+          <div style="font-family:var(--display);font-weight:700;margin-bottom:0.3rem;">Unlimited instances, infinite combinations</div>
+          <div style="color:var(--text2);font-size:0.85rem;line-height:1.7;">Run as many GLava visualizers as your system can handle — each with its own shader, color scheme, position and parameters. Bars at the top, Wave in the middle, Radial and Circle side by side. Your desktop, your composition.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <div style="border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,0.5);">
+        <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/Detachable_panels.png" alt="Detachable configuration panels" style="width:100%;display:block;">
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:1rem;align-items:flex-start;">
+        <span style="font-size:1.5rem;">🪟</span>
+        <div>
+          <div style="font-family:var(--display);font-weight:700;margin-bottom:0.3rem;">Detachable panels for focused configuration</div>
+          <div style="color:var(--text2);font-size:0.85rem;line-height:1.7;">Every parameter panel — Shape &amp; Dynamics, Screen Position, Smoothing, Switches — can be detached from the main window and placed anywhere on screen. Tune multiple instances side by side without switching tabs.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURE MATRIX -->
+  <div class="reveal" style="margin-bottom:3rem;overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.78rem;min-width:700px;">
+      <thead>
+        <tr style="background:var(--bg3);border-bottom:2px solid var(--accent);">
+          <th style="padding:0.75rem 1rem;text-align:left;color:var(--text2);font-weight:600;white-space:nowrap;">Module / Tab</th>
+          <th style="padding:0.75rem 1rem;text-align:left;color:var(--text2);font-weight:600;">📐 Shape &amp; Dynamics</th>
+          <th style="padding:0.75rem 1rem;text-align:left;color:var(--text2);font-weight:600;">🔄 Geometry &amp; Position</th>
+          <th style="padding:0.75rem 1rem;text-align:left;color:var(--text2);font-weight:600;">🌊 Smoothing &amp; Audio</th>
+          <th style="padding:0.75rem 1rem;text-align:left;color:var(--text2);font-weight:600;">🛠️ Switches &amp; Profiles</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);white-space:nowrap;">Main</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Color Pickers (Top/Mid/Bottom)<br>Color Profiles (Load/Save/Delete)<br>RGB / HSV modes</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">GLava Geometry (X, Y, W, H)<br>Auto-detect geometry</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Wallpaper sync (auto mode)<br>Capture colors from screen</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Bing Wallpaper Hub<br>Browse, Lock, Fetch<br>Desktop + Login screen</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Bars</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Bar width, Gap, Border<br>Center line, Gain</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);font-style:italic;color:var(--text3);">Global (Main tab)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gravity, Smoothing<br>Avg frames, FFT scale<br>Bass cutoff</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Invert spectrum, Vertical flip<br>Vertical bar (Y=X)<br>Disable mono, Swap L/R<br>Shader Profiles</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Circle</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Circle radius<br>Line thickness, Gain</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Rotation (0°–360°)<br>Screen Offset (X, Y)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gravity, Smoothing<br>Avg frames, FFT scale<br>Bass cutoff</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gradient fill<br>Post-processing smoothing<br>Swap L/R, Shader Profiles</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Graph</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gain<br>Gradient (0%–100%)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);font-style:italic;color:var(--text3);">Global (Main tab)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gravity, Smoothing<br>Avg frames, FFT scale<br>Bass cutoff</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Inward direction, Draw border<br>Edge glow, Edge smoothing<br>Join channels, Invert spectrum<br>Shader Profiles</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Radial</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Circle radius, Circle line<br>Bar count, Gain<br>Filling (0%–100%)<br>Bar width, Bar/Circle sharpness</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Rotation (0°–360°)<br>Screen Offset (X, Y)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gravity, Smoothing<br>Avg frames, FFT scale<br>Bass cutoff</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Swap L/R channels<br>Shader Profiles</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Wave</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Min/Max line thickness<br>Gain, Wave length (px)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Rotation (0°–360°)<br>Screen Offset (X, Y)</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Gravity, Smoothing<br>Avg frames, FFT scale<br>Bass cutoff</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Shader Profiles<br>Quick shader reset</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem 1rem;font-weight:700;color:var(--accent2);">Advanced</td>
+          <td style="padding:0.75rem 1rem;color:var(--text3);font-style:italic;">—</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Test panel detection</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">Audio buffer, Sample size<br>Sample rate, FPS limit<br>Mirror L/R, Frame interpolation</td>
+          <td style="padding:0.75rem 1rem;color:var(--text2);">GUI Theme manager<br>Daemon logs viewer<br>PL / EN language switch</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="screenshots-grid">
+    <div class="screenshot-item reveal">
+      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/bars.gif" alt="Bars shader">
+      <div class="screenshot-label">Bars</div>
+    </div>
+    <div class="screenshot-item reveal">
+      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/wave.gif" alt="Wave shader">
+      <div class="screenshot-label">Wave</div>
+    </div>
+    <div class="screenshot-item reveal">
+      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/circle.gif" alt="Circle shader">
+      <div class="screenshot-label">Circle</div>
+    </div>
+    <div class="screenshot-item reveal">
+      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/graph.gif" alt="Graph shader">
+      <div class="screenshot-label">Graph</div>
+    </div>
+    <div class="screenshot-item reveal">
+      <img src="https://raw.githubusercontent.com/Krzysztofci/bing-glava-suite/dev/screenshots/radial.gif" alt="Radial shader">
+      <div class="screenshot-label">Radial</div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- INSTALL -->
+<section id="install">
+  <p class="section-label reveal">Get started</p>
+  <h2 class="reveal">Install in minutes.</h2>
+  <p class="section-desc reveal">
+    Tested on Linux Mint 22 XFCE/Cinnamon and Ubuntu 24.04.
+    Requires Python 3.10+, Tkinter and GLava.
+  </p>
+
+  <div class="install-steps reveal">
+    <div class="install-step">
+      <div class="step-num">01</div>
+      <div class="step-content">
+        <h3>Install GLava</h3>
+        <p>Download the pre-built .deb package from the Download section below and install it.</p>
+      </div>
+    </div>
+    <div class="install-step">
+      <div class="step-num">02</div>
+      <div class="step-content">
+        <h3>Install Python dependencies</h3>
+        <p>Pillow, numpy and scikit-learn are required for color extraction.</p>
+      </div>
+    </div>
+    <div class="install-step">
+      <div class="step-num">03</div>
+      <div class="step-content">
+        <h3>Clone and install</h3>
+        <p>The installer copies all files, sets up the systemd service and configures autostart.</p>
+      </div>
+    </div>
+    <div class="install-step">
+      <div class="step-num">04</div>
+      <div class="step-content">
+        <h3>Log out and back in</h3>
+        <p>GLava and the color daemon start automatically on your next login.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block reveal">
+    <span class="comment"># Install Python dependencies</span><br>
+    <span class="cmd">pip install pillow numpy scikit-learn --break-system-packages</span><br>
+    <br>
+    <span class="comment"># Clone repository (dev branch)</span><br>
+    <span class="cmd">git clone -b dev https://github.com/Krzysztofci/bing-glava-suite.git</span><br>
+    <span class="cmd">cd bing-glava-suite</span><br>
+    <br>
+    <span class="comment"># Run installer (requires sudo)</span><br>
+    <span class="cmd">sudo ./install.sh</span>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <p class="section-label reveal">Download</p>
+  <h2 class="reveal">Get the packages.</h2>
+  <p class="section-desc reveal">
+    GLava .deb provided for Ubuntu 24.04 / Linux Mint 22.
+    Source code available on GitHub.
+  </p>
+
+  <div class="download-grid">
+    <a class="download-card reveal"
+       href="https://github.com/Krzysztofci/bing-glava-suite/releases"
+       target="_blank">
+      <div class="download-card-icon">📦</div>
+      <h3>GLava .deb</h3>
+      <p>Pre-built GLava binary for Ubuntu 24.04 / Linux Mint 22.<br>
+      <strong style="color:var(--accent2)">GLava engine only</strong> — does not include GlavaMP (the management GUI). Clone the repository and run <code>install.sh</code> to install the engine.</p>
+      <span class="badge">Ubuntu 24.04 / Mint 22</span>
+    </a>
+    <a class="download-card reveal disabled" href="#">
+      <div class="download-card-icon">🎬</div>
+      <h3>GLava .deb + OBS</h3>
+      <p>Build with OBS virtual camera plugin support.<br>Coming in a future release.</p>
+      <span class="badge soon">Coming soon</span>
+    </a>
+    <a class="download-card reveal"
+       href="https://github.com/Krzysztofci/bing-glava-suite/archive/refs/heads/dev.zip"
+       target="_blank">
+      <div class="download-card-icon">🗜</div>
+      <h3>Source code</h3>
+      <p>Latest dev branch as a .zip archive.<br>Python 3.10+ required.</p>
+      <span class="badge">ZIP</span>
+    </a>
+    <a class="download-card reveal disabled" href="#">
+      <div class="download-card-icon">🐧</div>
+      <h3>Debian compatibility</h3>
+      <p>Planned support for Debian 12 and other Debian-based distributions beyond Ubuntu/Mint.</p>
+      <span class="badge soon">Planned</span>
+    </a>
+    <a class="download-card reveal"
+       href="https://github.com/Krzysztofci/bing-glava-suite/blob/dev/BUILDING.md"
+       target="_blank">
+      <div class="download-card-icon">🔨</div>
+      <h3>Build from source</h3>
+      <p>Instructions for compiling GLava from source on Ubuntu / Mint.</p>
+      <span class="badge">BUILDING.md</span>
+    </a>
+  </div>
+</section>
+
+<hr class="divider">
+
+<footer>
+  <p>
+    GLava Master Panel — part of
+    <a href="https://github.com/Krzysztofci/bing-glava-suite">bing-glava-suite</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/Krzysztofci/bing-glava-suite/blob/dev/LICENSE">MIT License</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/jarcode-foss/glava">GLava</a> (GPLv3)
+    &nbsp;·&nbsp;
+    <a href="https://github.com/rdbende/Forest-ttk-theme">Forest-ttk-theme</a> (MIT)
+  </p>
+  <p style="margin-top:0.5rem; color:#444">
+    Built on Linux Mint 22 · ThinkPad T420 · Intel HD 3000
+  </p>
+</footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 60);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
