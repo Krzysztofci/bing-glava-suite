@@ -1,4 +1,57 @@
-# Testing Guide — bing-glava-suite v1.0.0 (MULTI-INSTANCE)
+# Testing Guide — bing-glava-suite v1.0.0-RC3 (MULTI-INSTANCE)
+
+---
+
+## Część 0: Testy automatyczne (pytest)
+
+### Wymagania
+
+```bash
+sudo apt install python3-pytest python3-pillow python3-tk
+```
+
+### Konfiguracja — `pytest.ini`
+
+Upewnij się że `pytest.ini` w katalogu projektu zawiera:
+
+```ini
+[pytest]
+testpaths = tests
+pythonpath = scripts
+addopts = -v
+```
+
+Opcja `addopts = -v` sprawia że każdy z 405 testów wyświetla się osobno
+z wynikiem PASSED / FAILED. Bez niej pytest pokazuje tylko podsumowanie.
+
+### Uruchomienie
+
+```bash
+cd ~/bing-glava-suite
+pytest
+```
+
+Wszystkie 405 testów powinno zakończyć się statusem `passed`. Przykładowy
+wynik poprawnej sesji:
+
+```
+tests/test_base_widget.py::test_build_creates_widgets PASSED
+tests/test_base_widget.py::test_build_populates_vars PASSED
+...
+405 passed in ~18s
+```
+
+Aby uruchomić tylko jeden plik testowy:
+
+```bash
+pytest tests/test_base_widget.py
+```
+
+Aby uruchomić tylko jeden konkretny test:
+
+```bash
+pytest tests/test_base_widget.py::test_frozen_instance_debounce_writes_to_correct_file
+```
 
 ---
 
@@ -373,6 +426,50 @@ sudo ./install.sh
 | Linux Mint XFCE | Konto testowe (`su - testuser`) | ⏳ Do weryfikacji |
 
 ---
+
+---
+
+## Część 12: Odpięte panele — kierowanie danych do właściwej instancji (RC3)
+
+> Weryfikacja naprawki błędu z RC3: odpięty panel musi zawsze wysyłać zmiany
+> do instancji której dotyczy, niezależnie od aktywnej zakładki w oknie głównym.
+
+### Scenariusz 12.1 — Podstawowy: odpięty panel nie reaguje na zmianę aktywnej zakładki
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Uruchom GUI z 2 instancjami: **Bars** i **Radial** | 2 procesy aktywne |
+| 2 | Przejdź na zakładkę **Radial** | Radial jest aktywny |
+| 3 | Odepnij panel "Kształt" dla Radial (przycisk ⊞ przy sekcji) | Okno główne minimalizuje się, panel odpina się |
+| 4 | Przywróć okno główne (kliknij na pasku zadań) | Oba okna widoczne |
+| 5 | Kliknij zakładkę **Bars** w oknie głównym | Bars staje się aktywny |
+| 6 | Zmień dowolny parametr w odpiętym panelu **Radial** | GLava Radial restartuje się z nową wartością |
+| 7 | Sprawdź liczbę procesów: `pgrep -x glava | wc -l` | Nadal == 2 (nie 3) |
+| 8 | Sprawdź że **Bars** nadal wyświetla shader bars | Bars NIE zmienił się na radial |
+| 9 | Sprawdź wartość w pliku Radial: `grep "PARAM" ~/.config/glava-inst-{id}/glava/radial.glsl` | Wartość zgodna ze zmianą |
+
+### Scenariusz 12.2 — Dwa odpięte panele jednocześnie
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Uruchom GUI z instancjami **Bars** (inst-1) i **Radial** (inst-2) | 2 procesy aktywne |
+| 2 | Odepnij panel "Kształt" dla **Bars** | Okno panelu Bars |
+| 3 | Wróć do GUI, przejdź na **Radial**, odepnij panel "Kształt" dla **Radial** | Dwa odpięte panele na pulpicie |
+| 4 | Zmień parametr w panelu **Bars** | Tylko Bars restartuje się |
+| 5 | Zmień parametr w panelu **Radial** | Tylko Radial restartuje się |
+| 6 | Sprawdź `pgrep -x glava | wc -l` | Zawsze == 2 |
+| 7 | Sprawdź że każda instancja wyświetla swój shader | Bars = bars, Radial = radial |
+
+### Scenariusz 12.3 — Zmiana parametru po przełączeniu wszystkich zakładek
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Uruchom GUI z 3 instancjami: Bars, Wave, Radial | 3 procesy |
+| 2 | Odepnij panel "Wygładzanie" dla **Wave** | Panel Wave odpięty |
+| 3 | Przełącz kolejno przez wszystkie zakładki w oknie głównym | active_instance zmienia się 3 razy |
+| 4 | Zmień parametr "Grawitacja" w odpiętym panelu **Wave** | Tylko Wave restartuje się |
+| 5 | Sprawdź `~/.config/glava-inst-{wave_id}/glava/smooth_parameters.glsl` | Wartość grawitacji zmieniona tylko w Wave |
+| 6 | Sprawdź pozostałe instancje | Bars i Radial niezmienione |
 
 ## Narzędzia diagnostyczne
 
