@@ -632,14 +632,21 @@ class GlavaGUI:
     # API dla tab_main / tab_module — operują na active_instance
     # ─────────────────────────────────────────────────────────────────────────
 
-    def restart_active_instance(self, module=None, after_fn=None):
+    def restart_active_instance(self, module=None, after_fn=None, instance=None):
         """
-        Restartuje proces GLava aktywnej instancji.
+        Restartuje proces GLava wskazanej instancji (lub aktywnej gdy instance=None).
         Debounce 300ms + blokada restart_in_progress per instancja.
         Jeśli restart trwa — zapisuje pending i odpala ponownie po zakończeniu.
+
+        instance — GlavaInstance przekazywana przez odpięty panel; gdy podana,
+                   restartuje TĘ instancję niezależnie od aktywnej karty.
         """
-        iid    = self._active_inst_id
-        inst   = self.active_instance
+        if instance is not None:
+            inst = instance
+            iid  = instance.inst_id
+        else:
+            iid  = self._active_inst_id
+            inst = self.active_instance
         module = module or self._inst_modules.get(iid, self.active_module)
 
         self._inst_modules[iid] = module
@@ -658,7 +665,7 @@ class GlavaGUI:
 
         # Jeśli restart trwa — zapisz pending i wyjdź
         if self._restart_in_progress.get(iid):
-            self._restart_pending[iid] = (module, after_fn)
+            self._restart_pending[iid] = (module, after_fn, inst)
             return
 
         # Anuluj poprzedni oczekujący timer
@@ -682,9 +689,9 @@ class GlavaGUI:
                     self.root.after(0, _fn)
                 pending = self._restart_pending.pop(__iid, None)
                 if pending:
-                    pending_module, pending_fn = pending
-                    self.root.after(0, lambda: self.restart_active_instance(
-                        module=pending_module, after_fn=pending_fn))
+                    pending_module, pending_fn, pending_inst = pending
+                    self.root.after(0, lambda m=pending_module, f=pending_fn, i=pending_inst:
+                                    self.restart_active_instance(module=m, after_fn=f, instance=i))
             glava_restart_instance(
                 instance=_inst,
                 module=_module,

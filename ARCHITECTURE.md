@@ -87,6 +87,10 @@ Correct path: `restart_active_instance()` → `glava_restart_instance()`
 - Stops only that one process (SIGTERM → 2s → SIGKILL)
 - Waits for process death before returning
 - Returns new Popen via `after_fn`
+- Accepts optional `instance=` parameter — when provided, operates on that
+  specific instance instead of the active one; used by detached panels to
+  ensure writes and restarts always target the correct instance regardless
+  of which tab is currently active in the main window
 
 Legacy path (backward compatibility): `glava_restart()`
 - Does `pkill -x glava` — kills **all** processes
