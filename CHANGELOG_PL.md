@@ -2,6 +2,58 @@
 
 ---
 
+## [1.0.0-RC3] — 2026-06-xx
+
+### Kandydat do wydania 3 — Naprawa kierowania danych w odpiętych panelach
+
+---
+
+### 🐛 Naprawione błędy
+
+#### Odpięte panele zapisywały dane do złej instancji
+- **Przyczyna:** `BaseParamWidget` zawsze pobierał instancję docelową przez
+  `app.active_instance` w chwili zapisu/restartu. Zmiana zakładki w oknie
+  głównym podczas gdy panel był odpięty powodowała, że zapisy GLSL i restarty
+  GLava trafiały do złej instancji — np. manipulowanie odpiętym panelem Radial
+  restartowało Bars (nowo aktywna karta) z modułem Radial.
+- **Naprawa:** `BaseParamWidget.__init__` otrzymuje opcjonalny parametr
+  `instance=`. `detach_section()` tworzy teraz **nowy widżet** przywiązany do
+  zamrożonej `active_instance` z chwili odpięcia, całkowicie izolując go od
+  stanu okna głównego. Wszystkie właściwości GLSL i `_schedule_restart()`
+  przechodzą przez `_get_instance()`, które zwraca zamrożoną instancję gdy jest
+  ustawiona.
+- **`restart_active_instance()`** otrzymuje parametr `instance=` — gdy podany,
+  operuje na tej konkretnej instancji zamiast na aktualnie aktywnej.
+  Pending restarty również przechowują referencję do instancji (3-krotka).
+
+---
+
+## [1.0.0-RC2] — 2026-06-xx
+
+### Kandydat do wydania 2 — Poprawki błędów i stabilność
+
+---
+
+### 🐛 Naprawione błędy
+
+- **Duplikowanie procesów w `_debounce_request`** — naprawiony race condition
+  powodujący tworzenie wielu procesów GLava
+- **Deadlock w `_on_glava_toggle`** — naprawione zawieszenie gdy `self.instances`
+  jest puste
+- **Korupcja zapisu/wczytania workspace** — `smooth_parameters.glsl` używa
+  `#request` nie `#define`; regex `read_all_defines` naprawiony by obsługiwał
+  wartości zawierające spacje
+
+### 🔧 Pozostałe zmiany
+
+- Śledzenie błędów i funkcji przeniesione z plików tekstowych na pulpicie do
+  GitHub Issues
+- Lista funkcji oczyszczona z nieprawidłowych założeń
+- ROADMAP i CHANGELOG zaktualizowane (dwujęzycznie)
+- Wsparcie Waylanda trwale usunięte — użytkownicy kierowani do WayVes
+
+---
+
 ## [1.0.0-RC1] — 2026-06-xx
 
 ### Kandydat do wydania 1 — Wieloinstancyjne Studio GLava

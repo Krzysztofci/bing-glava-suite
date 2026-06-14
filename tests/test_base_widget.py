@@ -2,7 +2,6 @@ import pytest
 import tkinter as tk
 import os
 import sys
-
 # ── Fake app ──────────────────────────────────────────────────────────────────
 class FakeApp:
     def __init__(self, root, glava_dir):
@@ -19,22 +18,16 @@ class FakeApp:
         self.active_instance = inst
     def update_status(self, *a): pass
     def rebuild_module_tab(self): pass
-    def update_status(self, *a): pass
-    def rebuild_module_tab(self): pass
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
 @pytest.fixture
 def root():
     r = tk.Tk()
     r.withdraw()
     yield r
     r.destroy()
-
 @pytest.fixture
 def fake_app(root, tmp_glava_dir):
     return FakeApp(root, tmp_glava_dir)
-
 @pytest.fixture
 def bars_widget(fake_app, tmp_glava_dir, monkeypatch):
     import gui.modules.bars as bars_mod
@@ -45,25 +38,18 @@ def bars_widget(fake_app, tmp_glava_dir, monkeypatch):
     frame = tk.Frame(fake_app.root)
     w = bars_mod.BarsParamWidget(frame, fake_app, T)
     return w
-
 # ── _module_glsl / _smooth_glsl ───────────────────────────────────────────────
-
 def test_module_glsl_path(bars_widget, tmp_glava_dir):
     expected = os.path.join(tmp_glava_dir, "bars.glsl")
     assert bars_widget._module_glsl == expected
-
 def test_smooth_glsl_path(bars_widget, tmp_glava_dir):
     expected = os.path.join(tmp_glava_dir, "smooth_parameters.glsl")
     assert bars_widget._smooth_glsl == expected
-
 # ── SHAPE_PARAMS ──────────────────────────────────────────────────────────────
-
 def test_shape_params_not_none(bars_widget):
     assert bars_widget.SHAPE_PARAMS is not None
     assert len(bars_widget.SHAPE_PARAMS) > 0
-
 # ── _debounce target="module" ─────────────────────────────────────────────────
-
 def test_debounce_module_writes_to_file(bars_widget, tmp_glava_dir, monkeypatch):
     """_debounce z target='module' zapisuje wartość do pliku GLSL."""
     monkeypatch.setattr(bars_widget.app.root, "after",
@@ -74,7 +60,6 @@ def test_debounce_module_writes_to_file(bars_widget, tmp_glava_dir, monkeypatch)
     from gui.modules import glsl_io
     result = glsl_io.read_raw(bars_widget._module_glsl)
     assert str(new_val) in str(result.get(key, ""))
-
 def test_debounce_smooth_writes_to_file(bars_widget, tmp_glava_dir, monkeypatch):
     """_debounce z target='smooth' zapisuje wartość do smooth_parameters.glsl."""
     monkeypatch.setattr(bars_widget.app.root, "after",
@@ -87,28 +72,21 @@ def test_debounce_smooth_writes_to_file(bars_widget, tmp_glava_dir, monkeypatch)
     from gui.modules import glsl_io
     result = glsl_io.read_smooth(bars_widget._smooth_glsl, SMOOTH_PARAMS)
     assert abs(result[key] - new_val) < step * 0.01
-
 # ── MODULE_NAME ───────────────────────────────────────────────────────────────
-
 def test_module_name(bars_widget):
     assert bars_widget.MODULE_NAME == "bars"
-
 # ── build() ───────────────────────────────────────────────────────────────────
-
 def test_build_creates_widgets(bars_widget):
     """build() nie crashuje i tworzy widgety w frame."""
     bars_widget.build()
     children = bars_widget.parent.winfo_children()
     assert len(children) > 0
-
 def test_build_populates_vars(bars_widget):
     """build() wypełnia self.vars kluczami z SHAPE_PARAMS."""
     bars_widget.build()
     for p in bars_widget.SHAPE_PARAMS:
         assert p[0] in bars_widget.vars, f"Brak klucza {p[0]} w vars"
-
 # ── _slider_row ───────────────────────────────────────────────────────────────
-
 def test_slider_row_creates_var(bars_widget):
     """_slider_row tworzy IntVar w self.vars."""
     from gui.modules import glsl_io
@@ -117,7 +95,6 @@ def test_slider_row_creates_var(bars_widget):
     frame = tk.Frame(bars_widget.app.root)
     bars_widget._slider_row(frame, tuple(p), current, 0)
     assert p[0] in bars_widget.vars
-
 def test_slider_row_initial_value(bars_widget):
     """_slider_row ustawia wartość z current."""
     from gui.modules import glsl_io
@@ -128,9 +105,7 @@ def test_slider_row_initial_value(bars_widget):
     bars_widget._slider_row(frame, tuple(p), current, 0)
     val = bars_widget.vars[key].get()
     assert vmin <= val <= vmax
-
 # ── _float_slider_row ─────────────────────────────────────────────────────────
-
 def test_float_slider_row_creates_var(bars_widget):
     """_float_slider_row tworzy DoubleVar w self.vars."""
     from gui.core import SMOOTH_PARAMS
@@ -140,13 +115,132 @@ def test_float_slider_row_creates_var(bars_widget):
     frame = tk.Frame(bars_widget.app.root)
     bars_widget._float_slider_row(frame, tuple(p), current, 0)
     assert p[0] in bars_widget.vars
-
 # ── active_instance integration ───────────────────────────────────────────────
-
 def test_module_glsl_uses_active_instance(bars_widget, tmp_glava_dir):
     """_module_glsl zwraca ścieżkę z active_instance."""
     assert bars_widget._module_glsl == bars_widget.app.active_instance.module_glsl("bars")
-
 def test_smooth_glsl_uses_active_instance(bars_widget, tmp_glava_dir):
     """_smooth_glsl zwraca ścieżkę z active_instance."""
     assert bars_widget._smooth_glsl == bars_widget.app.active_instance.smooth_glsl
+# ── Detached panel instance routing (RC3 fix) ─────────────────────────────────
+
+def _make_instance(tmp_path, inst_id, glava_dir=None):
+    """Helper — tworzy GlavaInstance bez systemu plików."""
+    from gui.instance import GlavaInstance
+    inst = GlavaInstance.__new__(GlavaInstance)
+    inst.inst_id   = inst_id
+    d = glava_dir or str(tmp_path / f"glava-inst-{inst_id}" / "glava")
+    os.makedirs(d, exist_ok=True)
+    inst.glava_dir = d
+    inst.xdg_dir   = os.path.dirname(d)
+    inst.conf_dir  = d
+    return inst
+
+
+def test_frozen_instance_glsl_path(fake_app, tmp_glava_dir, tmp_path, monkeypatch):
+    """Widget z zamrożoną instancją używa jej ścieżek GLSL, nie active_instance."""
+    import gui.modules.bars as bars_mod
+    import gui.core as core
+    monkeypatch.setattr(core, "GLAVA_DIR", tmp_glava_dir)
+    T = core.load_lang("pl")
+
+    frozen = _make_instance(tmp_path, inst_id=2)
+
+    frame = tk.Frame(fake_app.root)
+    widget = bars_mod.BarsParamWidget(frame, fake_app, T, instance=frozen)
+
+    # active_instance wskazuje na inst_id=0 (z FakeApp)
+    assert fake_app.active_instance.inst_id == 0
+
+    # Widget powinien używać ścieżek zamrożonej instancji (inst_id=2)
+    assert widget._module_glsl == frozen.module_glsl("bars")
+    assert widget._smooth_glsl == frozen.smooth_glsl
+
+
+def test_frozen_instance_debounce_writes_to_correct_file(
+        fake_app, tmp_glava_dir, tmp_path, monkeypatch):
+    """_debounce zapisuje do pliku zamrożonej instancji, nie active_instance.
+
+    Symuluje scenariusz: odpięty panel Radial (inst=2) przy aktywnej karcie
+    Bars (inst=1, czyli active_instance). Zapis musi trafić do inst=2.
+    """
+    import shutil
+    import gui.modules.bars as bars_mod
+    import gui.core as core
+    from gui.modules import glsl_io
+    monkeypatch.setattr(core, "GLAVA_DIR", tmp_glava_dir)
+    monkeypatch.setattr(fake_app.root, "after", lambda ms, fn, *a: None)
+    T = core.load_lang("pl")
+
+    src_glsl = os.path.join(tmp_glava_dir, "bars.glsl")
+
+    # Instancja zamrożona (inst=2) — osobny katalog, kopia bars.glsl
+    frozen = _make_instance(tmp_path, inst_id=2)
+    if os.path.exists(src_glsl):
+        shutil.copy2(src_glsl, frozen.module_glsl("bars"))
+
+    # active_instance (inst=0) musi mieć WŁASNY katalog oddzielony od tmp_glava_dir,
+    # inaczej active_glsl == src_glsl i shutil.copy2 rzuca SameFileError.
+    active = _make_instance(tmp_path, inst_id=0)
+    active_glsl = active.module_glsl("bars")
+    if os.path.exists(src_glsl):
+        shutil.copy2(src_glsl, active_glsl)
+    fake_app.active_instance = active
+
+    frame = tk.Frame(fake_app.root)
+    widget = bars_mod.BarsParamWidget(frame, fake_app, T, instance=frozen)
+
+    key     = bars_mod.SHAPE_PARAMS[0][0]   # "BAR_WIDTH"
+    new_val = int(bars_mod.SHAPE_PARAMS[0][3])  # vmax
+
+    widget._debounce(key, new_val, "module")
+
+    # Zapis musi być w pliku zamrożonej instancji
+    frozen_result = glsl_io.read_raw(frozen.module_glsl("bars"))
+    assert str(new_val) in str(frozen_result.get(key, "")), \
+        "Zapis nie trafił do zamrożonej instancji"
+
+    # Plik active_instance NIE może być zmodyfikowany
+    active_result = glsl_io.read_raw(active_glsl)
+    assert str(new_val) not in str(active_result.get(key, "")), \
+        "Zapis błędnie trafił do active_instance"
+
+
+def test_frozen_instance_schedule_restart_passes_instance(
+        fake_app, tmp_glava_dir, tmp_path, monkeypatch):
+    """_schedule_restart przekazuje zamrożoną instancję do restart_active_instance.
+
+    Symuluje: odpięty panel inst=2, active_instance zmieniona na inst=1.
+    restart_active_instance musi dostać instance=frozen (inst=2), nie active.
+    """
+    import gui.modules.bars as bars_mod
+    import gui.core as core
+    monkeypatch.setattr(core, "GLAVA_DIR", tmp_glava_dir)
+    T = core.load_lang("pl")
+
+    frozen = _make_instance(tmp_path, inst_id=2)
+
+    frame  = tk.Frame(fake_app.root)
+    widget = bars_mod.BarsParamWidget(frame, fake_app, T, instance=frozen)
+
+    received = {}
+
+    def fake_restart(module=None, instance=None, after_fn=None):
+        received["instance"] = instance
+        received["module"]   = module
+
+    fake_app.restart_active_instance = fake_restart
+
+    # Symuluj zmianę aktywnej karty na inną instancję
+    other = _make_instance(tmp_path, inst_id=1)
+    fake_app.active_instance = other
+
+    # after() wywołujemy synchronicznie
+    monkeypatch.setattr(fake_app.root, "after",
+                        lambda ms, fn, *a: fn())
+
+    widget._schedule_restart()
+
+    assert received.get("instance") is frozen, \
+        f"restart dostał instance={received.get('instance')}, oczekiwano frozen (inst=2)"
+    assert received.get("module") == "bars"

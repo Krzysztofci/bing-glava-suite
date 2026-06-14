@@ -2,6 +2,54 @@
 
 ---
 
+## [1.0.0-RC3] — 2026-06-xx
+
+### Release Candidate 3 — Detached panel instance routing fix
+
+---
+
+### 🐛 Bug fixes
+
+#### Detached panels writing to wrong instance
+- **Root cause:** `BaseParamWidget` always resolved the target instance via
+  `app.active_instance` at the time of write/restart. Switching tabs in the
+  main window while a panel was detached caused GLSL writes and GLava restarts
+  to hit the wrong instance — e.g. manipulating a detached Radial panel would
+  restart Bars (the newly active tab) with the Radial module.
+- **Fix:** `BaseParamWidget.__init__` gains an optional `instance=` parameter.
+  `detach_section()` now creates a **new widget** bound to the frozen
+  `active_instance` at detach time, fully isolating it from main window state.
+  All GLSL properties and `_schedule_restart()` go through `_get_instance()`,
+  which returns the frozen instance when set.
+- **`restart_active_instance()`** gains `instance=` parameter — when provided,
+  operates on that specific instance instead of the currently active one.
+  Pending restarts also carry the instance reference (3-tuple).
+
+---
+
+## [1.0.0-RC2] — 2026-06-xx
+
+### Release Candidate 2 — Bug fixes & stability
+
+---
+
+### 🐛 Bug fixes
+
+- **`_debounce_request` duplicate process bug** — fixed race condition causing
+  multiple GLava processes to spawn
+- **Deadlock in `_on_glava_toggle`** — fixed hang when `self.instances` is empty
+- **Workspace save/load corruption** — `smooth_parameters.glsl` uses `#request`
+  not `#define`; `read_all_defines` regex fixed to capture space-containing values
+
+### 🔧 Other changes
+
+- Bug and feature tracking migrated from desktop text files to GitHub Issues
+- Feature list pruned of incorrect assumptions
+- ROADMAP and CHANGELOG updated (bilingual)
+- Wayland support permanently removed — users directed to WayVes
+
+---
+
 ## [1.0.0-RC1] — 2026-06-xx
 
 ### Release Candidate 1 — Multi-instance GLava Studio
