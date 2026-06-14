@@ -1,0 +1,57 @@
+name: 🐛 Bug Report
+description: Report a bug to help improve the project.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug! Please fill out the form below with as much detail as possible.
+  
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: E.g., The app crashes immediately when I pass the -d argument...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Linux Distribution
+      description: Which OS are you running the project on?
+      options:
+        - Linux Mint
+        - Ubuntu
+        - Debian
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Program Version / Commit Hash
+      description: Provide the version (e.g., v1.2.0) or the specific commit from `main` or `dev`.
+      placeholder: e.g., v1.0.4 or commit a1b2c3d
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can I reproduce this issue on my machine?
+      placeholder: |
+        1. Run command '...'
+        2. See error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal Output / Logs
+      description: Please paste any relevant terminal outputs, error messages, or logs here.
+      render: shell

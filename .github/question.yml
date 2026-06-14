@@ -1,0 +1,12 @@
+name: ❓ Question & Support
+description: Ask a question about using the project.
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know?
+      description: Ask your question clearly. Please check the README first to see if it's already covered.
+      placeholder: How do I configure the environment variable for Linux Mint?
+    validations:
+      required: true
