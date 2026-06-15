@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/badge/Release-v1.0.0--RC3-orange)](https://github.com/Krzysztofci/bing-glava-suite/releases)
 [![Made for GLava](https://img.shields.io/badge/Made%20for-GLava-purple)](https://github.com/jarcode-foss/glava)
 [![Tests](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml/badge.svg)](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml)
-[![Coverage](https://codecov.io/gh/Krzysztofci/bing-glava-suite/branch/main/graph/badge.svg)](https://codecov.io/gh/Krzysztofci/bing-glava-suite)
+[![Coverage](https://codecov.io/gh/krzysztofci/bing-glava-suite/branch/dev/graph/badge.svg)](https://codecov.io/gh/krzysztofci/bing-glava-suite)
 
 **Multi-instance GLava visualization studio for Linux desktop.**
 
