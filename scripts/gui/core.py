@@ -4,9 +4,9 @@
 # Brak importów tkinter — ten moduł jest środowiskowo neutralny.
 # =============================================================================
 
-import os
-import json
 import glob
+import json
+import os
 import re
 
 # ─────────────────────────────────────────────────────────────────────────────

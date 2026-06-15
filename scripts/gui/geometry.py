@@ -1,13 +1,12 @@
 import os
+import re
+
 # =============================================================================
 # gui/geometry.py
 # Detekcja ekranu i pasków zadań, obliczanie geometrii GLava.
 # Brak importów tkinter — środowiskowo neutralny.
 # =============================================================================
-
 import subprocess
-import re
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Klasyfikacja modułów

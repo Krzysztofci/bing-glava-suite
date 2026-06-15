@@ -9,14 +9,11 @@
 
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-from ..core import RC_GLSL, SMOOTH_PARAMS
-
+from ..core import RC_GLSL, SMOOTH_PARAMS, get_shader_profiles_for_module
 from . import glsl_io
-from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
-
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_PARAMS = [
@@ -128,7 +125,7 @@ class GraphParamWidget(BaseParamWidget):
             key = p[0]      # Pierwszy element to zawsze klucz (np. "DRAW_FILL")
             label = p[1]    # Drugi to etykieta domyślna
             tooltip = p[-1] # Ostatni to zawsze tooltip
-            
+
             raw = current.get(key, 0)
             # DIRECTION: 1=włączony, -1=wyłączony (niestandardowe)
             if key == "DIRECTION":
@@ -136,7 +133,7 @@ class GraphParamWidget(BaseParamWidget):
             else:
                 var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
-            
+
             json_key = mapping_flags.get(key)
             translated_label = self.T.get(json_key, label) if json_key else label
             tip_key = json_key.replace("label_", "tooltip_") if json_key else None
@@ -146,11 +143,11 @@ class GraphParamWidget(BaseParamWidget):
             ttk.Checkbutton(
                 lf,
                 text=translated_label,
-                width=18, 
+                width=18,
                 variable=var,
                 command=lambda k=key, v=var: self._write_flag(k, v)
             ).grid(row=idx, column=0, sticky="w", pady=2, padx=(10, 0))
-            
+
             # Rysowanie pytajnika z tooltipem
             if translated_tip:
                 t = glsl_io.tip(lf, "?", translated_tip)
@@ -226,7 +223,7 @@ class GraphParamWidget(BaseParamWidget):
 
     def _update_geometry_for_flip(self, flipped):
         try:
-            from ..geometry import get_screen_info, calc_geometry, write_geometry
+            from ..geometry import calc_geometry, get_screen_info, write_geometry
             rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
             si = get_screen_info()
             x, y, w, h = calc_geometry("graph", si[0], si[1], si[4], si[3],

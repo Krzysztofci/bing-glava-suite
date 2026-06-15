@@ -11,14 +11,10 @@
 
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-from ..core import RC_GLSL, SMOOTH_PARAMS
-
-from ..theme import (BTN_APPLY, BTN_SAVE, BTN_DELETE, BTN_RESET,
-                     COLORS, TFrame, TLabelFrame, TLabel, TCheckbutton, TEntry)
+from ..core import RC_GLSL, SMOOTH_PARAMS, get_shader_profiles_for_module
 from . import glsl_io
-from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
 
 # ─── Ścieżki ─────────────────────────────────────────────────────────────────
@@ -151,23 +147,23 @@ class BarsParamWidget(BaseParamWidget):
             raw = current.get(key, 0)
             var = tk.BooleanVar(value=bool(int(raw)))
             self.vars[key] = var
-            
+
             json_key = mapping_flags.get(key)
             translated_label = self.T.get(json_key, label) if json_key else label
             tip_key = json_key.replace("label_", "tooltip_") if json_key else None
             translated_tip = self.T.get(tip_key, tooltip) if tip_key else tooltip
 
-            # Checkbox ląduje TYLKO w kolumnie 0. 
+            # Checkbox ląduje TYLKO w kolumnie 0.
             # Ustawiamy width=20, żeby był tak samo szeroki jak etykiety suwaków wyżej.
             ttk.Checkbutton(
                 lf,
                 text=translated_label,
-                width=18, 
+                width=18,
                 variable=var,
                 command=lambda k=key, v=var: self._write_flag(k, v)
             ).grid(row=idx, column=0, sticky="w", pady=2, padx=(10, 0))
-            
-            # Pytajnik ląduje w kolumnie 1. 
+
+            # Pytajnik ląduje w kolumnie 1.
             # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
             if translated_tip:
                 t = glsl_io.tip(lf, "?", translated_tip)
@@ -192,12 +188,12 @@ class BarsParamWidget(BaseParamWidget):
         for idx, p in enumerate(SMOOTH_PARAMS):
             p_list = list(p)
             json_key = mapping.get(p[0])
-            
+
             if json_key:
                 p_list[1] = self.T.get(json_key, p[1])
                 # Używamy indeksu 7, bo SMOOTH_PARAMS ma 8 elementów (przez dodany 'step')
                 p_list[7] = self.T.get(json_key.replace("label_", "tooltip_"), p[7])
-            
+
             # Ważne: zmienione na _float_slider_row, żeby obsłużyć 8 parametrów
             self._float_slider_row(lf, tuple(p_list), current, idx)
 
@@ -225,7 +221,7 @@ class BarsParamWidget(BaseParamWidget):
         btn_row = ttk.Frame(lf)
         btn_row.pack(fill="x", pady=(4, 0))
         ttk.Button(
-            btn_row, 
+            btn_row,
             text=self.T.get("btn_apply", "Apply"),
             command=self._apply_profile,
             style="Accent.TButton"  # Styl z Twojego przykładu
@@ -310,7 +306,7 @@ class BarsParamWidget(BaseParamWidget):
     def _update_geometry(self):
         """Koryguje geometrię rc.glsl na podstawie aktualnych flag FLIP i MIRROR_YX."""
         try:
-            from ..geometry import get_screen_info, calc_geometry, write_geometry
+            from ..geometry import calc_geometry, get_screen_info, write_geometry
             rc_path = self.app.get_active_rc_glsl() if hasattr(self.app, 'get_active_rc_glsl') else RC_GLSL
             current = glsl_io.read_flag_defines(self._glsl, FLAG_PARAMS)
             flipped   = bool(current.get("FLIP", 0))

@@ -7,17 +7,15 @@
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
 
-import os, math
+import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-from ..core import SMOOTH_PARAMS
-from ..widgets import SimpleSlider
+from ..core import SMOOTH_PARAMS, get_shader_profiles_for_module
 from ..geometry import get_screen_info
+from ..widgets import SimpleSlider
 from . import glsl_io
-from ..core import get_shader_profiles_for_module
 from .base import BaseParamWidget
-
 
 # (klucz, etykieta, min, max, domyślna, jednostka, tooltip)
 SHAPE_INT_PARAMS = [
@@ -243,17 +241,17 @@ class RadialParamWidget(BaseParamWidget):
             tip_key = lang_key.replace("label_", "tooltip_")
             translated_tip = self.T.get(tip_key, tooltip)
 
-            # Checkbox ląduje TYLKO w kolumnie 0. 
+            # Checkbox ląduje TYLKO w kolumnie 0.
             # Ustawiamy width=20, żeby był tak samo szeroki jak etykiety suwaków wyżej.
             ttk.Checkbutton(
                 lf,
                 text=translated_label,
-                width=18, 
+                width=18,
                 variable=var,
                 command=lambda k=key, v=var: self._write_flag(k, v)
             ).grid(row=idx, column=0, sticky="w", pady=2, padx=(10, 0))
-            
-            # Pytajnik ląduje w kolumnie 1. 
+
+            # Pytajnik ląduje w kolumnie 1.
             # Dzięki temu będzie w idealnym pionie z pytajnikami suwaków.
             if translated_tip:
                 t = glsl_io.tip(lf, "?", translated_tip)

@@ -3,9 +3,9 @@
 # Klasa GlavaInstance — reprezentuje jedną instancję GLava z własnym katalogiem
 # konfiguracyjnym. Fundament architektury multi-instancji.
 # =============================================================================
+import json
 import os
 import shutil
-import json
 
 USER_HOME = os.path.expanduser("~")
 

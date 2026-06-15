@@ -8,12 +8,12 @@
 # =============================================================================
 
 import os
-import subprocess
 import re
+import subprocess
 import threading
 import time
 
-from .core import RC_GLSL, FLAG_RED, FLAG_MANUAL, BIN_DIR
+from .core import BIN_DIR, FLAG_MANUAL, FLAG_RED, RC_GLSL
 
 AUTOSTART_FILE  = os.path.expanduser("~/.config/autostart/glava.desktop")
 _PID_DIR        = os.path.expanduser("~/.config/GlavaMP")
@@ -150,7 +150,8 @@ class _AdoptedProcess:
 # =============================================================================
 
 def glava_start(extra_flags=None, env=None, instance=None):
-    import traceback, datetime
+    import datetime
+    import traceback
     _LOG = os.path.expanduser("~/.local/logs/glava-start.log")
     os.makedirs(os.path.dirname(_LOG), exist_ok=True)
     with open(_LOG, "a") as _f:

@@ -4,19 +4,17 @@
 # Deleguje budowanie sekcji parametrów do gui/modules/<moduł>.py
 # =============================================================================
 
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
 import os
+from tkinter import messagebox, simpledialog, ttk
 
 from .core import (
-    GLAVA_MODULES, CONFIG_DIR,
-    get_live_frag, get_template,
-    get_shader_profiles_for_module,
-    save_shader_profile_for_module,
     delete_shader_profile_for_module,
+    get_live_frag,
+    get_shader_profiles_for_module,
+    get_template,
+    save_shader_profile_for_module,
 )
 from .glava import glava_restart
-from .theme import COLORS
 
 
 def build_tab_module(parent, app):
@@ -33,7 +31,7 @@ class TabModule:
 
     def build(self):
         # ttk.Frame sam pobierze kolor tła z motywu Forest
-        outer = ttk.Frame(self.parent, padding=6) 
+        outer = ttk.Frame(self.parent, padding=6)
         outer.pack(fill="both", expand=True)
         self._build_module_params(outer)
 
@@ -153,9 +151,9 @@ def _build_placeholder(parent, module, T):
     # ttk.LabelFrame automatycznie dostosuje obramowanie i tło
     lf = ttk.LabelFrame(parent,
                         text=T.get("section_shape", "Shape & dynamics"),
-                        padding=10) 
+                        padding=10)
     lf.pack(fill="x", padx=10, pady=10)
-    
+
     # ttk.Label zamiast tk.Label, aby tekst pasował do motywu
     ttk.Label(lf,
              text=T.get("label_no_plugin",

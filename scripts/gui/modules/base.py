@@ -5,19 +5,21 @@
 # _save_profile, _delete_profile, _refresh_cb, _expert.
 # =============================================================================
 
+import os
 import tkinter as tk
 import tkinter.ttk as ttk
-from tkinter import messagebox, simpledialog
-import os
+from tkinter import messagebox
 
 from ..core import (
+    GLAVA_DIR,
+    RC_GLSL,
+    SMOOTH_PARAMS,
+    delete_shader_profile_for_module,
     get_shader_profiles_for_module,
     save_shader_profile_for_module,
-    delete_shader_profile_for_module,
-    GLAVA_DIR, RC_GLSL, SMOOTH_PARAMS,
 )
-
 from . import glsl_io
+
 RESTART_DELAY_MS = 300
 
 
