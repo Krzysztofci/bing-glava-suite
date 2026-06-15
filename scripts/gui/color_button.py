@@ -13,13 +13,13 @@
 # Wymaga: Pillow (PIL)
 # =============================================================================
 
+import os
 import tkinter as tk
 from tkinter import ttk
-import os
 
 try:
-    from PIL import Image, ImageColor
     import numpy as np
+    from PIL import Image, ImageColor
     _PIL_OK = True
 except ImportError:
     _PIL_OK = False
@@ -237,7 +237,7 @@ class ColorButton:
     def _get_bg_hex(self):
         """Pobiera kolor tła aktywnego motywu."""
         try:
-            from .theme import COLORS, ACTIVE_THEME
+            from .theme import COLORS
             # forest-light ma bg1=#ffffff, forest-dark ma bg1=#313131
             return COLORS.get("bg1", "#313131")
         except Exception:

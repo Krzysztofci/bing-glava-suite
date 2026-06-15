@@ -5,10 +5,15 @@
 # =============================================================================
 import os
 import re
+
 from .core import (
-    HSV_MODE_PATTERN, FLAG_RED, FLAG_MANUAL,
-    get_live_frag, get_template,
+    FLAG_MANUAL,
+    FLAG_RED,
+    HSV_MODE_PATTERN,
+    get_live_frag,
+    get_template,
 )
+
 
 def hex_to_vec3(hex_color):
     """'#rrggbb' → (r_f, g_f, b_f) w zakresie 0.0–1.0"""
@@ -18,9 +23,7 @@ def hex_to_vec3(hex_color):
 
 def vec3_to_hex(r_f, g_f, b_f):
     """(r_f, g_f, b_f) → '#rrggbb'"""
-    return "#{:02x}{:02x}{:02x}".format(
-        int(r_f * 255), int(g_f * 255), int(b_f * 255)
-    )
+    return f"#{int(r_f * 255):02x}{int(g_f * 255):02x}{int(b_f * 255):02x}"
 
 def read_colors_from_frag(frag_path):
     """
@@ -131,8 +134,8 @@ def extract_colors_from_wallpaper(wallpaper_path):
     lub None jeśli błąd.
     """
     try:
-        from PIL import Image
         import numpy as np
+        from PIL import Image
         from sklearn.cluster import KMeans
 
         img = Image.open(wallpaper_path).convert("RGB")
@@ -149,7 +152,7 @@ def extract_colors_from_wallpaper(wallpaper_path):
             "mid":    to_hex(centers[1]),
             "top":    to_hex(centers[2]),
         }
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -165,7 +168,6 @@ def apply_colors_from_wallpaper(wallpaper_path, instances, inst_modules,
 
     Zwraca (colors, errors) — dict kolorów i lista błędów.
     """
-    from .glava import glava_restart_instance
 
     colors = extract_colors_from_wallpaper(wallpaper_path)
     if colors is None:

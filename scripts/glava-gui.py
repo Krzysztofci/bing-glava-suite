@@ -16,38 +16,50 @@
 # https://github.com/rdbende/Forest-ttk-theme
 # =============================================================================
 
-import tkinter as tk
-
-from tkinter import ttk, messagebox
-import os
-import sys
-import json
 import datetime
+import json
+import os
 import re
 import subprocess
+import sys
+import tkinter as tk
+from tkinter import messagebox, ttk
 
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, _SCRIPT_DIR)
 
-from gui.theme   import apply_theme
-from gui.widgets import _ensure_shift_style
-from gui.core    import (
-    load_settings, save_settings, load_lang, available_langs,
-    read_active_module, write_active_module,
-    GLAVA_MODULES, WALLPAPER, FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK,
+from gui.core import (
     CONFIG_DIR,
+    FLAG_MANUAL,
+    FLAG_RED,
+    GLAVA_MODULES,
+    WALLPAPER,
+    WALLPAPER_LOCK,
+    available_langs,
+    load_lang,
+    load_settings,
+    read_active_module,
+    save_settings,
 )
-from gui.glava   import (
+from gui.glava import (
+    adopt_instance,
+    clear_pid,
     glava_is_running,
-    glava_stop_instance, glava_restart_instance,
-    adopt_instance, clear_pid, read_pid,
+    glava_restart_instance,
+    glava_stop_instance,
+    read_pid,
     read_rc_module,
 )
 from gui.instance import (
-    GlavaInstance, next_inst_id,
-    register_instance, unregister_instance, update_instance,
+    GlavaInstance,
+    next_inst_id,
+    register_instance,
+    unregister_instance,
+    update_instance,
 )
 from gui.instance_tab_bar import InstanceTabBar
+from gui.theme import apply_theme
+from gui.widgets import _ensure_shift_style
 
 WIN_W_DEFAULT = 1040
 WIN_H_DEFAULT = 768
@@ -138,7 +150,7 @@ class GlavaGUI:
         Wczytuje rejestr instancji z instances.json i odtwarza sesję.
         Instancje, których katalog nie istnieje, są pomijane (sprzątanie).
         """
-        from gui.instance import load_instances, save_instances
+        from gui.instance import load_instances
 
         saved   = load_instances()
         cleaned = []
@@ -363,7 +375,6 @@ class GlavaGUI:
         t.start()
 
     def _pid_watch_thread(self):
-        import subprocess
         pid_dir = os.path.join(os.path.expanduser("~"), ".config/GlavaMP")
         while getattr(self, "_pid_watch_active", False):
             proc = subprocess.Popen(
@@ -375,7 +386,7 @@ class GlavaGUI:
                 self.root.after(0, self._sync_once)
 
     def _sync_once(self):
-        from gui.glava import adopt_instance, read_pid
+        from gui.glava import adopt_instance
         for iid in list(self.instances.keys()):
             current = self.processes.get(iid)
             file_pid = read_pid(iid)
@@ -427,8 +438,8 @@ class GlavaGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _populate_static_tabs(self):
-        from gui.tab_main     import build_tab_main
         from gui.tab_advanced import build_tab_advanced
+        from gui.tab_main import build_tab_main
         build_tab_main(self._frame_main, self)
         build_tab_advanced(self._frame_advanced, self)
 
@@ -798,7 +809,8 @@ class GlavaGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _save_workspace(self):
-        import json, datetime
+        import datetime
+        import json
 
         # Dialog TTK
         dlg = tk.Toplevel(self.root)
@@ -828,7 +840,7 @@ class GlavaGUI:
         if not name:
             return
         if any(c in name for c in '/\\:*?"<>|'):
-            messagebox.showerror("", 
+            messagebox.showerror("",
                 self.T.get("workspace_name_invalid",
                 "Nazwa nie może zawierać znaków: / \\ : * ? \" < > |"))
             return
@@ -841,11 +853,11 @@ class GlavaGUI:
             "gradient_mode": self.settings.get("gradient_mode", "rgb"),
             "instances": []
         }
-        from gui.instance import GlavaInstance
         from gui.colors import read_colors_from_frag
-        from gui.geometry import read_geometry
-        from gui.modules.glsl_io import read_all_defines, read_smooth
         from gui.core import SMOOTH_PARAMS
+        from gui.geometry import read_geometry
+        from gui.instance import GlavaInstance
+        from gui.modules.glsl_io import read_all_defines, read_smooth
         for iid in list(self.instances.keys()):
             inst = GlavaInstance(iid)
             module = self._inst_modules.get(iid, self.active_module)
@@ -931,11 +943,11 @@ class GlavaGUI:
         save_settings(self.settings)
 
         # Wczytaj per instancja
-        from gui.instance import GlavaInstance
-        from gui.modules.glsl_io import write_define_raw
-        from gui.geometry import write_geometry
         # Włącz GLava jeśli był wyłączony
         from gui.core import GLAVA_DISABLE_FLAG
+        from gui.geometry import write_geometry
+        from gui.instance import GlavaInstance
+        from gui.modules.glsl_io import write_define_raw
         if os.path.exists(GLAVA_DISABLE_FLAG):
             try:
                 os.remove(GLAVA_DISABLE_FLAG)
@@ -953,12 +965,9 @@ class GlavaGUI:
         for inst_data in ws.get("instances", []):
             module = inst_data.get("module", "bars")
             iid = self._on_inst_add(module, start=False, label=inst_data.get("name"))
-            from gui.instance import GlavaInstance
-            from gui.modules.glsl_io import write_define_raw
-            from gui.geometry import write_geometry
             inst = GlavaInstance(iid)
-            from gui.modules.glsl_io import write_define_raw, write_smooth
             from gui.core import SMOOTH_PARAMS
+            from gui.modules.glsl_io import write_smooth
             for glsl_name, defines in inst_data.get("glsl", {}).items():
                 glsl_path = os.path.join(inst.glava_dir, glsl_name)
                 if not os.path.exists(glsl_path):
@@ -1044,7 +1053,7 @@ class GlavaGUI:
     def _on_glava_toggle(self):
         """Włącza/wyłącza wszystkie instancje GLava bez zamykania zakładek."""
         from gui.core import GLAVA_DISABLE_FLAG
-        from gui.glava import glava_stop_instance, glava_restart_instance
+        from gui.glava import glava_restart_instance, glava_stop_instance
 
         # Blokada przed race condition przy szybkim klikaniu.
         # Kolejne kliknięcia podczas trwającej operacji są ignorowane.

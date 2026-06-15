@@ -1,11 +1,9 @@
 # gui/widgets.py
 # SimpleSlider — ttk.Scale + Entry, bez Shift/drag.
 # =============================================================================
+import os
 import tkinter as tk
 from tkinter import ttk
-import math
-import os
-from .theme import COLORS
 
 _THEMES_DIR = os.path.join(os.path.dirname(__file__), "themes")
 
@@ -72,7 +70,7 @@ class SimpleSlider(tk.Frame):
         self._entry.pack(side="right", padx=(4, 0))
         self._entry.bind("<Return>",   self._on_entry)
         self._entry.bind("<FocusOut>", self._on_entry)
-    
+
     def _fmt(self, v):
         return f"{v:.{self.decimals}f}" if self.is_float else str(int(round(v)))
 

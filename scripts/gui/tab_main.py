@@ -6,26 +6,41 @@
 #
 # Wzorzec: bars.py + example.py (Forest-ttk-theme)
 # =============================================================================
+import os
+import subprocess
 import tkinter as tk
-from tkinter import ttk, colorchooser, messagebox, simpledialog
-from .modules.base import ask_string
-import os, subprocess
-from .core import (
-    GLAVA_MODULES, BING_REGIONS, BIN_DIR,
-    FLAG_RED, FLAG_MANUAL, WALLPAPER_LOCK,
-    read_active_module, write_active_module,
-    read_bing_config, write_bing_config,
-    load_color_presets, save_color_presets,
-    get_live_frag, get_template,
-)
-from .colors import (
-    read_colors_from_frag, write_colors_to_frag,
-    shader_supports_hsv, set_gradient_mode,
-)
-from .geometry import get_screen_info, calc_geometry, read_geometry, write_geometry
-from .glava import glava_restart, glava_toggle, restore_auto, toggle_wallpaper_lock, glava_restart_instance
+from tkinter import colorchooser, messagebox, ttk
+
 from . import core
-from .color_button import ColorButton, _PIL_OK
+from .color_button import ColorButton
+from .colors import (
+    read_colors_from_frag,
+    set_gradient_mode,
+    shader_supports_hsv,
+    write_colors_to_frag,
+)
+from .core import (
+    BIN_DIR,
+    BING_REGIONS,
+    FLAG_MANUAL,
+    FLAG_RED,
+    WALLPAPER_LOCK,
+    get_live_frag,
+    get_template,
+    load_color_presets,
+    read_bing_config,
+    save_color_presets,
+    write_active_module,
+    write_bing_config,
+)
+from .geometry import calc_geometry, get_screen_info, read_geometry, write_geometry
+from .glava import (
+    glava_restart,
+    glava_restart_instance,
+    glava_toggle,
+    toggle_wallpaper_lock,
+)
+from .modules.base import ask_string
 
 
 def build_tab_main(parent, app):
@@ -186,16 +201,16 @@ class TabMain:
     # ── PRAWA ─────────────────────────────────────────────────────────────────
     def _build_right(self, col):
         T = self.T
-    
+
         # ── Wallpaper ──────────────────────────────────────────────────────────
         lf = ttk.LabelFrame(col, text=T.get("section_wallpaper", "Wallpaper"),
                             padding=(15, 10))
         lf.pack(fill="x", padx=10, pady=10)
-    
+
         # --- wiersz: strzałka | miniatura w Card | strzałka ---
         nav_row = ttk.Frame(lf)
         nav_row.pack(fill="x", pady=(0, 4))
-    
+
         self._wp_regions   = list(BING_REGIONS)          # lista regionów
         self._wp_region_idx = 0                           # aktywny indeks
         try:
@@ -203,30 +218,30 @@ class TabMain:
                 self.bing_cfg.get("BING_REGION", "de-DE"))
         except ValueError:
             pass
-    
+
         self._btn_prev = ttk.Button(nav_row, text="‹", width=2,
                                     command=self._wp_prev)
         self._btn_prev.pack(side="left", padx=(0, 4))
-    
+
         # Ramka Card wokół miniatury
         card = ttk.Frame(nav_row, style="Card", padding=4)
         card.pack(side="left", expand=True)
-    
+
         self._thumb_placeholder = tk.PhotoImage(width=249, height=140)
         self._thumb_label = tk.Label(card, image=self._thumb_placeholder,
                                      bg="#2a2a2a", relief="flat")
         self._thumb_label.pack()
-    
+
         self._btn_next = ttk.Button(nav_row, text="›", width=2,
                                     command=self._wp_next)
         self._btn_next.pack(side="left", padx=(4, 0))
-    
+
         # --- wskaźnik regionu ---
         self._region_indicator_var = tk.StringVar()
         ttk.Label(lf, textvariable=self._region_indicator_var,
                   font=(None, 10)).pack()
         self._update_region_indicator()
-    
+
         # --- lock wallpaper jako Switch ---
         self._lock_var = tk.BooleanVar(value=os.path.exists(WALLPAPER_LOCK))
         self.lock_btn = ttk.Checkbutton(
@@ -237,7 +252,7 @@ class TabMain:
             command=self._toggle_lock,
         )
         self.lock_btn.pack(anchor="w", pady=(6, 0))
-    
+
         # --- tytuł ---
         ttk.Label(lf, text=T.get("label_wp_title", "Tytuł:"),
                   font=(None, 10)).pack(anchor="w", pady=(6, 0))
@@ -245,7 +260,7 @@ class TabMain:
         ttk.Label(lf, textvariable=self._wp_title_var,
                   wraplength=400, justify="left",
                   font=(None, 10)).pack(anchor="w")
-    
+
         # --- copyright ---
         ttk.Label(lf, text=T.get("label_wp_copyright", "Copyright:"),
                   font=(None, 10)).pack(anchor="w", pady=(4, 0))
@@ -253,9 +268,9 @@ class TabMain:
         ttk.Label(lf, textvariable=self._wp_copy_var,
                   wraplength=400, justify="left",
                   font=(None, 10)).pack(anchor="w")
-    
+
         ttk.Separator(lf, orient="horizontal").pack(fill="x", pady=8)
-    
+
         # --- fetch ---
         fetch_row = ttk.Frame(lf)
         fetch_row.pack(fill="x", pady=(0, 6))
@@ -268,11 +283,11 @@ class TabMain:
                    text=T.get("btn_fetch_wallpaper_full", "Fetch with loginscreen"),
                    command=self._fetch_wallpaper_full).pack(side="left", expand=True,
                                                             fill="x")
-    
-    
+
+
         # ── GLava Geometry przeniesiona do lewej kolumny──────────────────────
-        
-    
+
+
         self._load_wp_thumbnail()
         self._start_meta_watch()
         # ── CALLBACKI ─────────────────────────────────────────────────────────────
@@ -382,8 +397,9 @@ class TabMain:
             self._thumb_label.config(image=self._thumb_placeholder)
     def _update_geometry_for_module(self, module):
         try:
-            from .geometry import get_screen_info, calc_geometry, write_geometry
             import re as _re
+
+            from .geometry import calc_geometry, get_screen_info, write_geometry
             si = get_screen_info()
             flipped = False
             mirror_yx = False
@@ -547,7 +563,6 @@ class TabMain:
 
     def refresh_gradient_mode(self):
         """Odczytuje tryb gradientu z aktywnego shadera i aktualizuje przełącznik."""
-        from .colors import shader_supports_hsv
         import re as _re
         live = self._live_frag()
         if not os.path.exists(live):
@@ -613,6 +628,7 @@ class TabMain:
 
     def _fetch_wallpaper_full(self):
         import getpass
+
         from .glava import _sudo_run
         dl = "/usr/local/bin/bing-downloader.sh"
         if not os.path.exists(dl):

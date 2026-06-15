@@ -37,11 +37,6 @@ trap cleanup SIGINT SIGTERM EXIT
 
 # --- Sprawdź czy tapeta jest nowsza niż shader (nadrobienie przegapionych zmian) ---
 SHADER_TIME=$(stat -c "%Y" "$GLAVA_DIR/graph/1.frag" 2>/dev/null || echo 0)
-WALLPAPER_TIME=$(stat -c "%Y" "$WALLPAPER" 2>/dev/null || echo 0)
-if [ "$WALLPAPER_TIME" -gt "$SHADER_TIME" ]; then
-    echo "$(date '+%F %T') - Tapeta nowsza niż shader, aktualizuję przy starcie." >> "$LOG"
-    update_colors
-fi
 
 # --- Funkcja aktualizacji kolorów ---
 update_colors() {

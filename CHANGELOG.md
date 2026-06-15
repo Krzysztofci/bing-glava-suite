@@ -2,34 +2,40 @@
 
 ---
 
-<<<<<<< HEAD
-## [1.0.0-RC2] — 2026-06-11
+## [1.0.0-RC4] — 2026-06-15
 
-### Bug fixes after RC1 testing
-
-- **fix:** Duplicate GLava processes when changing FPS or audio parameters
-  in the Advanced tab — `_debounce_request` now respects the
-  `_restart_in_progress` lock used by the rest of the GUI
-- **fix:** Toggle on/off deadlock — rapidly clicking the toggle could leave
-  the lock permanently set, making it impossible to re-enable GLava without
-  restarting the GUI; fixed by releasing the lock when no instances are registered
-- **fix:** Workspace save/load did not preserve smoothing parameters
-  (`gravity`, `smooth factor`, `avg frames`, `FFT scale`, `bass cutoff`);
-  values were read with a `#define`-only parser but `smooth_parameters.glsl`
-  uses `#request` exclusively — both save and load paths corrected
-
-### Documentation
-- ROADMAP and ROADMAP_PL: Wayland entry removed (X11-only by design),
-  GitHub Issues linked for all planned features
-- TESTING.md: corrected scenario descriptions 2.5, 3.1, 3.3, 4.1, 4.4,
-  7.2 (removed), 8.1, 8.2 based on RC1 testing findings
-- GitHub Pages project website added with feature matrix and screenshots
+### Release Candidate 4 — CI infrastructure & daemon fix
 
 ---
 
-## [1.0.0-RC1] — 2026-06-07
-=======
-## [1.0.0-RC3] — 2026-06-xx
+### 🐛 Bug fixes
+
+#### glava-color-daemon: startup color update removed
+- Removed startup check that updated colors when wallpaper was newer than shader.
+  This caused unwanted color updates on daemon start regardless of actual need.
+
+#### Geometry auto-calculation off-by-one
+- Taskbar height 39px now correctly sets Y offset to -39px (was -40px).
+
+### 🔧 Infrastructure
+
+- Added GitHub Actions CI — pytest on Python 3.10 / 3.11 / 3.12 + Ruff linting
+- Added Codecov coverage reporting (42%)
+- Added `pyproject.toml` with Ruff configuration and project metadata
+- Ruff auto-fix: removed trailing whitespace from blank lines across 19 files
+
+### 🔍 Known issues (deferred to future release)
+
+- Shader profile save (bars) does not include `setbufsize`, `setsamplesize`,
+  `setmirror`, `setinterpolate`
+- Audio buffer size change affects visualizer bar width (unintended side effect)
+- FPS change affects animation speed and bar height in bars module
+- Daemon logs in Advanced tab are sparse — only color changes logged,
+  other events not covered; log may show stale data
+
+---
+
+## [1.0.0-RC3] — 2026-06-14
 
 ### Release Candidate 3 — Detached panel instance routing fix
 
@@ -54,7 +60,7 @@
 
 ---
 
-## [1.0.0-RC2] — 2026-06-xx
+## [1.0.0-RC2] — 2026-06-11
 
 ### Release Candidate 2 — Bug fixes & stability
 
@@ -77,8 +83,7 @@
 
 ---
 
-## [1.0.0-RC1] — 2026-06-xx
->>>>>>> dev
+## [1.0.0-RC1] — 2026-06-07
 
 ### Release Candidate 1 — Multi-instance GLava Studio
 

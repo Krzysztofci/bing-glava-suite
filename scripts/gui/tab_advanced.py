@@ -5,9 +5,11 @@
 # Wzorzec GUI: bars.py v5 (grid w LabelFrame, ttk.*, Forest-ttk-theme)
 # =============================================================================
 
+import os
+import re
+import subprocess
 import tkinter as tk
-from tkinter import ttk, messagebox
-import os, re, subprocess
+from tkinter import messagebox, ttk
 
 from .core import RC_GLSL
 from .geometry import get_screen_info
@@ -79,7 +81,7 @@ class TabAdvanced:
         self.app._restart = True
         self.app.root.destroy()
 
-    
+
     # ── GLava startup parameters ──────────────────────────────────────────────
 
     def _build_glava_flags(self, parent):
@@ -105,7 +107,7 @@ class TabAdvanced:
         if not extra:
             extra = "--desktop"
 
-        setattr(self.app, "extra_flags", extra)
+        self.app.extra_flags = extra
         self.flags_var = tk.StringVar(value=extra)
         self.flags_var.trace_add("write",
                                   lambda *_: setattr(self.app, "extra_flags",
@@ -293,7 +295,7 @@ class TabAdvanced:
     def _build_footer(self, parent):
         import webbrowser
         T = self.T
-        
+
         # Ramka dolna
         footer = ttk.Frame(parent)
         footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(20, 10))
@@ -315,18 +317,18 @@ class TabAdvanced:
 
         # Przycisk GitHub z Twoim zielonym stylem Accent
         github_url = "https://github.com/Krzysztofci/bing-glava-suite"
-        ttk.Button(btn_box, 
-                   text=T.get("btn_github", "GitHub Repository ⭐"), 
+        ttk.Button(btn_box,
+                   text=T.get("btn_github", "GitHub Repository ⭐"),
                    style="Accent.TButton",
                    command=lambda: webbrowser.open(github_url)).pack(side="left", padx=5)
 
         # Licencje
-        ttk.Button(btn_box, 
-                   text=T.get("btn_license", "License"), 
+        ttk.Button(btn_box,
+                   text=T.get("btn_license", "License"),
                    width=10,
                    command=lambda: self._show_license_text("LICENSE")).pack(side="left", padx=2)
-        
-        ttk.Button(btn_box, 
+
+        ttk.Button(btn_box,
                    text=T.get("btn_3rd_party", "Third-party Licenses"),
                    command=lambda: self._show_license_text("CREDITS")).pack(side="left", padx=2)
 
@@ -336,7 +338,7 @@ class TabAdvanced:
             msg = "\nLicensed under MIT License\n\nCopyright (c) 2026 Krzysztofci\n"
         else:
             msg = "\n- GLava (GPLv3) - Copyright (c) 2015 Karl Stavestrand <karl@stavestrand.no>\n\n- Forest-ttk-theme (MIT)- Copyright (c) 2021 rdbende\n"
-        
+
         messagebox.showinfo(filename, msg)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -444,8 +446,9 @@ class TabAdvanced:
                     self.app._restart_in_progress[iid] = True
                     proc = self.app.processes.get(iid)
                     def _do(i=iid, ins=inst, p=proc):
-                        from .glava import glava_stop_instance, glava_start
                         import time
+
+                        from .glava import glava_start, glava_stop_instance
                         glava_stop_instance(p)
                         time.sleep(0.5)
                         new_proc = glava_start(instance=ins)

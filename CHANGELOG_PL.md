@@ -2,10 +2,41 @@
 
 ---
 
-<<<<<<< HEAD
-## [1.0.0-RC2] — 2026-06-11
-=======
-## [1.0.0-RC3] — 2026-06-xx
+## [1.0.0-RC4] — 2026-06-15
+
+### Kandydat do wydania 4 — Infrastruktura CI i naprawa demona
+
+---
+
+### 🐛 Naprawione błędy
+
+#### glava-color-daemon: usunięta aktualizacja kolorów przy starcie
+- Usunięto sprawdzenie przy starcie demona, które aktualizowało kolory gdy
+  tapeta była nowsza niż shader. Powodowało to niepożądane aktualizacje
+  kolorów przy każdym starcie demona niezależnie od rzeczywistej potrzeby.
+
+#### Geometria — błąd off-by-one
+- Wysokość paska 39px ustawia teraz poprawnie offset Y na -39px (było -40px).
+
+### 🔧 Infrastruktura
+
+- Dodano GitHub Actions CI — pytest na Python 3.10 / 3.11 / 3.12 + linting Ruff
+- Dodano raportowanie pokrycia kodu przez Codecov (42%)
+- Dodano `pyproject.toml` z konfiguracją Ruff i metadanymi projektu
+- Ruff auto-fix: usunięto białe znaki z pustych linii w 19 plikach
+
+### 🔍 Znane problemy (odłożone na przyszłe wydanie)
+
+- Zapis profilu shadera (bars) nie obejmuje `setbufsize`, `setsamplesize`,
+  `setmirror`, `setinterpolate`
+- Zmiana rozmiaru bufora audio wpływa na szerokość wizualizacji (niezamierzony efekt)
+- Zmiana FPS wpływa na prędkość animacji i wysokość słupków w module bars
+- Logi demona w zakładce Advanced są ubogie — logowana tylko zmiana kolorów,
+  inne zdarzenia nie są rejestrowane; logi mogą pokazywać nieaktualne dane
+
+---
+
+## [1.0.0-RC3] — 2026-06-14
 
 ### Kandydat do wydania 3 — Naprawa kierowania danych w odpiętych panelach
 
@@ -31,7 +62,7 @@
 
 ---
 
-## [1.0.0-RC2] — 2026-06-xx
+## [1.0.0-RC2] — 2026-06-11
 
 ### Kandydat do wydania 2 — Poprawki błędów i stabilność
 
@@ -57,34 +88,9 @@
 
 ---
 
-## [1.0.0-RC1] — 2026-06-xx
->>>>>>> dev
-
-### Poprawki błędów po testach RC1
-
-- **fix:** Zduplikowane procesy GLava przy zmianie FPS lub parametrów audio
-  w zakładce Advanced — `_debounce_request` respektuje teraz blokadę
-  `_restart_in_progress` używaną przez resztę GUI
-- **fix:** Zakleszczenie przełącznika on/off — szybkie klikanie mogło trwale
-  zablokować przełącznik, uniemożliwiając ponowne włączenie GLava bez
-  restartu GUI; naprawione przez zwolnienie blokady gdy brak zarejestrowanych instancji
-- **fix:** Zapis/odczyt workspace nie zachowywał parametrów wygładzania
-  (`grawitacja`, `wygładzanie`, `klatek avg`, `skala FFT`, `odcięcie basu`);
-  wartości były odczytywane parserem `#define`, podczas gdy `smooth_parameters.glsl`
-  używa wyłącznie `#request` — naprawiono obie ścieżki: zapis i odczyt
-
-### Dokumentacja
-- ROADMAP i ROADMAP_PL: usunięto wpis Wayland (projekt tylko X11),
-  dodano linki do GitHub Issues przy wszystkich planowanych funkcjach
-- TESTING.md: poprawiono opisy scenariuszy 2.5, 3.1, 3.3, 4.1, 4.4,
-  7.2 (usunięty), 8.1, 8.2 na podstawie wyników testów RC1
-- Dodano stronę projektu GitHub Pages z macierzą funkcji i zrzutami ekranu
-
----
-
 ## [1.0.0-RC1] — 2026-06-07
 
-### Release Candidate 1 — Multi-instance GLava Studio
+### Kandydat do wydania 1 — Multi-instance GLava Studio
 
 Pierwszy kandydat do wydania przepisanej wersji multi-instancyjnej.
 Podstawowa funkcjonalność jest stabilna; znane problemy opisano poniżej.
@@ -153,11 +159,11 @@ Podstawowa funkcjonalność jest stabilna; znane problemy opisano poniżej.
 ```
 ~/.config/
 ├── glava/                        ← Katalog wzorcowy (nie instancja)
-├── glava-inst-1/glava/           ← Instancja 1
+├── glava-inst-1/glava/           ← Instancja 1 (skopiowana z wzorca)
 ├── glava-inst-2/glava/           ← Instancja 2
 └── GlavaMP/
-    ├── instances.json            ← Rejestr + trwały stan kart
-    ├── profiles.json             ← Profile shaderów (globalne, per moduł)
+    ├── instances.json            ← Rejestr zakładek + trwały stan
+    ├── profiles.json             ← Profile szaderów (globalne, per moduł)
     ├── presets.json              ← Presety kolorów
     ├── gui.conf                  ← Geometria okna
     └── themes/                   ← Pliki Forest-ttk-theme

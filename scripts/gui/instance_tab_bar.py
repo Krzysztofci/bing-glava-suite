@@ -18,7 +18,8 @@
 # =============================================================================
 
 import tkinter as tk
-from tkinter import ttk, simpledialog
+from tkinter import ttk
+
 from .modules.base import ask_string
 
 _GLAVA_MODULES = ["bars", "wave", "circle", "graph", "radial"]
@@ -179,7 +180,7 @@ class InstanceTabBar(ttk.Frame):
         style = ttk.Style()
         bg = style.lookup("TFrame", "background") or "#313131"
         fg = style.lookup("TLabel", "foreground") or "#eeeeee"
-        
+
         # Odświeżamy wygląd istniejącego menu przed jego wypełnieniem
         self._add_menu.configure(
             bg=bg,
@@ -189,7 +190,7 @@ class InstanceTabBar(ttk.Frame):
             bd=1,
             relief="flat"
         )
-        
+
         self._add_menu.delete(0, "end")
         for mod in self._modules:
             self._add_menu.add_command(
@@ -217,14 +218,14 @@ class InstanceTabBar(ttk.Frame):
         # Pobieramy kolory z motywu z bezpiecznymi zamiennikami (fallback)
         bg = style.lookup("TFrame", "background") or "#313131"
         fg = style.lookup("TLabel", "foreground") or "#eeeeee"
-        
+
         # Wybór koloru akcentu (zielony dla dark, niebieski/szary dla innych)
         curr_theme = style.theme_use().lower()
         select_bg = "#217346" if "dark" in curr_theme else "#0078d4"
         active_fg = "#ffffff"
 
         # TWORZENIE MENU - Kluczowe: usunięcie starych ramek i cieni
-        menu = tk.Menu(self._nb, 
+        menu = tk.Menu(self._nb,
                        tearoff=False,
                        bg=bg,
                        fg=fg,
@@ -257,7 +258,7 @@ class InstanceTabBar(ttk.Frame):
                     menu.add_cascade(label=lbl, menu=submenu)
                 else:
                     menu.add_command(label=lbl, command=lambda i=inst_id, k=key: self._call("on_action", i, k))
-        
+
         menu.tk_popup(event.x_root, event.y_root)
     def _do_rename(self, inst_id):
         if inst_id not in self._tabs:
@@ -418,7 +419,7 @@ class InstanceTabBar(ttk.Frame):
         try:
             idx = self._nb.index(f"@{event.x},{event.y}")
             inst_id = self._idx_to_id.get(idx)
-        
+
             if inst_id is not None:
             # Nawet jeśli to ta sama zakładka, wywołujemy callback select
             # co pozwoli Ci wrócić z Main do widoku modułu
