@@ -71,56 +71,68 @@ for REGION in "${BING_REGIONS[@]}"; do
 
     if [ -z "$REGION_JSON" ]; then
         echo "  Brak odpowiedzi dla $REGION, pomijam."
-        # Zachowaj stare metadane dla tego regionu
-        OLD_REGION=$(echo "$OLD_META" | python3 -c "
-import sys, json
+        # Zachowaj stare metadane dla tego regionu (jeden python3 zamiast dwóch)
+        NEW_META=$(python3 - << PYEOF
+import json, sys
+region = "$REGION"
 try:
-    d = json.load(sys.stdin)
-    print(json.dumps(d.get('$REGION', {})))
-except:
-    print('{}')
-")
-        if [ "$OLD_REGION" != "{}" ]; then
-            NEW_META=$(echo "$NEW_META" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-data['$REGION'] = $OLD_REGION
-print(json.dumps(data, ensure_ascii=False, indent=2))
-")
-        fi
+    old = json.loads('''$OLD_META''')
+    new = json.loads('''$NEW_META''')
+    if region in old:
+        new[region] = old[region]
+    print(json.dumps(new, ensure_ascii=False, indent=2))
+except Exception as e:
+    sys.stderr.write(f"  Błąd zachowania metadanych dla {region}: {e}\n")
+    print('''$NEW_META''')
+PYEOF
+)
         continue
     fi
 
-    TITLE=$(echo "$REGION_JSON"     | python3 -c "import sys,json; d=json.load(sys.stdin)['images'][0]; print(d.get('title',''))")
-    COPYRIGHT=$(echo "$REGION_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin)['images'][0]; print(d.get('copyright',''))")
-    STARTDATE=$(echo "$REGION_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin)['images'][0]; print(d.get('startdate',''))")
-    ENDDATE=$(echo "$REGION_JSON"   | python3 -c "import sys,json; d=json.load(sys.stdin)['images'][0]; print(d.get('enddate',''))")
-    URLBASE=$(echo "$REGION_JSON"   | python3 -c "import sys,json; d=json.load(sys.stdin)['images'][0]; print(d.get('urlbase',''))")
+    # Parsuj cały JSON regionu jednym wywołaniem python3
+    _parsed=$(python3 - << PYEOF
+import json, re, sys
+region = "$REGION"
+try:
+    region_json = json.loads('''$REGION_JSON''')
+    img = region_json["images"][0]
+    title     = img.get("title", "")
+    copyright = img.get("copyright", "")
+    startdate = img.get("startdate", "")
+    enddate   = img.get("enddate", "")
+    urlbase   = img.get("urlbase", "")
+    m = re.search(r"OHR\.[A-Za-z]+", urlbase)
+    image_id  = m.group(0) if m else ""
+    try:
+        old_meta = json.loads('''$OLD_META''')
+        old_image_id = old_meta.get(region, {}).get("image_id", "")
+    except Exception:
+        old_image_id = ""
+    # Wypisz tab-separated, żeby shell mógł łatwo poczytać
+    print(title, copyright, startdate, enddate, urlbase, image_id, old_image_id, sep="\t")
+except Exception as e:
+    sys.stderr.write(f"  Błąd parsowania JSON dla {region}: {e}\n")
+    print("\t\t\t\t\t\t")
+PYEOF
+)
+
+    TITLE=$(echo "$_parsed"      | cut -f1)
+    COPYRIGHT=$(echo "$_parsed"  | cut -f2)
+    STARTDATE=$(echo "$_parsed"  | cut -f3)
+    ENDDATE=$(echo "$_parsed"    | cut -f4)
+    URLBASE=$(echo "$_parsed"    | cut -f5)
+    IMAGE_ID=$(echo "$_parsed"   | cut -f6)
+    OLD_IMAGE_ID=$(echo "$_parsed" | cut -f7)
 
     if [ -z "$URLBASE" ]; then
         echo "  Brak urlbase dla $REGION, pomijam."
         continue
     fi
 
-    IMAGE_ID=$(echo "$URLBASE" | python3 -c "
-import sys, re
-m = re.search(r'OHR\.[A-Za-z]+', sys.stdin.read())
-print(m.group(0) if m else '')
-")
-
     THUMB_ID=$(echo "$URLBASE" | sed 's|/th?id=||')
     THUMB_FILE="$THUMBS_DIR/${THUMB_ID}_320x180.jpg"
     THUMB_TEMP="$THUMBS_DIR/${THUMB_ID}_320x180.tmp"
     THUMB_URL="https://www.bing.com/th?id=${THUMB_ID}_320x180.jpg"
-
-    OLD_IMAGE_ID=$(echo "$OLD_META" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('$REGION', {}).get('image_id', ''))
-except:
-    print('')
-")
 
     if [ ! -f "$THUMB_FILE" ] || [ "$OLD_IMAGE_ID" != "$IMAGE_ID" ]; then
         echo "  Pobieram miniaturę: $IMAGE_ID"
@@ -144,20 +156,21 @@ except:
         echo "  Miniatura aktualna: $IMAGE_ID"
     fi
 
-    NEW_META=$(echo "$NEW_META" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-data['$REGION'] = {
-    'title':      '''$TITLE''',
-    'copyright':  '''$COPYRIGHT''',
-    'startdate':  '$STARTDATE',
-    'enddate':    '$ENDDATE',
-    'urlbase':    '$URLBASE',
-    'image_id':   '$IMAGE_ID',
-    'thumb_file': '$THUMB_FILE',
+    NEW_META=$(python3 - << PYEOF
+import json
+data = json.loads('''$NEW_META''')
+data["$REGION"] = {
+    "title":      "$TITLE",
+    "copyright":  "$COPYRIGHT",
+    "startdate":  "$STARTDATE",
+    "enddate":    "$ENDDATE",
+    "urlbase":    "$URLBASE",
+    "image_id":   "$IMAGE_ID",
+    "thumb_file": "$THUMB_FILE",
 }
 print(json.dumps(data, ensure_ascii=False, indent=2))
-")
+PYEOF
+)
 done
 
 # Usuń stare miniatury tylko jeśli pobrano przynajmniej jedną nową
@@ -195,9 +208,13 @@ if [ -f "$LOCK_FILE" ]; then
 fi
 
 # --- Odczyt konfiguracji użytkownika ---
+# Celowo nie używamy `source` — plik jest edytowalny przez użytkownika,
+# a skrypt działa jako root. Wyciągamy tylko BING_REGION z walidacją formatu.
 BING_REGION="de-DE"
 if [ -f "$CONFIG_FILE" ]; then
-    source "$CONFIG_FILE"
+    _region=$(grep -oP '^BING_REGION=\K[a-z]{2}-[A-Z]{2}' "$CONFIG_FILE" | head -1)
+    [ -n "$_region" ] && BING_REGION="$_region"
+    unset _region
 fi
 
 # --- KROK 1: Pobierz URL tapety ---

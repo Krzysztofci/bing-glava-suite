@@ -25,6 +25,10 @@ def vec3_to_hex(r_f, g_f, b_f):
     """(r_f, g_f, b_f) → '#rrggbb'"""
     return f"#{int(r_f * 255):02x}{int(g_f * 255):02x}{int(b_f * 255):02x}"
 
+def _clamp01(v: float) -> float:
+    """Obcina wartość do [0.0, 1.0]. Odrzuca też nan i inf (nie spełniają 0<=v<=1)."""
+    return v if 0.0 <= v <= 1.0 else 0.0
+
 def read_colors_from_frag(frag_path):
     """
     Odczytuje kolory bottom/mid/top z pliku .frag.
@@ -42,7 +46,11 @@ def read_colors_from_frag(frag_path):
             content
         )
         if m:
-            result[key] = vec3_to_hex(float(m.group(1)), float(m.group(2)), float(m.group(3)))
+            result[key] = vec3_to_hex(
+                _clamp01(float(m.group(1))),
+                _clamp01(float(m.group(2))),
+                _clamp01(float(m.group(3))),
+            )
     if len(result) == 3:
         return result
     return None
