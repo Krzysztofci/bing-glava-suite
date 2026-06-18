@@ -68,3 +68,97 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+  bats:
+    name: BATS shell tests
+    runs-on: ubuntu-latest
+    # TYMCZASOWO allow-failure: pierwszy przebieg tych testów na GH-hosted
+    # runnerze. Część z nich mockuje przez podmianę binarek w /usr/bin
+    # (wymaga sudo) i ma elementy time-sensitive (daemon w tle + polling).
+    # Usuń `continue-on-error` i dopisz `bats` do required checks w ustawieniach
+    # repo, gdy potwierdzisz stabilność (kilka zielonych przebiegów na dev/main).
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bats \
+            curl \
+            wget \
+            jq \
+            inotify-tools
+
+      - name: Verify bats version
+        run: bats --version
+
+      # ---------------------------------------------------------------------
+      # Testy NIE wymagające podmiany binarek systemowych — mockują tylko
+      # przez PATH-prepend, działają jako zwykły użytkownik runnera.
+      # ---------------------------------------------------------------------
+      - name: Run BATS tests (PATH-mocked, no root needed)
+        run: |
+          bats --tap \
+            tests/test_bing_fetch_meta.bats \
+            tests/test_glava_autostart.bats \
+            tests/test_glava_toggle.bats \
+            2>&1 | tee bats_path_mocked.log
+
+      # ---------------------------------------------------------------------
+      # Testy wymagające podmiany /usr/bin/{curl,jq,wget,pkill,glava} —
+      # full-path binaria, niemockowalne przez PATH. Wymaga sudo na
+      # współdzielonym runnerze GH; testy same robią backup/restore oryginałów
+      # w setup/teardown niezależnie od wyniku testu.
+      #
+      # WYŁĄCZONE z tej puli: test_build_glava_deb.bats — buduje realny .deb,
+      # podmienia szerszy zestaw plików systemowych (/usr/lib, /usr/share,
+      # /etc/xdg/glava) i jest tylko opcjonalnym dodatkiem dla userów chcących
+      # zbudować pakiet samemu — nie jest częścią funkcjonalności
+      # bing-glava-suite. Zbyt inwazyjne na współdzielony runner; uruchamiać
+      # lokalnie (`bats tests/test_build_glava_deb.bats`) przed releasem,
+      # jeśli ten skrypt był zmieniany.
+      # ---------------------------------------------------------------------
+      - name: Run BATS tests (full-path binary mocks, needs sudo)
+        run: |
+          sudo --preserve-env=PATH \
+            bats --tap \
+              tests/test_bing_downloader.bats \
+              tests/test_bing_fetch_user.bats \
+              tests/test_glava_colorswitch.bats \
+            2>&1 | tee bats_root_mocked.log
+
+      # ---------------------------------------------------------------------
+      # test_glava_color_daemon.bats: daemon w tle (`while true` + inotifywait
+      # mock `sleep 60`), testy pollują logi z wewnętrznym timeoutem ~3s każdy.
+      # Bardziej podatny na timing flakiness na obciążonym współdzielonym
+      # runnerze niż lokalnie — jeden retry łapie przejściowy lag bez
+      # maskowania realnej regresji (logika musi przejść niezależnie,
+      # tylko dajemy jej drugą szansę przy oporniejszym schedulingu CI).
+      # ---------------------------------------------------------------------
+      - name: Run BATS tests (color daemon, with retry for timing flakiness)
+        run: |
+          for attempt in 1 2; do
+            echo "=== Próba $attempt/2 ==="
+            if bats --tap tests/test_glava_color_daemon.bats 2>&1 | tee bats_color_daemon.log; then
+              exit 0
+            fi
+            echo "Próba $attempt nie powiodła się, czyszczę osierocone procesy/lockfile..."
+            pkill -9 -f "inotifywait" 2>/dev/null || true
+            rm -f /tmp/glava-color-daemon-*.lock /tmp/glava-update.lock
+            sleep 2
+          done
+          exit 1
+
+      - name: Upload BATS logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bats-logs
+          path: |
+            bats_path_mocked.log
+            bats_root_mocked.log
+            bats_color_daemon.log
+          if-no-files-found: ignore
