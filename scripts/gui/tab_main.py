@@ -319,29 +319,6 @@ class TabMain:
     def destroy(self):
         self._meta_watch_active = False
 
-    def _apply_module(self):
-        module = self.module_var.get()
-        self.app.active_module = module
-        write_active_module(module)
-        tmpl = self._tmpl_frag(module)
-        if not os.path.exists(tmpl):
-            messagebox.showerror("", self.T.get("error_no_template", "Missing template:") + f"\n{tmpl}")
-            return
-        self._update_geometry_for_module(module)
-        if not os.path.exists(self._live_frag(module)):
-            self._apply_colors()
-            return
-        if not os.path.exists(FLAG_RED) and not os.path.exists(FLAG_MANUAL):
-            subprocess.Popen(["/bin/bash", os.path.join(BIN_DIR, "glava-colors-auto")])
-            self.app.root.after(1500, self.app.update_status)
-        else:
-            if hasattr(self.app, 'restart_active_instance'):
-                self.app.restart_active_instance(module=module, after_fn=self.app.update_status)
-            else:
-                glava_restart(module, after_fn=self.app.update_status)
-        self.app.rebuild_module_tab()
-        self._update_hsv_warn()
-
     def _wp_prev(self):
         self._wp_region_idx = (self._wp_region_idx - 1) % len(self._wp_regions)
         self._update_region_indicator()
