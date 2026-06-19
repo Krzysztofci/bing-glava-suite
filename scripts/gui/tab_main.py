@@ -30,7 +30,6 @@ from .core import (
     load_color_presets,
     read_bing_config,
     save_color_presets,
-    write_active_module,
     write_bing_config,
 )
 from .geometry import calc_geometry, get_screen_info, read_geometry, write_geometry
