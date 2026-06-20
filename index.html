@@ -555,6 +555,66 @@ footer a:hover { color: var(--accent2); }
   transform: none;
 }
 
+/* ── FOOTER STATUS WIDGET ── */
+.footer-status-widget {
+  margin: 2rem auto 0 auto;
+  max-width: 760px;
+  border-top: 1px dashed rgba(58, 58, 58, 0.6);
+  padding-top: 1.25rem;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+.footer-status-widget .status-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0.5rem;
+}
+.footer-status-widget .status-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--accent2);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--accent2);
+}
+.footer-status-widget .status-title {
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.footer-status-widget .status-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.footer-status-widget .status-row {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-items: center;
+}
+.footer-status-widget .status-time { color: #444; flex-shrink: 0; }
+.footer-status-widget .status-repo { color: var(--text2); font-weight: 600; flex-shrink: 0; }
+.footer-status-widget .status-branch {
+  color: var(--accent2);
+  background: var(--bg3);
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.footer-status-widget .status-msg { color: var(--text3); overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 600px) {
+  .footer-status-widget .status-row { flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .footer-status-widget .status-msg { width: 100%; white-space: normal; color: var(--text3); }
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
   .nav-links { display: none; }
@@ -939,6 +999,14 @@ footer a:hover { color: var(--accent2); }
   <p style="margin-top:0.5rem; color:#444">
     Built on Linux Mint 22 · ThinkPad T420 · Intel HD 3000
   </p>
+
+  <div class="footer-status-widget">
+    <div class="status-header">
+      <span class="status-dot"></span>
+      <span class="status-title">Latest Global Activity</span>
+    </div>
+    <div class="status-body"></div>
+  </div>
 </footer>
 
 <script>
