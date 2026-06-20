@@ -2,10 +2,9 @@ import urllib.request
 import json
 import re
 
-# ── KONFIGURACJA ──
 GITHUB_USERNAME = "Krzysztofci"
 HTML_FILE_PATH = "index.html"
-MAX_COMMITS = 5  # Zmienione na 5, zgodnie z Twoim życzeniem!
+MAX_COMMITS = 5
 
 def fetch_latest_commits():
     url = f"https://api.github.com/search/commits?q=author:{GITHUB_USERNAME}&sort=author-date&order=desc&per_page={MAX_COMMITS}"
@@ -19,25 +18,22 @@ def fetch_latest_commits():
             data = json.loads(response.read().decode())
             return data.get("items", [])
     except Exception as e:
-        print(f"Błąd podczas pobierania commitów: {e}")
+        print(f"Błąd: {e}")
         return []
 
 def parse_commits(items):
     parsed_commits = []
     for item in items:
-        repo_full_name = item.get("repository", {}).get("name", "unknown")
-        
-        # Formatowanie czasu HH:MM
+        repo_name = item.get("repository", {}).get("name", "unknown")
         commit_data = item.get("commit", {}).get("author", {})
         date_str = commit_data.get("date", "")
         time_str = date_str[11:16] if len(date_str) > 16 else "--:--"
-        
         msg = item.get("commit", {}).get("message", "").split("\n")[0]
         
         parsed_commits.append({
             "time": time_str,
-            "repo": repo_full_name,
-            "branch": "main",  # Zostawiamy bezpieczny placeholder dla zachowania klasy CSS
+            "repo": repo_name,
+            "branch": "main",  # Trzymamy pusty placeholder dla kolumny branch
             "msg": msg
         })
     return parsed_commits
@@ -48,7 +44,6 @@ def generate_html_rows(commits):
         
     html_rows = []
     for c in commits:
-        # UWAGA: Przywrócona idealna struktura 4 spanów (time, repo, branch, msg), żeby pasowała do Twojego CSS!
         row = f"""      <div class="status-row">
         <span class="status-time">[{c['time']}]</span>
         <span class="status-repo">{c['repo']}</span>
@@ -56,7 +51,6 @@ def generate_html_rows(commits):
         <span class="status-msg">{c['msg']}</span>
       </div>"""
         html_rows.append(row)
-        
     return "\n".join(html_rows)
 
 def update_index_html(new_html_content):
@@ -64,16 +58,13 @@ def update_index_html(new_html_content):
         content = file.read()
         
     pattern = r'(<div class="status-body">)(.*?)(</div>)'
-    
     if not re.search(pattern, content, flags=re.DOTALL):
-        print("BŁĄD: Nie znaleziono sekcji <div class='status-body'>")
+        print("Brak sekcji status-body")
         return
         
     modified_content = re.sub(pattern, rf"\1\n{new_html_content}\n    \3", content, flags=re.DOTALL)
-    
     with open(HTML_FILE_PATH, "w", encoding="utf-8") as file:
         file.write(modified_content)
-    print("Plik index.html zaktualizowany!")
 
 if __name__ == "__main__":
     commit_items = fetch_latest_commits()
