@@ -1,81 +1,161 @@
-import urllib.request
-import json
-import re
+#!/usr/bin/env python3
 
-# ── KONFIGURACJA ──
-GITHUB_USERNAME = "Krzysztofci"
-HTML_FILE_PATH = "index.html"
+import html
+import json
+import urllib.request
+from datetime import datetime
+
+USERNAME = "Krzysztofci"
+INDEX_FILE = "index.html"
 MAX_COMMITS = 5
 
-def fetch_latest_commits():
-    url = f"https://api.github.com/search/commits?q=author:{GITHUB_USERNAME}&sort=author-date&order=desc&per_page={MAX_COMMITS}"
-    headers = {
-        "User-Agent": "Python-Commit-Search-Bot",
-        "Accept": "application/vnd.github.cloak-preview+json"
-    }
+START_MARKER = "<!-- COMMITS_START -->"
+END_MARKER   = "<!-- COMMITS_END -->"
+
+
+def github_get(url):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "gh-pages-activity-bot",
+            "Accept": "application/vnd.github+json"
+        }
+    )
+
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read().decode())
+
+
+def fetch_events():
+    url = f"https://api.github.com/users/{USERNAME}/events/public"
+
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
-            return data.get("items", [])
+        return github_get(url)
+
     except Exception as e:
-        print(f"Błąd podczas pobierania commitów: {e}")
+        print(f"GitHub API error: {e}")
         return []
 
-def parse_commits(items):
-    parsed_commits = []
-    for item in items:
-        repo_full_name = item.get("repository", {}).get("name", "unknown")
-        
-        # Formatowanie czasu HH:MM
-        commit_data = item.get("commit", {}).get("author", {})
-        date_str = commit_data.get("date", "")
-        time_str = date_str[11:16] if len(date_str) > 16 else "--:--"
-        
-        msg = item.get("commit", {}).get("message", "").split("\n")[0]
-        
-        parsed_commits.append({
-            "time": time_str,
-            "repo": repo_full_name,
-            "msg": msg
-        })
-    return parsed_commits
 
-def generate_html_rows(commits):
+def collect_commits(events):
+
+    commits = []
+
+    for event in events:
+
+        if event["type"] != "PushEvent":
+            continue
+
+        repo = event["repo"]["name"]
+
+        for commit in event["payload"]["commits"]:
+
+            msg = commit["message"].splitlines()[0]
+
+            if msg.startswith("Merge"):
+                continue
+
+            commits.append(
+                {
+                    "repo": repo,
+                    "msg": msg,
+                    "sha": commit["sha"][:7],
+                    "url": f"https://github.com/{repo}/commit/{commit['sha']}",
+                    "time": event["created_at"]
+                }
+            )
+
+    commits.sort(
+        key=lambda x: x["time"],
+        reverse=True
+    )
+
+    return commits[:MAX_COMMITS]
+
+
+def format_time(iso):
+
+    dt = datetime.fromisoformat(
+        iso.replace("Z", "+00:00")
+    )
+
+    return dt.strftime("%H:%M")
+
+
+def generate_html(commits):
+
     if not commits:
-        return '      <div class="status-row"><span class="status-msg">No recent activity found.</span></div>'
-        
-    html_rows = []
-    for c in commits:
-        # Przywracamy dokładne klasy CSS, aby pasowały do Twoich stylów na stronie
-        row = f"""      <div class="status-row">
-        <span class="status-time">[{c['time']}]</span>
-        <span class="status-repo">{c['repo']}</span>
-        <span class="status-msg">{c['msg']}</span>
-      </div>"""
-        html_rows.append(row)
-        
-    return "\n".join(html_rows)
 
-def update_index_html(new_html_content):
-    with open(HTML_FILE_PATH, "r", encoding="utf-8") as file:
-        content = file.read()
-        
-    # Używamy precyzyjnego dopasowania, żeby podmienić TYLKO to co jest wewnątrz status-body
-    pattern = r'(<div class="status-body">)(.*?)(</div>)'
-    
-    if not re.search(pattern, content, flags=re.DOTALL):
-        print("BŁĄD: Nie znaleziono sekcji <div class='status-body'>")
-        return
-        
-    modified_content = re.sub(pattern, rf"\1\n{new_html_content}\n    \3", content, flags=re.DOTALL)
-    
-    with open(HTML_FILE_PATH, "w", encoding="utf-8") as file:
-        file.write(modified_content)
-    print("Plik index.html zaktualizowany!")
+        return """
+<div class="status-row">
+  <span class="status-msg">No recent activity.</span>
+</div>
+"""
+
+    rows = []
+
+    for c in commits:
+
+        repo = html.escape(c["repo"])
+        msg = html.escape(c["msg"])
+
+        rows.append(f"""
+<div class="status-row">
+  <span class="status-time">[{format_time(c["time"])}]</span>
+
+  <a class="status-repo"
+     href="https://github.com/{repo}"
+     target="_blank">
+     {repo}
+  </a>
+
+  <span class="status-msg">
+     <a href="{c["url"]}" target="_blank">
+        {msg}
+     </a>
+  </span>
+</div>
+""")
+
+    return "\n".join(rows)
+
+
+def update_index(new_html):
+
+    with open(INDEX_FILE, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if START_MARKER not in content:
+        raise RuntimeError("COMMITS_START missing")
+
+    if END_MARKER not in content:
+        raise RuntimeError("COMMITS_END missing")
+
+    before, rest = content.split(START_MARKER, 1)
+    _, after = rest.split(END_MARKER, 1)
+
+    updated = (
+        before
+        + START_MARKER
+        + "\n"
+        + new_html
+        + "\n"
+        + END_MARKER
+        + after
+    )
+
+    with open(INDEX_FILE, "w", encoding="utf-8") as f:
+        f.write(updated)
+
+    print("HTML updated")
+
 
 if __name__ == "__main__":
-    commit_items = fetch_latest_commits()
-    latest_commits = parse_commits(commit_items)
-    html_markup = generate_html_rows(latest_commits)
-    update_index_html(html_markup)
+
+    events = fetch_events()
+
+    commits = collect_commits(events)
+
+    html_fragment = generate_html(commits)
+
+    update_index(html_fragment)
