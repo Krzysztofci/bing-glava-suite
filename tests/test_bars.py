@@ -457,10 +457,16 @@ def test_widget_reset_shader_calls_module_reset_and_rebuilds(
     reset_calls = []
     monkeypatch.setattr(bars_mod, "reset_shader", lambda app: reset_calls.append(app))
 
+    import gui.glava as glava_mod
+    restart_calls = []
+    monkeypatch.setattr(glava_mod, "glava_restart",
+                         lambda module, **kw: restart_calls.append(module))
+
     widget._reset_shader()
 
     assert reset_calls == [fake_app]
     assert fake_app.rebuild_calls == 1
+    assert restart_calls == ["bars"]
 
 
 def test_widget_reset_shader_uses_restart_active_instance_when_available(
