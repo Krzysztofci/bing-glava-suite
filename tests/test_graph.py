@@ -136,3 +136,110 @@ def test_widget_reset_shader_uses_restart_active_instance_when_available(
     widget._reset_shader()
 
     assert restart_calls == ["graph"]
+
+
+# ── _write_flag ───────────────────────────────────────────────────────────────
+#
+# base.py (_schedule_restart) jest już w 100% pokryte przez testy bazowe —
+# tutaj mockujemy _schedule_restart bezpośrednio na instancji, jako czarną
+# skrzynkę. Zero ryzyka dotknięcia gui.glava.glava_restart.
+
+class _FakeVar:
+    """Lekki zamiennik tk.BooleanVar — bez potrzeby realnego Tk root."""
+    def __init__(self, value):
+        self._v = value
+
+    def get(self):
+        return self._v
+
+
+def test_write_flag_normal_on_writes_one(widget, monkeypatch):
+    write_calls = []
+    monkeypatch.setattr(graph_mod.glsl_io, "write_flag_defines",
+                         lambda path, values, params: write_calls.append(values))
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    widget._write_flag("DRAW_OUTLINE", _FakeVar(True))
+
+    assert write_calls == [{"DRAW_OUTLINE": 1}]
+
+
+def test_write_flag_normal_off_writes_zero(widget, monkeypatch):
+    write_calls = []
+    monkeypatch.setattr(graph_mod.glsl_io, "write_flag_defines",
+                         lambda path, values, params: write_calls.append(values))
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    widget._write_flag("DRAW_OUTLINE", _FakeVar(False))
+
+    assert write_calls == [{"DRAW_OUTLINE": 0}]
+
+
+def test_write_flag_direction_off_writes_minus_one(widget, monkeypatch):
+    """DIRECTION ma niestandardową semantykę: 1=włączony, -1=wyłączony."""
+    write_calls = []
+    monkeypatch.setattr(graph_mod.glsl_io, "write_flag_defines",
+                         lambda path, values, params: write_calls.append(values))
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    widget._write_flag("DIRECTION", _FakeVar(False))
+
+    assert write_calls == [{"DIRECTION": -1}]
+
+
+def test_write_flag_invert_calls_update_geometry(widget, monkeypatch):
+    """key == INVERT i włączony -> musi wywołać _update_geometry_for_flip(True)."""
+    monkeypatch.setattr(graph_mod.glsl_io, "write_flag_defines", lambda *a, **kw: None)
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    geometry_calls = []
+    monkeypatch.setattr(widget, "_update_geometry_for_flip",
+                         lambda flipped: geometry_calls.append(flipped))
+
+    widget._write_flag("INVERT", _FakeVar(True))
+
+    assert geometry_calls == [True]
+
+
+def test_write_flag_non_invert_does_not_call_update_geometry(widget, monkeypatch):
+    monkeypatch.setattr(graph_mod.glsl_io, "write_flag_defines", lambda *a, **kw: None)
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    geometry_calls = []
+    monkeypatch.setattr(widget, "_update_geometry_for_flip",
+                         lambda flipped: geometry_calls.append(flipped))
+
+    widget._write_flag("JOIN_CHANNELS", _FakeVar(True))
+
+    assert geometry_calls == []
+
+
+# ── _update_geometry_for_flip ─────────────────────────────────────────────────
+#
+# Lokalny import 'from ..geometry import ...' wewnątrz funkcji — mockujemy
+# moduł gui.geometry bezpośrednio, żeby NIE odpalać prawdziwego xrandr/lscpu
+# (widzianych w oryginalnym syscall trace tego projektu).
+
+def test_update_geometry_for_flip_writes_geometry(widget, monkeypatch):
+    import gui.geometry as geometry_mod
+    monkeypatch.setattr(geometry_mod, "get_screen_info",
+                         lambda: (1600, 900, 860, 40, 0, 0, 0))
+    monkeypatch.setattr(geometry_mod, "calc_geometry",
+                         lambda *a, **kw: (10, 20, 300, 400))
+    write_calls = []
+    monkeypatch.setattr(geometry_mod, "write_geometry",
+                         lambda rc_path, x, y, w, h: write_calls.append((x, y, w, h)))
+
+    widget._update_geometry_for_flip(True)
+
+    assert write_calls == [(10, 20, 300, 400)]
+
+
+def test_update_geometry_for_flip_swallows_exceptions(widget, monkeypatch):
+    """Błąd w detekcji ekranu (np. brak X w CI) nie powinien crashować —
+    funkcja ma broad except Exception: pass."""
+    import gui.geometry as geometry_mod
+    monkeypatch.setattr(geometry_mod, "get_screen_info",
+                         lambda: (_ for _ in ()).throw(RuntimeError("no display")))
+
+    widget._update_geometry_for_flip(True)  # nie powinno podnieść wyjątku
