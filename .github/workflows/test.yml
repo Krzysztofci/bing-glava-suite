@@ -49,7 +49,7 @@ jobs:
             inotify-tools
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest pytest-cov
+        run: pip install -r requirements.txt pytest pytest-cov 
 
       - name: Run tests (headless)
         env:
@@ -57,7 +57,7 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1024x768x24 &
           sleep 1
-          pytest --cov=scripts/gui --cov-report=xml --cov-report=term-missing \
+          pytest --cov=scripts/ --cov-report=xml --cov-report=term-missing \
             --deselect tests/test_glava_process.py::test_glava_start_no_instance_no_xdg \
             --deselect tests/test_tab_logic.py::test_load_colors_from_live_reads_frag \
             --deselect tests/test_tab_logic.py::test_load_colors_from_live_prefers_last_session
@@ -68,6 +68,28 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+      - name: Parse test results and update Badge
+        if: matrix.python-version == '3.12' && success()
+        id: badge_data
+        run: |
+          # Wyciągamy liczbę testów za pomocą sprawdzonego lokalnie grepa
+          TOTAL_TESTS=$(grep -oP 'tests="\K[^"]+' report.xml | head -n 1)
+          echo "Liczba wyciągniętych testów: $TOTAL_TESTS"
+          
+          # Przekazujemy tę liczbę jako wynik (output) tego kroku
+          echo "count=$TOTAL_TESTS" >> $GITHUB_OUTPUT
+
+      - name: Update Test Count Badge
+        if: matrix.python-version == '3.12' && success()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: 9856a14679a9ed03f71d4025d57f16e0  # <--- Podmień na Twój Gist ID
+          filename: tests.json
+          label: tests
+          message: "${{ steps.badge_data.outputs.count }} passed"
+          color: brightgreen
 
   bats:
     name: BATS shell tests
