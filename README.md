@@ -1,13 +1,12 @@
 # bing-glava-suite
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue?logo=linux&logoColor=white)](https://github.com/Krzysztofci/bing-glava-suite)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Release](https://img.shields.io/github/v/release/Krzysztofci/bing-glava-suite?color=orange&label=Release)](https://github.com/Krzysztofci/bing-glava-suite/releases)
-[![Made for GLava](https://img.shields.io/badge/Made%20for-GLava-purple)](https://github.com/jarcode-foss/glava)
-[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json&logo=github)](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml)
-[![Coverage](https://codecov.io/gh/krzysztofci/bing-glava-suite/branch/dev/graph/badge.svg)](https://codecov.io/gh/krzysztofci/bing-glava-suite)
-![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat)](LICENSE)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue?logo=linux&logoColor=white&style=flat)](https://github.com/Krzysztofci/bing-glava-suite)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white&style=flat)](https://www.python.org/)
+[![Release](https://img.shields.io/github/v/release/Krzysztofci/bing-glava-suite?color=orange&label=Release&style=flat)](https://github.com/Krzysztofci/bing-glava-suite/releases)
+[![Made for GLava](https://img.shields.io/badge/Made%20for-GLava-purple?style=flat)](https://github.com/jarcode-foss/glava)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json&logo=github&style=flat)](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/krzysztofci/bing-glava-suite/branch/dev/graph/badge.svg?style=flat)](https://codecov.io/gh/krzysztofci/bing-glava-suite)
 
 **Multi-instance GLava visualization studio for Linux desktop.**
 
