@@ -5,7 +5,8 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Release](https://img.shields.io/github/v/release/Krzysztofci/bing-glava-suite?color=orange&label=Release)](https://github.com/Krzysztofci/bing-glava-suite/releases)
 [![Made for GLava](https://img.shields.io/badge/Made%20for-GLava-purple)](https://github.com/jarcode-foss/glava)
-[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json&logo=github)](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml)[![Coverage](https://codecov.io/gh/krzysztofci/bing-glava-suite/branch/dev/graph/badge.svg)](https://codecov.io/gh/krzysztofci/bing-glava-suite)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json&logo=github)](https://github.com/Krzysztofci/bing-glava-suite/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/krzysztofci/bing-glava-suite/branch/dev/graph/badge.svg)](https://codecov.io/gh/krzysztofci/bing-glava-suite)
 ![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/krzysztofci/9856a14679a9ed03f71d4025d57f16e0/raw/tests.json)
 
 **Multi-instance GLava visualization studio for Linux desktop.**
