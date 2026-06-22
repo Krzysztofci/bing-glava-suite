@@ -73,6 +73,7 @@ addopts = "-v"
 
 [tool.coverage.run]
 source = ["scripts/gui"]
+concurrency = ["thread"]
 omit = [
     "scripts/gui/themes/*",
     "tests/*",

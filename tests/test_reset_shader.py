@@ -8,6 +8,7 @@ import glob
 import shutil
 import time
 import subprocess
+import threading
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,18 @@ def test_reset_shader_restores_shape_defaults(fake_app, mod_name):
     assert result[key] == default, \
         f"{mod_name}.{key}: po reset oczekiwano {default}, got {result[key]}"
 
+class _SyncThread:
+    """Podstawia threading.Thread — wykonuje target() SYNCHRONICZNIE,
+    eliminując realny wątek tła. Usuwa wyścig coverage.py vs GC, który
+    sporadycznie powodował Fatal Python error: Aborted pod pytest-cov
+    przy realnych wątkach z time.sleep()."""
+    def __init__(self, target=None, daemon=None, args=(), kwargs=None):
+        self._target = target
+        self._args = args
+        self._kwargs = kwargs or {}
 
+    def start(self):
+        self._target(*self._args, **self._kwargs)
 # ── glava_restart (legacy) ────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -141,6 +153,7 @@ def legacy_env(tmp_path, monkeypatch, rc_file):
     os.makedirs(str(tmp_path / "pids"))
     # Mock glava_stop_all — nie robimy pkill w testach
     monkeypatch.setattr(glava_mod, "glava_stop_all", lambda: None)
+    monkeypatch.setattr(threading, "Thread", _SyncThread)
     return rc_file
 
 def test_glava_restart_writes_module(legacy_env, monkeypatch):
