@@ -71,23 +71,25 @@ jobs:
 
       - name: Parse test results and update Badge
         if: matrix.python-version == '3.12' && success()
-        id: badge_data
+        # KLUCZOWE: Musimy nadać dokładne ID dla tego kroku
+        id: badge_data  
         run: |
-          # Wyciągamy liczbę testów za pomocą sprawdzonego lokalnie grepa
+          # Wyciągamy sprawdzoną lokalnie komendą liczbę 901
           TOTAL_TESTS=$(grep -oP 'tests="\K[^"]+' report.xml | head -n 1)
           echo "Liczba wyciągniętych testów: $TOTAL_TESTS"
           
-          # Przekazujemy tę liczbę jako wynik (output) tego kroku
-          echo "count=$TOTAL_TESTS" >> $GITHUB_OUTPUT
+          # Nowa, prawidłowa składnia zapisu zmiennej dla współczesnego GitHub Actions:
+          echo "count=${TOTAL_TESTS}" >> "$GITHUB_OUTPUT"
 
       - name: Update Test Count Badge
         if: matrix.python-version == '3.12' && success()
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
-          gistID: 9856a14679a9ed03f71d4025d57f16e0  # <--- Podmień na Twój Gist ID
+          gistID: 9856a14679a9ed03f71d4025d57f16e0
           filename: tests.json
           label: tests
+          # Odwołujemy się dokładnie do identyfikatora kroku 'badge_data' i jego parametru 'outputs.count'
           message: "${{ steps.badge_data.outputs.count }} passed"
           color: brightgreen
 
