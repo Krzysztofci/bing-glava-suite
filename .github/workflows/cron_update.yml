@@ -23,6 +23,8 @@ jobs:
           python-version: '3.x'
 
       - name: Uruchom skrypt bota
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python update_activity.py
 
       - name: Commit i Push zmian na branch www
