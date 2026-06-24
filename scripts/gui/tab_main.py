@@ -384,7 +384,8 @@ class TabMain:
             if module == "bars":
                 path = os.path.join(glava_dir, "bars.glsl")
                 if os.path.exists(path):
-                    txt = open(path).read()
+                    with open(path) as f:
+                        txt = f.read()
                     m = _re.search(r'^#define\s+FLIP\s+(\S+)', txt, _re.MULTILINE)
                     if m: flipped = bool(int(m.group(1)))
                     m = _re.search(r'^#define\s+MIRROR_YX\s+(\S+)', txt, _re.MULTILINE)
@@ -392,7 +393,8 @@ class TabMain:
             elif module == "graph":
                 path = os.path.join(glava_dir, "graph.glsl")
                 if os.path.exists(path):
-                    txt = open(path).read()
+                    with open(path) as f:
+                        txt = f.read()
                     m = _re.search(r'^#define\s+INVERT\s+(\S+)', txt, _re.MULTILINE)
                     if m: flipped = bool(int(m.group(1)))
             x, y, w, h = calc_geometry(
