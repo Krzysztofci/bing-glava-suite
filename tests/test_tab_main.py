@@ -650,6 +650,62 @@ def test_change_gradient_single_instance_uses_restart_active_instance_when_avail
     assert legacy_calls == []
 
 
+def test_change_gradient_single_instance_skips_when_active_instance_is_none(
+        fake_app, monkeypatch):
+    """all_inst=False -> targets=[(active_inst_id, active_instance)].
+    Jeśli active_instance is None (np. instancja odpięta/zamknięta tuż
+    przed kliknięciem), pierwsza pętla (set_gradient_mode) musi go
+    pominąć przez `if inst is None: continue`, zamiast wybuchnąć na
+    inst.module_frag()."""
+    fake_app.active_instance = None
+    monkeypatch.setattr(tab_main_mod, "read_colors_from_frag", lambda path: None)
+    tab = _make_tab(fake_app, monkeypatch)
+    tab.gradient_var = FakeStringVar("hsv")
+    monkeypatch.setattr(core_mod, "save_settings", lambda settings: None)
+    monkeypatch.setattr(tab_main_mod, "glava_restart", lambda module, after_fn=None: None)
+
+    gradient_calls = []
+    monkeypatch.setattr(tab_main_mod, "set_gradient_mode",
+                         lambda *a, **kw: gradient_calls.append(True))
+
+    tab._change_gradient()  # nie powinno podnieść wyjątku (None.module_frag())
+
+    assert gradient_calls == []
+
+
+def test_change_gradient_all_instances_skips_none_instances_in_both_loops(
+        fake_app, monkeypatch):
+    """Gdy app.instances zawiera wpis z inst=None (np. instancja w trakcie
+    odpinania), OBIE pętle w _change_gradient — ta wołająca
+    set_gradient_mode i ta restartująca każdą instancję — używają tego
+    samego `self.app.instances`, więc muszą niezależnie pominąć ten wpis
+    przez `if inst is None: continue`, bez wywołania
+    set_gradient_mode/restart_active_instance dla tego iid."""
+    fake_app.instances = {0: fake_app.active_instance, 1: None}
+    fake_app._inst_modules = {0: "bars"}
+
+    tab = _make_tab(fake_app, monkeypatch)
+    tab.gradient_var = FakeStringVar("hsv")
+    tab.all_inst_var = type("FakeVar", (), {"get": lambda self: True})()
+
+    monkeypatch.setattr(core_mod, "save_settings", lambda settings: None)
+
+    gradient_calls = []
+    monkeypatch.setattr(tab_main_mod, "set_gradient_mode",
+                         lambda module, mode, live_path, tmpl_path:
+                             gradient_calls.append(module))
+
+    restart_calls = []
+    fake_app.restart_active_instance = (
+        lambda module=None, after_fn=None: restart_calls.append(module))
+
+    tab._change_gradient()
+
+    assert gradient_calls == ["bars"]  # tylko iid=0; iid=1 (None) pominięte
+    assert restart_calls == ["bars"]   # tylko iid=0; iid=1 (None) pominięte
+    assert fake_app.update_status_calls == 1
+
+
 # ── _update_hsv_warn ──────────────────────────────────────────────────────────
 
 def test_update_hsv_warn_sets_warning_when_not_supported(fake_app, monkeypatch):
@@ -749,6 +805,23 @@ def test_refresh_gradient_mode_no_define_leaves_mode_unchanged(
     assert tab.gradient_mode == "rgb"
 
 
+def test_refresh_gradient_mode_swallows_exception_from_read(
+        fake_app, monkeypatch, tmp_path):
+    """Błąd podczas odczytu (np. open() rzuca, bo _live_frag wskazuje na
+    katalog, nie plik) jest wyciszany przez except Exception: pass —
+    _update_hsv_warn jest wołane mimo to, bo jest POZA blokiem try/except."""
+    tab = _make_tab(fake_app, monkeypatch)
+    monkeypatch.setattr(tab, "_live_frag", lambda: str(tmp_path))
+    tab.gradient_mode = "rgb"
+    warn_calls = []
+    monkeypatch.setattr(tab, "_update_hsv_warn", lambda: warn_calls.append(True))
+
+    tab.refresh_gradient_mode()  # nie powinno podnieść wyjątku
+
+    assert tab.gradient_mode == "rgb"
+    assert warn_calls == [True]
+
+
 # ── refresh_active_instance ──────────────────────────────────────────────────
 
 def test_refresh_active_instance_calls_all_refresh_steps(fake_app, monkeypatch):
@@ -796,6 +869,290 @@ def test_destroy_stops_meta_watch(fake_app, monkeypatch):
     tab._meta_watch_active = True
     tab.destroy()
     assert tab._meta_watch_active is False
+
+
+# ── _start_meta_watch / _meta_watch_thread ──────────────────────────────────
+
+def test_start_meta_watch_noop_when_metadata_file_missing(
+        fake_app, monkeypatch, tmp_path):
+    tab = _make_tab(fake_app, monkeypatch)
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(tmp_path / "nope.json"))
+
+    import threading
+    thread_calls = []
+
+    class FakeThread:
+        def __init__(self, target, daemon):
+            thread_calls.append((target, daemon))
+        def start(self):
+            pass
+    monkeypatch.setattr(threading, "Thread", FakeThread)
+
+    tab._start_meta_watch()
+
+    assert thread_calls == []
+
+
+def test_start_meta_watch_starts_daemon_thread_when_metadata_exists(
+        fake_app, monkeypatch, tmp_path):
+    tab = _make_tab(fake_app, monkeypatch)
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text("{}")
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    import threading
+    thread_calls = []
+    started = []
+
+    class FakeThread:
+        def __init__(self, target, daemon):
+            thread_calls.append((target, daemon))
+        def start(self):
+            started.append(True)
+    monkeypatch.setattr(threading, "Thread", FakeThread)
+
+    tab._start_meta_watch()
+
+    assert tab._meta_watch_active is True
+    assert len(thread_calls) == 1
+    target, daemon = thread_calls[0]
+    assert target == tab._meta_watch_thread
+    assert daemon is True
+    assert started == [True]
+
+
+def test_meta_watch_thread_schedules_reload_while_active(fake_app, monkeypatch):
+    """Wołamy _meta_watch_thread bezpośrednio (nie przez realny wątek) —
+    fake_after sam ustawia _meta_watch_active=False, żeby zatrzymać
+    pętlę while po jednej iteracji, w momencie gdy reload JEST planowany."""
+    tab = _make_tab(fake_app, monkeypatch)
+    tab._meta_watch_active = True
+
+    class FakeProc:
+        def wait(self):
+            return None
+    monkeypatch.setattr(tab_main_mod.subprocess, "Popen",
+                         lambda *a, **kw: FakeProc())
+
+    after_calls = []
+
+    def fake_after(delay, fn):
+        after_calls.append((delay, fn))
+        tab._meta_watch_active = False
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(fake_after)})()
+
+    tab._meta_watch_thread()
+
+    assert after_calls == [(0, tab._load_wp_thumbnail)]
+
+
+def test_meta_watch_thread_skips_reload_when_deactivated_during_wait(
+        fake_app, monkeypatch):
+    """Jeśli _meta_watch_active stanie się False w trakcie proc.wait()
+    (np. destroy() wołane z innego wątku), reload miniatury NIE jest
+    planowany — pokrywa gałąź 'else' wewnętrznego if."""
+    tab = _make_tab(fake_app, monkeypatch)
+    tab._meta_watch_active = True
+
+    class FakeProc:
+        def wait(self):
+            tab._meta_watch_active = False
+    monkeypatch.setattr(tab_main_mod.subprocess, "Popen",
+                         lambda *a, **kw: FakeProc())
+
+    after_calls = []
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(
+        lambda d, fn: after_calls.append((d, fn)))})()
+
+    tab._meta_watch_thread()
+
+    assert after_calls == []
+
+
+# ── _load_wp_thumbnail ───────────────────────────────────────────────────────
+
+class FakeThumbLabel:
+    """Stub zamiast realnego tk.Label z obrazkiem."""
+    def __init__(self):
+        self.image = None
+        self._photo = None
+
+    def config(self, image):
+        self.image = image
+
+
+@pytest.fixture
+def fake_pil(monkeypatch):
+    """Wstrzykuje fake pakiet PIL do sys.modules. _load_wp_thumbnail robi
+    LOKALNY import `from PIL import Image, ImageTk` wewnątrz metody, więc
+    zgodnie z zasadą patchowania źródła patchujemy sys.modules — PIL nie
+    jest w ogóle zaimportowane na poziomie modułu w tab_main_mod."""
+    import sys
+    import types
+
+    opened_paths = []
+    photo_calls = []
+
+    class FakeImg:
+        def resize(self, size, resample):
+            return ("RESIZED_IMG", size, resample)
+
+    def fake_open(path):
+        opened_paths.append(path)
+        return FakeImg()
+
+    image_mod = types.ModuleType("PIL.Image")
+    image_mod.open = fake_open
+    image_mod.LANCZOS = "LANCZOS"
+
+    def fake_photoimage(img):
+        photo_calls.append(img)
+        return "FAKE_PHOTO"
+
+    imagetk_mod = types.ModuleType("PIL.ImageTk")
+    imagetk_mod.PhotoImage = fake_photoimage
+
+    pil_mod = types.ModuleType("PIL")
+    pil_mod.Image = image_mod
+    pil_mod.ImageTk = imagetk_mod
+
+    monkeypatch.setitem(sys.modules, "PIL", pil_mod)
+    monkeypatch.setitem(sys.modules, "PIL.Image", image_mod)
+    monkeypatch.setitem(sys.modules, "PIL.ImageTk", imagetk_mod)
+    return {"opened_paths": opened_paths, "photo_calls": photo_calls}
+
+
+def _setup_thumb_tab(fake_app, monkeypatch, region="de-DE"):
+    tab = _make_tab(fake_app, monkeypatch)
+    tab._wp_regions = [region]
+    tab._wp_region_idx = 0
+    tab._thumb_label = FakeThumbLabel()
+    tab._thumb_placeholder = "PLACEHOLDER_IMG"
+    tab._wp_title_var = FakeStringVar()
+    tab._wp_copy_var = FakeStringVar()
+    return tab
+
+
+def test_load_wp_thumbnail_noop_without_thumb_label(fake_app, monkeypatch):
+    tab = _make_tab(fake_app, monkeypatch)
+    assert not hasattr(tab, "_thumb_label")
+    tab._load_wp_thumbnail()  # nie powinno crashować
+
+
+def test_load_wp_thumbnail_no_metadata_file_uses_placeholder(
+        fake_app, monkeypatch, tmp_path):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(tmp_path / "nope.json"))
+
+    tab._load_wp_thumbnail()
+
+    assert tab._wp_title_var.get() == ""
+    assert tab._wp_copy_var.get() == "—"
+    assert tab._thumb_label.image == "PLACEHOLDER_IMG"
+
+
+def test_load_wp_thumbnail_sets_title_and_copyright_from_metadata(
+        fake_app, monkeypatch, tmp_path):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps(
+        {"de-DE": {"title": "Grand Canyon", "copyright": "© NASA"}}))
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    tab._load_wp_thumbnail()
+
+    assert tab._wp_title_var.get() == "Grand Canyon"
+    assert tab._wp_copy_var.get() == "© NASA"
+    assert tab._thumb_label.image == "PLACEHOLDER_IMG"  # brak thumb_file
+
+
+def test_load_wp_thumbnail_malformed_metadata_falls_back_to_empty(
+        fake_app, monkeypatch, tmp_path):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text("{not valid json")
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    tab._load_wp_thumbnail()  # nie powinno podnieść wyjątku
+
+    assert tab._wp_title_var.get() == ""
+    assert tab._wp_copy_var.get() == "—"
+
+
+def test_load_wp_thumbnail_info_title_extracts_name_from_copyright(
+        fake_app, monkeypatch, tmp_path):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps({
+        "de-DE": {"title": "Info", "copyright": "Grand Canyon (© NASA)"}}))
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    tab._load_wp_thumbnail()
+
+    assert tab._wp_title_var.get() == "Grand Canyon"
+
+
+def test_load_wp_thumbnail_missing_thumb_file_uses_placeholder(
+        fake_app, monkeypatch, tmp_path):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps({
+        "de-DE": {"title": "X", "copyright": "Y",
+                  "thumb_file": str(tmp_path / "nope.jpg")}}))
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    tab._load_wp_thumbnail()
+
+    assert tab._thumb_label.image == "PLACEHOLDER_IMG"
+
+
+def test_load_wp_thumbnail_loads_image_when_thumb_file_exists(
+        fake_app, monkeypatch, tmp_path, fake_pil):
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    thumb_file = tmp_path / "thumb.jpg"
+    thumb_file.write_text("fake-image-bytes")
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps({
+        "de-DE": {"title": "X", "copyright": "Y",
+                  "thumb_file": str(thumb_file)}}))
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    tab._load_wp_thumbnail()
+
+    assert fake_pil["opened_paths"] == [str(thumb_file)]
+    assert tab._thumb_label.image == "FAKE_PHOTO"
+    assert tab._thumb_label._photo == "FAKE_PHOTO"
+
+
+def test_load_wp_thumbnail_pil_failure_falls_back_to_placeholder(
+        fake_app, monkeypatch, tmp_path):
+    import sys
+    import types
+    tab = _setup_thumb_tab(fake_app, monkeypatch)
+    thumb_file = tmp_path / "thumb.jpg"
+    thumb_file.write_text("not-a-real-image")
+    meta_path = tmp_path / "meta.json"
+    meta_path.write_text(json.dumps({
+        "de-DE": {"title": "X", "copyright": "Y",
+                  "thumb_file": str(thumb_file)}}))
+    monkeypatch.setattr(core_mod, "BING_METADATA", str(meta_path))
+
+    def broken_open(path):
+        raise OSError("nie udało się otworzyć obrazu")
+    image_mod = types.ModuleType("PIL.Image")
+    image_mod.open = broken_open
+    image_mod.LANCZOS = "LANCZOS"
+    imagetk_mod = types.ModuleType("PIL.ImageTk")
+    pil_mod = types.ModuleType("PIL")
+    pil_mod.Image = image_mod
+    pil_mod.ImageTk = imagetk_mod
+    monkeypatch.setitem(sys.modules, "PIL", pil_mod)
+    monkeypatch.setitem(sys.modules, "PIL.Image", image_mod)
+    monkeypatch.setitem(sys.modules, "PIL.ImageTk", imagetk_mod)
+
+    tab._load_wp_thumbnail()
+
+    assert tab._thumb_label.image == "PLACEHOLDER_IMG"
 
 
 # ── _wp_prev / _wp_next / _update_region_indicator ──────────────────────────
@@ -904,6 +1261,73 @@ def test_toggle_glava_calls_glava_toggle(fake_app, monkeypatch):
     assert fake_app.update_status_calls == 1
 
 
+# ── _fetch_wallpaper_user / _fetch_wallpaper_full ───────────────────────────
+
+def test_fetch_wallpaper_user_runs_script_and_schedules_status_update(
+        fake_app, monkeypatch):
+    tab = _make_tab(fake_app, monkeypatch)
+    popen_calls = []
+    monkeypatch.setattr(tab_main_mod.subprocess, "Popen",
+                         lambda args: popen_calls.append(args))
+    after_calls = []
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(
+        lambda d, fn: after_calls.append((d, fn)))})()
+
+    tab._fetch_wallpaper_user()
+
+    assert len(popen_calls) == 1
+    args = popen_calls[0]
+    assert args[0] == "/bin/bash"
+    assert args[1].endswith("bing-fetch-user.sh")
+    assert args[2] == "--force"
+    assert after_calls == [(4000, fake_app.update_status)]
+
+
+def test_fetch_wallpaper_full_uses_usr_local_path_when_present(
+        fake_app, monkeypatch):
+    """Lokalny import `from .glava import _sudo_run` -> patchujemy źródło
+    (gui.glava), nie tab_main_mod."""
+    tab = _make_tab(fake_app, monkeypatch)
+    monkeypatch.setattr(os.path, "exists",
+                         lambda p: p == "/usr/local/bin/bing-downloader.sh")
+    import getpass
+    monkeypatch.setattr(getpass, "getuser", lambda: "krzysztof")
+    import gui.glava as glava_mod
+    sudo_calls = []
+    monkeypatch.setattr(glava_mod, "_sudo_run",
+                         lambda args: sudo_calls.append(args))
+    after_calls = []
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(
+        lambda d, fn: after_calls.append((d, fn)))})()
+
+    tab._fetch_wallpaper_full()
+
+    assert sudo_calls == [["/usr/local/bin/bing-downloader.sh", "krzysztof", "--force"]]
+    assert after_calls == [(4000, fake_app.update_status)]
+
+
+def test_fetch_wallpaper_full_falls_back_to_bin_dir_when_usr_local_missing(
+        fake_app, monkeypatch):
+    tab = _make_tab(fake_app, monkeypatch)
+    monkeypatch.setattr(os.path, "exists", lambda p: False)
+    import getpass
+    monkeypatch.setattr(getpass, "getuser", lambda: "krzysztof")
+    import gui.glava as glava_mod
+    sudo_calls = []
+    monkeypatch.setattr(glava_mod, "_sudo_run",
+                         lambda args: sudo_calls.append(args))
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(lambda d, fn: None)})()
+
+    tab._fetch_wallpaper_full()
+
+    assert len(sudo_calls) == 1
+    dl, user, flag = sudo_calls[0]
+    assert dl != "/usr/local/bin/bing-downloader.sh"
+    assert dl.endswith("bing-downloader.sh")
+    assert user == "krzysztof"
+    assert flag == "--force"
+
+
 # ── _apply_geometry — walidacja int / wartości dodatnie ─────────────────────
 
 def test_apply_geometry_rejects_non_integer_values(fake_app, monkeypatch):
@@ -968,6 +1392,33 @@ def test_apply_geometry_writes_and_restarts_on_success(fake_app, monkeypatch):
     assert restart_calls == ["bars"]
 
 
+def test_apply_geometry_uses_restart_active_instance_when_available(
+        fake_app, monkeypatch):
+    """Gdy app posiada restart_active_instance (architektura wielo-
+    instancyjna), _apply_geometry powinno użyć go zamiast legacy
+    glava_restart, który robi pkill -x glava i zabija WSZYSTKIE procesy
+    (patrz ARCHITECTURE.md §4) — legacy jest tylko fallbackiem."""
+    tab = _make_tab(fake_app, monkeypatch)
+    tab.geo_vars = {
+        "x": FakeStringVar("10"), "y": FakeStringVar("20"),
+        "w": FakeStringVar("800"), "h": FakeStringVar("600"),
+    }
+    monkeypatch.setattr(tab_main_mod, "write_geometry", lambda *a: True)
+    monkeypatch.setattr(tab_main_mod.messagebox, "showinfo", lambda *a, **kw: None)
+
+    restart_calls = []
+    fake_app.restart_active_instance = lambda after_fn=None: restart_calls.append(after_fn)
+    legacy_calls = []
+    monkeypatch.setattr(tab_main_mod, "glava_restart",
+                         lambda module, after_fn=None: legacy_calls.append(module))
+
+    tab._apply_geometry()
+
+    assert len(restart_calls) == 1
+    assert restart_calls[0] == fake_app.update_status
+    assert legacy_calls == []
+
+
 def test_apply_geometry_no_restart_message_when_write_fails(fake_app, monkeypatch):
     tab = _make_tab(fake_app, monkeypatch)
     tab.geo_vars = {
@@ -1013,6 +1464,51 @@ def test_auto_geometry_updates_geo_vars_and_writes(fake_app, monkeypatch):
     assert tab.geo_vars["w"].get() == "1920"
     assert write_calls == [(0, -40, 1920, 1080)]
     assert restart_calls == ["bars"]
+
+
+def test_auto_geometry_includes_top_panel_info_when_present(fake_app, monkeypatch):
+    """si[3] (top_reserved) > 0 -> osobny wpis 'Top panel' w komunikacie,
+    nieobjęty wcześniejszym testem (tam top_reserved=0)."""
+    tab = _make_tab(fake_app, monkeypatch)
+    tab.geo_vars = {k: FakeStringVar() for k in ("x", "y", "w", "h")}
+
+    monkeypatch.setattr(tab_main_mod, "get_screen_info",
+                         lambda: (1920, 1080, 1000, 40, 0, 0, 0))
+    monkeypatch.setattr(tab_main_mod, "calc_geometry",
+                         lambda module, sw, sh, bottom, top: (0, 40, 1920, 1000))
+    info_texts = []
+    monkeypatch.setattr(tab_main_mod.messagebox, "showinfo",
+                         lambda title, msg: info_texts.append(msg))
+    monkeypatch.setattr(tab_main_mod, "write_geometry", lambda *a: True)
+    monkeypatch.setattr(tab_main_mod, "glava_restart", lambda module, after_fn=None: None)
+
+    tab._auto_geometry()
+
+    assert "40px" in info_texts[0]
+
+
+def test_auto_geometry_uses_restart_active_instance_when_available(
+        fake_app, monkeypatch):
+    tab = _make_tab(fake_app, monkeypatch)
+    tab.geo_vars = {k: FakeStringVar() for k in ("x", "y", "w", "h")}
+
+    monkeypatch.setattr(tab_main_mod, "get_screen_info",
+                         lambda: (1920, 1080, 1040, 0, 40, 0, 0))
+    monkeypatch.setattr(tab_main_mod, "calc_geometry",
+                         lambda module, sw, sh, bottom, top: (0, -40, 1920, 1080))
+    monkeypatch.setattr(tab_main_mod.messagebox, "showinfo", lambda *a, **kw: None)
+    monkeypatch.setattr(tab_main_mod, "write_geometry", lambda *a: True)
+
+    restart_calls = []
+    fake_app.restart_active_instance = lambda after_fn=None: restart_calls.append(True)
+    legacy_calls = []
+    monkeypatch.setattr(tab_main_mod, "glava_restart",
+                         lambda module, after_fn=None: legacy_calls.append(module))
+
+    tab._auto_geometry()
+
+    assert restart_calls == [True]
+    assert legacy_calls == []
 
 
 # ── _update_geometry_for_module ──────────────────────────────────────────────
@@ -1359,6 +1855,74 @@ def test_restore_auto_skips_adopt_for_instances_with_running_process(
     tab._restore_auto()
 
     assert adopt_calls == [1]  # tylko instancja 1, bo 0 ma już proces
+
+
+def test_restore_auto_single_target_skips_when_instance_is_none(
+        fake_app, monkeypatch, tmp_path):
+    """Gdy active_instance is None (np. odpięta instancja), targets =
+    [(iid, None)] -> 'if inst is None: continue' pomija zapis kolorów
+    i restart dla tego targetu."""
+    monkeypatch.setattr(tab_main_mod, "read_colors_from_frag", lambda path: None)
+    fake_app.active_instance = None
+    tab = _make_tab(fake_app, monkeypatch)
+
+    wallpaper = tmp_path / "bing_today.jpg"
+    wallpaper.write_text("fake")
+    monkeypatch.setattr(os.path, "expanduser",
+                         lambda p: str(wallpaper) if "bing_today" in p else p)
+
+    import gui.colors as colors_mod
+    monkeypatch.setattr(colors_mod, "extract_colors_from_wallpaper",
+                         lambda path: {"top": "#fff", "mid": "#888", "bottom": "#000"})
+
+    write_calls = []
+    monkeypatch.setattr(tab_main_mod, "write_colors_to_frag",
+                         lambda *a, **kw: write_calls.append(True))
+    restart_calls = []
+    monkeypatch.setattr(tab_main_mod, "glava_restart_instance",
+                         lambda *a, **kw: restart_calls.append(True))
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(lambda d, fn: fn())})()
+
+    tab._restore_auto()
+
+    assert write_calls == []
+    assert restart_calls == []
+
+
+def test_restore_auto_after_callback_updates_process_and_schedules_status(
+        fake_app, monkeypatch, tmp_path):
+    """Domknięcie _after przekazane do glava_restart_instance: po jego
+    wywołaniu (symulującym realny restart procesu glava) aktualizuje
+    app.processes[iid] i planuje update_status przez root.after."""
+    tab = _make_tab(fake_app, monkeypatch)
+    wallpaper = tmp_path / "bing_today.jpg"
+    wallpaper.write_text("fake")
+    monkeypatch.setattr(os.path, "expanduser",
+                         lambda p: str(wallpaper) if "bing_today" in p else p)
+
+    import gui.colors as colors_mod
+    monkeypatch.setattr(colors_mod, "extract_colors_from_wallpaper",
+                         lambda path: {"top": "#fff", "mid": "#888", "bottom": "#000"})
+    monkeypatch.setattr(tab_main_mod, "write_colors_to_frag", lambda *a, **kw: None)
+
+    captured_after_fn = []
+
+    def fake_restart_instance(instance, module, proc, after_fn):
+        captured_after_fn.append(after_fn)
+    monkeypatch.setattr(tab_main_mod, "glava_restart_instance", fake_restart_instance)
+
+    root_after_calls = []
+    fake_app.root = type("FakeRoot", (), {"after": staticmethod(
+        lambda d, fn: root_after_calls.append((d, fn)))})()
+    fake_app.processes = {0: None}
+
+    tab._restore_auto()
+
+    assert len(captured_after_fn) == 1
+    captured_after_fn[0]("NEW_PROC")  # symulujemy callback po realnym restarcie
+
+    assert fake_app.processes[0] == "NEW_PROC"
+    assert (0, fake_app.update_status) in root_after_calls
 
 
 # ── build_tab_main — module-level entry point ───────────────────────────────
