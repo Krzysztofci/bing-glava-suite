@@ -6,21 +6,30 @@ GITHUB_USERNAME = "Krzysztofci"
 HTML_FILE_PATH = "index.html"
 MAX_COMMITS = 5
 
+import os
+
 def fetch_latest_activity():
-    # Przechodzimy na Events API - szybsze, dokładniejsze i zawiera informacje o branchach
     url = f"https://api.github.com/users/{GITHUB_USERNAME}/events/public"
     headers = {
         "User-Agent": "Python-Activity-Monitor-Bot",
-        "Accept": "application/vnd.github+json"
+        "Accept": "application/vnd.github+json",
     }
+    token = os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    req = urllib.request.Request(url, headers=headers)
     try:
-        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req) as response:
+            print(f"Status: {response.status}, rate-limit remaining: {response.headers.get('X-RateLimit-Remaining')}")
             return json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"HTTPError {e.code}: {body}")
+        return []
     except Exception as e:
         print(f"Błąd pobierania danych z API: {e}")
         return []
-
 def parse_events(events):
     parsed_commits = []
     
