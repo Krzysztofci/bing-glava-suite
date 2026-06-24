@@ -32,41 +32,45 @@ def fetch_latest_activity():
         return []
 def parse_events(events):
     parsed_commits = []
-    
+
     for event in events:
         if len(parsed_commits) >= MAX_COMMITS:
             break
-            
-        # Interesują nas tylko zdarzenia typu Push (wypchnięcie nowych commitów)
+
         if event.get("type") != "PushEvent":
             continue
-            
-        repo_name = event.get("repo", {}).get("name", "unknown").split("/")[-1]
-        
-        # Wyciąganie nazwy brancha (np. "refs/heads/main" -> "main")
+
+        repo_full = event.get("repo", {}).get("name", "")
+        repo_name = repo_full.split("/")[-1] if repo_full else "unknown"
+
         ref = event.get("payload", {}).get("ref", "")
         branch_name = ref.split("/")[-1] if ref else "unknown"
-        
-        # Parsowanie czasu (format: 2026-06-24T15:30:00Z -> 15:30)
+
         created_at = event.get("created_at", "")
         time_str = created_at[11:16] if len(created_at) > 16 else "--:--"
-        
-        # Przetwarzanie commitów wewnątrz danego Pusha (od najnowszego)
+
+        # 🔥 NOWA LOGIKA (fallback gdy commits są puste)
         commits = event.get("payload", {}).get("commits", [])
+
+        if not commits and event.get("payload", {}).get("head"):
+            # fallback: bierzemy HEAD SHA jako "commit entry"
+            head = event["payload"]["head"]
+            commits = [{"message": f"Commit {head[:7]}"}]
+
         for commit in reversed(commits):
             if len(parsed_commits) >= MAX_COMMITS:
                 break
-                
+
             full_msg = commit.get("message", "")
             msg = full_msg.split("\n")[0] if full_msg else "No commit message"
-            
+
             parsed_commits.append({
                 "time": time_str,
                 "repo": repo_name,
                 "branch": branch_name,
                 "msg": msg
             })
-            
+
     return parsed_commits
 
 def generate_html_rows(commits):
