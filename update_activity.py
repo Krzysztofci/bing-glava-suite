@@ -103,6 +103,16 @@ def update_index_html(new_html_content):
 
 if __name__ == "__main__":
     events_data = fetch_latest_activity()
+    print("\n=== DEBUG EVENTS RAW ===")
+    print(f"Events count: {len(events_data)}")
+
+    for e in events_data[:5]:
+        print("TYPE:", e.get("type"))
     latest_commits = parse_events(events_data)
+    print("\n=== DEBUG PARSED COMMITS ===")
+    print(f"Commits count: {len(latest_commits)}")
+
+    for c in latest_commits:
+        print(c)
     html_markup = generate_html_rows(latest_commits)
     update_index_html(html_markup)
