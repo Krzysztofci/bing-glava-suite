@@ -2,12 +2,7 @@
 
 ## Supported versions
 
-Only the latest release on `main` receives fixes.
-
-| Version | Supported |
-|---------|-----------|
-| 1.0.0-RC3 (latest) | ✅ |
-| older | ❌ |
+Only the <img src="https://img.shields.io/github/v/release/Krzysztofci/bing-glava-suite?color=F0833a&label=Latest%20Release&style=flat" align="center"> on `main` receives fixes.
 
 ## Reporting a vulnerability
 
