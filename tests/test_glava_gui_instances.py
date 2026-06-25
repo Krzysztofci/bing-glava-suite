@@ -68,6 +68,7 @@ class _FakeInstBar:
         self.add_tab_calls = []
         self.removed = []
         self._tabs = {}
+        self.frames = {}  # iid -> fake frame, dla _on_inst_select
 
     def add_tab(self, iid, module=None, label=None, select=None):
         self.add_tab_calls.append((iid, module, label, select))
@@ -75,6 +76,9 @@ class _FakeInstBar:
 
     def remove_tab(self, iid):
         self.removed.append(iid)
+
+    def get_frame(self, iid):
+        return self.frames.get(iid)
 
 
 # =============================================================================
@@ -331,6 +335,52 @@ def test_on_inst_add_removes_disable_flag_when_starting(gg, monkeypatch, tmp_pat
     assert app.glava_enabled_var.get() is True
 
 
+def test_on_inst_add_swallows_filenotfounderror_when_removing_disable_flag(
+        gg, monkeypatch, tmp_path):
+    """Wyścig: GLAVA_DISABLE_FLAG zniknęła między os.path.exists() a
+    os.remove() (np. usunięta równolegle przez _on_glava_toggle) —
+    FileNotFoundError jest wyciszany, glava_enabled_var i tak ustawiane.
+    To jedyna realnie nieosiągnięta linia w istniejącym
+    test_on_inst_add_removes_disable_flag_when_starting (tamten trafia
+    w happy-path try/os.remove, nie w except)."""
+    app = _make_gui(gg)
+    app.instances     = {}
+    app.processes     = {}
+    app._inst_modules = {}
+    app.inst_bar = _FakeInstBar()
+    app._build_inst_frame = lambda iid: None
+    app.root = _FakeRoot()
+    app.update_status = lambda: None
+    app.glava_enabled_var = _FakeVar(False)
+
+    monkeypatch.setattr(gg, "next_inst_id", lambda: 1)
+
+    class _FakeInst:
+        def __init__(self, iid):
+            self.inst_id = iid
+
+        def create(self, source=None):
+            pass
+
+    monkeypatch.setattr(gg, "GlavaInstance", _FakeInst)
+    monkeypatch.setattr(gg, "register_instance", lambda iid, module=None: None)
+    monkeypatch.setattr(gg, "update_instance", lambda iid, **kw: None)
+    monkeypatch.setattr(gg, "glava_restart_instance", lambda **kw: None)
+
+    flag_path = tmp_path / "disabled"
+    flag_path.write_text("")
+    import gui.core as core_mod
+    monkeypatch.setattr(core_mod, "GLAVA_DISABLE_FLAG", str(flag_path))
+
+    def fake_remove(p):
+        raise FileNotFoundError()
+    monkeypatch.setattr(os, "remove", fake_remove)
+
+    app._on_inst_add("bars", start=True)  # nie powinno podnieść wyjątku
+
+    assert app.glava_enabled_var.get() is True
+
+
 def test_on_inst_add_syncs_actual_label_to_registry(gg, monkeypatch):
     app = _make_gui(gg)
     app.instances     = {}
@@ -541,3 +591,129 @@ def test_on_inst_close_handles_unregister_exception(gg, monkeypatch):
                          lambda iid: (_ for _ in ()).throw(OSError("fail")))
 
     app._on_inst_close(0)  # nie powinno podnieść wyjątku
+
+
+# ── _on_inst_select ──────────────────────────────────────────────────────────
+# UWAGA: _on_inst_select nie robi żadnych importów (lokalnych ani innych
+# spoza top-level) — nie ma czego patchować na gg/gui.*. Zaślepiamy tylko
+# GUI: _show_instances (przełączanie paneli) i _build_inst_frame.
+
+def test_on_inst_select_switches_active_instance_and_module(gg):
+    app = _make_gui(gg)
+    inst0, inst1 = object(), object()
+    app.instances     = {0: inst0, 1: inst1}
+    app._inst_modules = {0: "bars", 1: "wave"}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+    app.inst_bar = _FakeInstBar()
+    app._build_inst_frame = lambda iid: None
+
+    app._on_inst_select(1)
+
+    assert app._active_inst_id == 1
+    assert app.active_instance is inst1
+    assert app.active_module == "wave"
+
+
+def test_on_inst_select_builds_frame_when_empty(gg):
+    """Lazy init: pusta (nigdy nie zbudowana) ramka instancji jest
+    budowana przy pierwszym wejściu na zakładkę."""
+    app = _make_gui(gg)
+    app.instances     = {1: object()}
+    app._inst_modules = {1: "wave"}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+
+    class _FakeFrame:
+        def winfo_children(self):
+            return []
+
+    inst_bar = _FakeInstBar()
+    inst_bar.frames = {1: _FakeFrame()}
+    app.inst_bar = inst_bar
+    build_calls = []
+    app._build_inst_frame = lambda iid: build_calls.append(iid)
+
+    app._on_inst_select(1)
+
+    assert build_calls == [1]
+
+
+def test_on_inst_select_skips_build_when_frame_already_populated(gg):
+    """Ramka już ma dzieci (była budowana wcześniej) — nie przebudowuj,
+    żeby nie zniszczyć żywego stanu UI modułu."""
+    app = _make_gui(gg)
+    app.instances     = {1: object()}
+    app._inst_modules = {1: "wave"}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+
+    class _FakeFrame:
+        def winfo_children(self):
+            return ["jakis_widget"]
+
+    inst_bar = _FakeInstBar()
+    inst_bar.frames = {1: _FakeFrame()}
+    app.inst_bar = inst_bar
+    build_calls = []
+    app._build_inst_frame = lambda iid: build_calls.append(iid)
+
+    app._on_inst_select(1)
+
+    assert build_calls == []
+
+
+def test_on_inst_select_handles_missing_frame_gracefully(gg):
+    """get_frame(iid) zwraca None (zakładka jeszcze nie ma ramki w UI) —
+    `if frame is not None and ...` musi to bezpiecznie pominąć."""
+    app = _make_gui(gg)
+    app.instances     = {1: object()}
+    app._inst_modules = {1: "wave"}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+    app.inst_bar = _FakeInstBar()  # frames={} -> get_frame zwraca None
+    build_calls = []
+    app._build_inst_frame = lambda iid: build_calls.append(iid)
+
+    app._on_inst_select(1)  # nie powinno podnieść wyjątku
+
+    assert build_calls == []
+
+
+def test_on_inst_select_refreshes_tab_main_ref_when_present(gg):
+    app = _make_gui(gg)
+    app.instances     = {1: object()}
+    app._inst_modules = {1: "wave"}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+    app.inst_bar = _FakeInstBar()
+    app._build_inst_frame = lambda iid: None
+
+    refresh_calls = []
+
+    class _FakeTabMainRef:
+        def refresh_active_instance(self):
+            refresh_calls.append(True)
+
+    app._tab_main_ref = _FakeTabMainRef()
+
+    app._on_inst_select(1)
+
+    assert refresh_calls == [True]
+
+
+def test_on_inst_select_sets_none_when_instance_not_found(gg):
+    """inst_id spoza self.instances (np. wyścig z zamknięciem zakładki) —
+    active_instance staje się None, bez wyjątku."""
+    app = _make_gui(gg)
+    app.instances     = {}
+    app._inst_modules = {}
+    app.active_module = "bars"
+    app._show_instances = lambda: None
+    app.inst_bar = _FakeInstBar()
+    app._build_inst_frame = lambda iid: None
+
+    app._on_inst_select(99)
+
+    assert app.active_instance is None
+    assert app._active_inst_id == 99
