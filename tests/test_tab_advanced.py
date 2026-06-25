@@ -19,6 +19,8 @@
 
 import os
 import pytest
+import tkinter as tk
+from tkinter import ttk
 
 import gui.tab_advanced as tab_advanced_mod
 
@@ -710,3 +712,174 @@ def test_show_license_text_for_third_party_credits(fake_app, monkeypatch):
     assert title == "CREDITS"
     assert "GLava (GPLv3)" in msg
     assert "Forest-ttk-theme" in msg
+
+
+# ── on_buffer_change / on_fps — domknięcia zagnieżdżone w _build_audio ──────
+#
+# UWAGA: to jedyne miejsce w tym pliku, gdzie odstępujemy od konwencji
+# "_build_* są pomijane" (patrz tab_main.py / wcześniejsza sekcja tego
+# pliku). Same domknięcia (on_buffer_change, on_fps) są czystą logiką
+# walidacyjną — nowa wersja logic-cov klasyfikuje je jako LOGIC mimo
+# zagnieżdżenia w metodzie GUI, więc realnie liczą się do pokrycia.
+# Nie są wystawione jako atrybuty self (zwykłe lokalne `def`), więc jedyna
+# droga do nich bez przepisywania kodu źródłowego to: trace_add (dla
+# on_buffer_change, podpięte na self._bufsize_var — łatwe) i podsłuch
+# tk.Misc.bind() po __name__ funkcji (dla on_fps, zarejestrowane tylko
+# lokalnie w fps_e.bind(...)). Wymaga PRAWDZIWEGO tk.Tk() — w CI projektu
+# to Xvfb (patrz pytest matrix w CHANGELOG), tutaj odpalane przez
+# `xvfb-run -a pytest ...`.
+
+@pytest.fixture(scope="session")
+def tk_root():
+    root = tk.Tk()
+    style = ttk.Style(root)
+    # "Switch" to styl z Forest-ttk-theme, niedostępny w gołym Tk/Xvfb —
+    # podpieramy go pod istniejący layout TCheckbutton WYŁĄCZNIE żeby
+    # ttk.Checkbutton(..., style="Switch") dało się skonstruować.
+    # Wygląd nie jest tu przedmiotem testu.
+    style.layout("Switch", style.layout("TCheckbutton"))
+    yield root
+    root.destroy()
+
+
+@pytest.fixture
+def built_audio_tab(tk_root, fake_app, rc_path):
+    """Realnie buduje _build_audio na prawdziwej (Xvfb) ramce Tk i
+    przechwytuje on_fps przez podsłuch bind() po nazwie funkcji —
+    captured["on_fps"] trafia do tab._on_fps_for_test (atrybut TYLKO
+    do testów, nie istnieje w prawdziwym kodzie)."""
+    frame = ttk.Frame(tk_root)
+    tab = _make_tab(fake_app)
+
+    captured = {}
+    orig_bind = tk.Misc.bind
+
+    def spy_bind(self, sequence=None, func=None, add=None):
+        if func is not None and getattr(func, "__name__", "") == "on_fps":
+            captured["on_fps"] = func
+        return orig_bind(self, sequence, func, add)
+
+    tk.Misc.bind = spy_bind
+    try:
+        tab._build_audio(frame)
+    finally:
+        tk.Misc.bind = orig_bind
+
+    tab._on_fps_for_test = captured.get("on_fps")
+    yield tab
+    frame.destroy()
+
+
+def _fps_entry_var(on_fps):
+    """Wyciąga zmienną domknięcia `fps_entry` (StringVar) z on_fps —
+    on_fps nie ma do niej referencji poza własnym domknięciem."""
+    cells = dict(zip(on_fps.__code__.co_freevars, on_fps.__closure__))
+    return cells["fps_entry"].cell_contents
+
+
+def test_on_buffer_change_clamps_samplesize_when_it_exceeds_new_buffer(
+        built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    debounce_calls = []
+    monkeypatch.setattr(tab, "_debounce_request",
+                         lambda key, val: debounce_calls.append((key, val)))
+    tab._samplesize_var.set("8192")
+
+    tab._bufsize_var.set("4096")  # trace_add odpala on_buffer_change
+
+    assert tab._samplesize_var.get() == "4096"
+    assert ("setsamplesize", 4096) in debounce_calls
+
+
+def test_on_buffer_change_updates_smp_combo_values_for_non_expert(
+        built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    monkeypatch.setattr(tab, "_debounce_request", lambda key, val: None)
+
+    tab._bufsize_var.set("1024")
+
+    assert tab._smp_combo["values"] == ("256", "512", "1024")
+
+
+def test_on_buffer_change_skips_debounce_when_samplesize_already_valid(
+        built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    debounce_calls = []
+    monkeypatch.setattr(tab, "_debounce_request",
+                         lambda key, val: debounce_calls.append((key, val)))
+    tab._samplesize_var.set("256")
+
+    tab._bufsize_var.set("4096")
+
+    assert debounce_calls == []
+
+
+def test_on_buffer_change_swallows_invalid_input(built_audio_tab, monkeypatch):
+    """Niepoprawna wartość w polu bufora (np. user czyści Entry w trakcie
+    pisania) — int() rzuca, except Exception: pass wycisza, bez crasha GUI."""
+    tab = built_audio_tab
+    monkeypatch.setattr(tab, "_debounce_request", lambda key, val: None)
+
+    tab._bufsize_var.set("nie-liczba")  # nie powinno podnieść wyjątku
+
+
+def test_on_fps_clamps_to_240_when_above_range(built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    debounce_calls = []
+    monkeypatch.setattr(tab, "_debounce_request",
+                         lambda key, val: debounce_calls.append((key, val)))
+    on_fps = tab._on_fps_for_test
+    fps_entry = _fps_entry_var(on_fps)
+    fps_entry.set("999")
+
+    on_fps(None)
+
+    assert tab._fps_var.get() == 240
+    assert fps_entry.get() == "240"
+    assert ("setframerate", 240) in debounce_calls
+
+
+def test_on_fps_clamps_to_0_when_below_range(built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    monkeypatch.setattr(tab, "_debounce_request", lambda key, val: None)
+    on_fps = tab._on_fps_for_test
+    fps_entry = _fps_entry_var(on_fps)
+    fps_entry.set("-5")
+
+    on_fps(None)
+
+    assert tab._fps_var.get() == 0
+    assert fps_entry.get() == "0"
+
+
+def test_on_fps_accepts_value_within_range(built_audio_tab, monkeypatch):
+    tab = built_audio_tab
+    debounce_calls = []
+    monkeypatch.setattr(tab, "_debounce_request",
+                         lambda key, val: debounce_calls.append((key, val)))
+    on_fps = tab._on_fps_for_test
+    fps_entry = _fps_entry_var(on_fps)
+    fps_entry.set("120")
+
+    on_fps(None)
+
+    assert tab._fps_var.get() == 120
+    assert ("setframerate", 120) in debounce_calls
+
+
+def test_on_fps_reverts_entry_on_invalid_input(built_audio_tab, monkeypatch):
+    """ValueError (np. user wpisał tekst) — fps_entry wraca do aktualnej
+    wartości _fps_var, _debounce_request NIE jest wołane."""
+    tab = built_audio_tab
+    debounce_calls = []
+    monkeypatch.setattr(tab, "_debounce_request",
+                         lambda key, val: debounce_calls.append((key, val)))
+    on_fps = tab._on_fps_for_test
+    fps_entry = _fps_entry_var(on_fps)
+    tab._fps_var.set(30)
+    fps_entry.set("abc")
+
+    on_fps(None)
+
+    assert fps_entry.get() == "30"
+    assert debounce_calls == []

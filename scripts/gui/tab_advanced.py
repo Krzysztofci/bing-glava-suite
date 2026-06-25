@@ -388,8 +388,7 @@ class TabAdvanced:
         with open(rc) as f: src = f.read()
         m = re.search(rf'^#request\s+{key}\s+(\d+)', src, re.MULTILINE)
         if m:
-            try: return int(m.group(1))
-            except Exception: pass
+            return int(m.group(1))
         return default
 
     def _write_request_to(self, rc, key, val):
@@ -440,9 +439,6 @@ class TabAdvanced:
                     self.app._restart_in_progress = {}
                 threads = []
                 for iid, inst in list(self.app.instances.items()):
-                    # Nie startuj wątku jeśli ta instancja już się restartuje
-                    if self.app._restart_in_progress.get(iid):
-                        continue
                     self.app._restart_in_progress[iid] = True
                     proc = self.app.processes.get(iid)
                     def _do(i=iid, ins=inst, p=proc):
