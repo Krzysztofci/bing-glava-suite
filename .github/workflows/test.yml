@@ -44,7 +44,7 @@ jobs:
         env:
           DISPLAY: ":99"
         run: |
-          Xvfb :99 -screen 0 1024x768x24 &
+          Xvfb :99 -screen 0 1920x1080x24 &
           # Poll aktywnego serwera X zamiast `sleep 1` na sztywno — na
           # obciążonym współdzielonym runnerze 1s nie zawsze wystarcza,
           # a tu czekamy realnie tyle, ile trzeba (zwykle <100ms), z
