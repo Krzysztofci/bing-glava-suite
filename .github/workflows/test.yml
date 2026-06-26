@@ -1,42 +1,33 @@
 name: Tests
-
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
-
 jobs:
   lint:
     name: Lint (Ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install Ruff
         run: pip install ruff
-
       - name: Run Ruff
         run: ruff check scripts/
-
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -47,44 +38,36 @@ jobs:
             libgl1 \
             libglx-mesa0 \
             inotify-tools
-
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest pytest-cov 
-
+        run: pip install -r requirements.txt pytest pytest-cov
       - name: Run tests (headless)
         env:
           DISPLAY: ":99"
         run: |
           Xvfb :99 -screen 0 1024x768x24 &
-          sleep 1
-          pytest --cov=scripts/ --cov-report=xml --cov-report=term-missing \
+          # Poll aktywnego serwera X zamiast `sleep 1` na sztywno — na
+          # obciążonym współdzielonym runnerze 1s nie zawsze wystarcza,
+          # a tu czekamy realnie tyle, ile trzeba (zwykle <100ms), z
+          # twardym limitem 5s zamiast wisieć w nieskończoność.
+          for i in $(seq 1 50); do
+            xdpyinfo -display :99 >/dev/null 2>&1 && break
+            sleep 0.1
+          done
+          pytest --cov=scripts/ --cov-report=xml --cov-report=term-missing --junitxml=report.xml \
             --deselect tests/test_glava_process.py::test_glava_start_no_instance_no_xdg \
             --deselect tests/test_tab_logic.py::test_load_colors_from_live_reads_frag \
             --deselect tests/test_tab_logic.py::test_load_colors_from_live_prefers_last_session
 
+          # Zapisujemy całą gotową frazę "NNN passed" do zmiennej środowiskowej
+          # na poziomie całego zadania (env), do odczytu w kroku badge'a.
+          TOTAL_TESTS=$(grep -oP 'tests="\K[^"]+' report.xml | head -n 1)
+          echo "BADGE_MSG=${TOTAL_TESTS} passed" >> $GITHUB_ENV
       - name: Upload coverage
         if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
           fail_ci_if_error: false
-
-      - name: Run tests (headless)
-        env:
-          DISPLAY: ":99"
-        run: |
-          Xvfb :99 -screen 0 1024x768x24 &
-          sleep 1
-          pytest --cov=scripts/ --cov-report=xml --cov-report=term-missing --junitxml=report.xml \
-            --deselect tests/test_glava_process.py::test_glava_start_no_instance_no_xdg \
-            --deselect tests/test_tab_logic.py::test_load_colors_from_live_reads_frag \
-            --deselect tests/test_tab_logic.py::test_load_colors_from_live_prefers_last_session
-          
-          # KLUCZOWA ZMIANA: Zapisujemy całą gotową frazę "901 passed" 
-          # do zmiennej środowiskowej na poziomie całego zadania (env)
-          TOTAL_TESTS=$(grep -oP 'tests="\K[^"]+' report.xml | head -n 1)
-          echo "BADGE_MSG=${TOTAL_TESTS} passed" >> $GITHUB_ENV
-
       - name: Update Test Count Badge
         if: matrix.python-version == '3.12' && success()
         uses: schneegans/dynamic-badges-action@v1.7.0
@@ -96,7 +79,6 @@ jobs:
           # Czytamy bezpośrednio z bezpiecznego i niezawodnego $GITHUB_ENV
           message: ${{ env.BADGE_MSG }}
           color: brightgreen
-
   bats:
     name: BATS shell tests
     runs-on: ubuntu-latest
@@ -109,7 +91,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -119,10 +100,8 @@ jobs:
             wget \
             jq \
             inotify-tools
-
       - name: Verify bats version
         run: bats --version
-
       # ---------------------------------------------------------------------
       # Testy NIE wymagające podmiany binarek systemowych — mockują tylko
       # przez PATH-prepend, działają jako zwykły użytkownik runnera.
@@ -134,7 +113,6 @@ jobs:
             tests/test_glava_autostart.bats \
             tests/test_glava_toggle.bats \
             2>&1 | tee bats_path_mocked.log
-
       # ---------------------------------------------------------------------
       # Testy wymagające podmiany /usr/bin/{curl,jq,wget,pkill,glava} —
       # full-path binaria, niemockowalne przez PATH. Wymaga sudo na
@@ -157,7 +135,6 @@ jobs:
               tests/test_bing_fetch_user.bats \
               tests/test_glava_colorswitch.bats \
             2>&1 | tee bats_root_mocked.log
-
       # ---------------------------------------------------------------------
       # test_glava_color_daemon.bats: daemon w tle (`while true` + inotifywait
       # mock `sleep 60`), testy pollują logi z wewnętrznym timeoutem ~3s każdy.
@@ -179,7 +156,6 @@ jobs:
             sleep 2
           done
           exit 1
-
       - name: Upload BATS logs
         if: always()
         uses: actions/upload-artifact@v4
