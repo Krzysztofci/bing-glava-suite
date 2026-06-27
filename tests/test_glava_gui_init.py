@@ -188,7 +188,11 @@ def test_setup_window_centers_when_no_saved_position(gg, tk_root):
 
 
 def test_setup_window_uses_saved_position_when_within_screen_bounds(gg, tk_root):
-    gui = _make_gui(gg, tk_root, {"width": 1040, "height": 768, "x": 10, "y": 10})
+    """Rozmiar = WIN_W_MIN/WIN_H_MIN (600x460), nie domyślny 1040x768 —
+    1040 bywa SZERSZE niż realny ekran headless (np. Xvfb 1024x768 w CI
+    tego projektu), co fałszywie wpadało w clamp przy x=10. 600x460 + małe
+    x/y to bezpieczne 'w granicach' na każdym sensownym ekranie."""
+    gui = _make_gui(gg, tk_root, {"width": 600, "height": 460, "x": 10, "y": 10})
 
     gui._setup_window()
 
@@ -208,14 +212,18 @@ def test_setup_window_clamps_negative_saved_position_to_zero(gg, tk_root):
 
 
 def test_setup_window_clamps_oversized_saved_position_to_screen_edge(gg, tk_root):
+    """Rozmiar = WIN_W_MIN/WIN_H_MIN, z tej samej przyczyny co wyżej:
+    realna formuła w źródle to max(0, min(x, sw - w)) — przy w większym
+    od ekranu (sw - w < 0) oczekiwana wartość to 0, NIE samo (sw - w)
+    wzięte bez clampu (to był błąd w tym teście, nie w kodzie)."""
     sw, sh = _screen_size(tk_root)
-    gui = _make_gui(gg, tk_root, {"width": 1040, "height": 768, "x": 999999, "y": 999999})
+    gui = _make_gui(gg, tk_root, {"width": 600, "height": 460, "x": 999999, "y": 999999})
 
     gui._setup_window()
 
     tk_root.update_idletasks()
-    assert tk_root.winfo_x() == sw - 1040
-    assert tk_root.winfo_y() == sh - 768
+    assert tk_root.winfo_x() == max(0, sw - 600)
+    assert tk_root.winfo_y() == max(0, sh - 460)
 
 
 def test_setup_window_clamps_width_height_to_minimum(gg, tk_root):
