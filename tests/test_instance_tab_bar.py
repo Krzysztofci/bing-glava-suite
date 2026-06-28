@@ -152,6 +152,18 @@ def test_set_label_nonexistent_id_is_noop(bar):
     assert 999 not in bar._tabs
 
 
+def test_set_label_swallows_tclerror_from_destroyed_dummy_widget(bar):
+    """Dummy widget zniszczony (np. wyścig z usunięciem zakładki) ->
+    nb.tab(dummy, text=...) rzuca tk.TclError -> except: pass, ale label
+    w _tabs i tak się aktualizuje."""
+    bar.add_tab(inst_id=1, module="bars")
+    bar._tabs[1]["dummy"].destroy()
+
+    bar.set_label(1, "Renamed")  # nie powinno podnieść wyjątku
+
+    assert bar._tabs[1]["label"] == "Renamed"
+
+
 # ── get_frame ─────────────────────────────────────────────────────────────────
 
 def test_get_frame_returns_content_frame_for_existing_tab(bar):
@@ -204,6 +216,18 @@ def test_refresh_idx_map_after_removal_reindexes_correctly(bar):
     assert bar._idx_to_id[0] == 10
     assert bar._idx_to_id[1] == 30
     assert 20 not in bar._idx_to_id.values()
+
+
+def test_refresh_idx_map_swallows_indexerror_on_tab_count_race(bar, monkeypatch):
+    """Wyścig: nb.index('end') zwraca starą liczbę zakładek, ale nb.tabs()
+    zwraca już krótszą listę (np. zakładka usunięta między wywołaniami
+    Tcl) -> nb.tabs()[idx] rzuca IndexError -> except (TclError,
+    IndexError): pass, bez crashowania."""
+    bar.add_tab(inst_id=1, module="bars")
+    bar.add_tab(inst_id=2, module="wave")
+    monkeypatch.setattr(bar._nb, "tabs", lambda: ())
+
+    bar._refresh_idx_map()  # nie powinno podnieść wyjątku
 
 
 # ── _call — dispatch logiki callbacków ──────────────────────────────────────
@@ -273,6 +297,21 @@ def test_do_rename_blank_whitespace_only_does_not_change_label(
     bar._do_rename(1)
     assert bar._tabs[1]["label"] == original_label
     assert captured_callbacks["action"] == []
+
+
+def test_do_rename_swallows_tclerror_from_destroyed_dummy_widget(
+        bar, monkeypatch, captured_callbacks):
+    """Dummy widget zniszczony -> nb.tab(dummy, text=name) rzuca
+    tk.TclError -> except: pass, ale label i tak się aktualizuje i
+    on_action i tak wystrzeliwuje (try/except otacza TYLKO nb.tab)."""
+    bar.add_tab(inst_id=1, module="bars")
+    bar._tabs[1]["dummy"].destroy()
+    monkeypatch.setattr(bar_mod, "ask_string", lambda *a, **kw: "New Name")
+
+    bar._do_rename(1)  # nie powinno podnieść wyjątku
+
+    assert bar._tabs[1]["label"] == "New Name"
+    assert captured_callbacks["action"] == [(1, "rename")]
 
 
 # ── _on_tab_changed / _show_content ─────────────────────────────────────────

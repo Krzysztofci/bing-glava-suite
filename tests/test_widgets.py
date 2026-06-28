@@ -102,6 +102,29 @@ def test_ensure_shift_style_skips_second_call_for_same_theme(root):
     widgets_mod._ensure_shift_style(root)
 
 
+def test_ensure_shift_style_success_path_creates_thumb_image(root, tmp_path, monkeypatch):
+    """Gdy PNG motywu faktycznie istnieje i da się go wczytać -> cała
+    gałąź try (zapis obrazka, element_create, layout, configure) wykonuje
+    się do końca, bez wpadania w except Exception. tk.PhotoImage trzeba
+    podać jako PRAWDZIWY obraz — Tcl odwołuje się do niego po nazwie Tk,
+    MagicMock tu nie zadziała."""
+    theme = ttk.Style(root).theme_use()
+    theme_dir = tmp_path / theme
+    theme_dir.mkdir()
+    blank = tk.PhotoImage(master=root, width=1, height=1)
+    blank.write(str(theme_dir / "thumb-hor-hover.png"), format="png")
+
+    monkeypatch.setattr(widgets_mod, "_THEMES_DIR", str(tmp_path))
+
+    widgets_mod._ensure_shift_style(root)
+
+    # root._shift_thumb_imgs jest ustawiane TYLKO w gałęzi try (po udanym
+    # wczytaniu obrazka) — w except go nie ma. Jego obecność potwierdza,
+    # że poszliśmy ścieżką sukcesu, nie fallbackiem.
+    assert hasattr(root, "_shift_thumb_imgs")
+    assert len(root._shift_thumb_imgs) == 1
+
+
 # =============================================================================
 # __init__ / _fmt / _on_cmd / _on_release / _on_entry — klasyfikowane jako
 # GUI przez logic-cov (nie przesuwają %), ale to prawdziwa logika biznesowa
