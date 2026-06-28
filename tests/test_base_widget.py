@@ -1,5 +1,6 @@
 import pytest
 import tkinter as tk
+import tkinter.ttk as ttk
 import os
 import sys
 # ── Fake app ──────────────────────────────────────────────────────────────────
@@ -115,6 +116,251 @@ def test_float_slider_row_creates_var(bars_widget):
     frame = tk.Frame(bars_widget.app.root)
     bars_widget._float_slider_row(frame, tuple(p), current, 0)
     assert p[0] in bars_widget.vars
+
+
+# ── _slider_row / _float_slider_row callbacks (on_change / on_entry) ────────
+#
+# on_change/on_entry są domknięciami lokalnymi wewnątrz _slider_row/
+# _float_slider_row — nie są przechowywane jako atrybuty widgetu. Jedyny
+# dostęp do nich to przechwycenie w miejscu rejestracji: on_change trafia
+# do ttk.Scale(command=...), on_entry do entry.bind("<Return>"/"<FocusOut>").
+# Wzorzec analogiczny do "podsłuchu tk.Misc.bind() po func.__name__" używanego
+# dla zagnieżdżonych callbacków w tab_advanced.py — tu rozszerzony też na
+# przechwycenie kwargu command przy konstrukcji ttk.Scale.
+
+def _capture_row_callbacks(monkeypatch):
+    captured = {}
+    orig_bind = tk.Misc.bind
+    def fake_bind(self, sequence=None, func=None, add=None):
+        if func is not None and getattr(func, "__name__", None) == "on_entry":
+            captured["on_entry"] = func
+        return orig_bind(self, sequence, func, add)
+    monkeypatch.setattr(tk.Misc, "bind", fake_bind)
+
+    orig_scale_init = ttk.Scale.__init__
+    def fake_scale_init(self, *args, **kwargs):
+        cmd = kwargs.get("command")
+        if cmd is not None and getattr(cmd, "__name__", None) == "on_change":
+            captured["on_change"] = cmd
+        return orig_scale_init(self, *args, **kwargs)
+    monkeypatch.setattr(ttk.Scale, "__init__", fake_scale_init)
+    return captured
+
+
+def _closure_var(func, name):
+    """Wyciąga zmienną domknięcia (np. entry_var) z lokalnego callbacku."""
+    return dict(zip(func.__code__.co_freevars,
+                     (c.cell_contents for c in func.__closure__)))[name]
+
+
+def test_slider_row_on_change_clamps_to_vmax_and_debounces(
+        bars_widget, monkeypatch):
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_raw(bars_widget._module_glsl)
+    p = bars_widget.SHAPE_PARAMS[0]   # BAR_WIDTH: vmin=1, vmax=40
+    key, vmin, vmax = p[0], p[2], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._slider_row(frame, tuple(p), current, 0)
+    on_change = captured["on_change"]
+
+    on_change(str(vmax + 50))  # poza zakresem -> clamp do vmax
+
+    assert bars_widget.vars[key].get() == vmax
+    assert debounce_calls == [(key, vmax, "module")]
+
+
+def test_slider_row_on_change_clamps_to_vmin(bars_widget, monkeypatch):
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_raw(bars_widget._module_glsl)
+    p = bars_widget.SHAPE_PARAMS[0]
+    key, vmin, vmax = p[0], p[2], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._slider_row(frame, tuple(p), current, 0)
+    on_change = captured["on_change"]
+
+    on_change(str(vmin - 50))  # poniżej zakresu -> clamp do vmin
+
+    assert bars_widget.vars[key].get() == vmin
+    assert debounce_calls == [(key, vmin, "module")]
+
+
+def test_slider_row_on_entry_valid_value_updates_and_debounces(
+        bars_widget, monkeypatch):
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_raw(bars_widget._module_glsl)
+    p = bars_widget.SHAPE_PARAMS[0]
+    key, vmin, vmax = p[0], p[2], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._slider_row(frame, tuple(p), current, 0)
+    on_entry = captured["on_entry"]
+    entry_var = _closure_var(on_entry, "entry_var")
+
+    target_val = min(vmax, vmin + 3)
+    entry_var.set(str(target_val))
+    on_entry(None)
+
+    assert bars_widget.vars[key].get() == target_val
+    assert entry_var.get() == str(target_val)
+    assert debounce_calls == [(key, target_val, "module")]
+
+
+def test_slider_row_on_entry_clamps_out_of_range_value(bars_widget, monkeypatch):
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_raw(bars_widget._module_glsl)
+    p = bars_widget.SHAPE_PARAMS[0]
+    key, vmin, vmax = p[0], p[2], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._slider_row(frame, tuple(p), current, 0)
+    on_entry = captured["on_entry"]
+    entry_var = _closure_var(on_entry, "entry_var")
+
+    entry_var.set(str(vmax + 100))
+    on_entry(None)
+
+    assert bars_widget.vars[key].get() == vmax
+    assert debounce_calls == [(key, vmax, "module")]
+
+
+def test_slider_row_on_entry_invalid_value_reverts_without_debounce(
+        bars_widget, monkeypatch):
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_raw(bars_widget._module_glsl)
+    p = bars_widget.SHAPE_PARAMS[0]
+    key = p[0]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._slider_row(frame, tuple(p), current, 0)
+    on_entry = captured["on_entry"]
+    entry_var = _closure_var(on_entry, "entry_var")
+
+    current_var_value = bars_widget.vars[key].get()
+    entry_var.set("not-a-number")
+    on_entry(None)
+
+    assert entry_var.get() == str(current_var_value)
+    assert debounce_calls == []
+
+
+def test_float_slider_row_on_change_snaps_value_to_step(bars_widget, monkeypatch):
+    from gui.core import SMOOTH_PARAMS
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_smooth(bars_widget._smooth_glsl, SMOOTH_PARAMS)
+    p = SMOOTH_PARAMS[0]   # setgravitystep: vmin=0.1, vmax=20.0, step=0.1
+    key = p[0]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._float_slider_row(frame, tuple(p), current, 0)
+    on_change = captured["on_change"]
+
+    on_change("4.23")  # krok 0.1 -> przyciągnięcie do 4.2
+
+    assert bars_widget.vars[key].get() == pytest.approx(4.2)
+    assert debounce_calls == [(key, pytest.approx(4.2), "smooth")]
+
+
+def test_float_slider_row_on_change_clamps_to_vmax(bars_widget, monkeypatch):
+    from gui.core import SMOOTH_PARAMS
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_smooth(bars_widget._smooth_glsl, SMOOTH_PARAMS)
+    p = SMOOTH_PARAMS[0]
+    key, vmax = p[0], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._float_slider_row(frame, tuple(p), current, 0)
+    on_change = captured["on_change"]
+
+    on_change(str(vmax + 5))  # poza zakresem -> clamp do vmax
+
+    assert bars_widget.vars[key].get() == vmax
+    assert debounce_calls == [(key, vmax, "smooth")]
+
+
+def test_float_slider_row_on_entry_valid_value_updates_and_debounces(
+        bars_widget, monkeypatch):
+    from gui.core import SMOOTH_PARAMS
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_smooth(bars_widget._smooth_glsl, SMOOTH_PARAMS)
+    p = SMOOTH_PARAMS[0]
+    key, vmin, vmax = p[0], p[2], p[3]
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._float_slider_row(frame, tuple(p), current, 0)
+    on_entry = captured["on_entry"]
+    entry_var = _closure_var(on_entry, "entry_var")
+
+    target_val = min(vmax, vmin + 1.0)
+    entry_var.set(str(target_val))
+    on_entry(None)
+
+    assert bars_widget.vars[key].get() == pytest.approx(target_val)
+    assert debounce_calls
+    assert debounce_calls[0][0] == key
+    assert debounce_calls[0][1] == pytest.approx(target_val)
+    assert debounce_calls[0][2] == "smooth"
+
+
+def test_float_slider_row_on_entry_invalid_value_reverts_without_debounce(
+        bars_widget, monkeypatch):
+    from gui.core import SMOOTH_PARAMS
+    from gui.modules import glsl_io
+    captured = _capture_row_callbacks(monkeypatch)
+    current = glsl_io.read_smooth(bars_widget._smooth_glsl, SMOOTH_PARAMS)
+    p = SMOOTH_PARAMS[0]
+    key, step = p[0], p[6]
+    dec = glsl_io.decimals(step)
+    frame = tk.Frame(bars_widget.app.root)
+    debounce_calls = []
+    monkeypatch.setattr(bars_widget, "_debounce",
+                         lambda k, v, t: debounce_calls.append((k, v, t)))
+
+    bars_widget._float_slider_row(frame, tuple(p), current, 0)
+    on_entry = captured["on_entry"]
+    entry_var = _closure_var(on_entry, "entry_var")
+
+    current_var_value = bars_widget.vars[key].get()
+    entry_var.set("not-a-float")
+    on_entry(None)
+
+    assert debounce_calls == []
+    assert entry_var.get() == f"{current_var_value:.{dec}f}"
+
+
 # ── active_instance integration ───────────────────────────────────────────────
 def test_module_glsl_uses_active_instance(bars_widget, tmp_glava_dir):
     """_module_glsl zwraca ścieżkę z active_instance."""

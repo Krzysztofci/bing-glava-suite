@@ -437,6 +437,160 @@ def test_save_profile_restores_active_instance_even_if_collect_params_raises(
     assert fake_app.active_instance is original_active  # przywrócone mimo wyjątku
 
 
+# ── _apply_profile ────────────────────────────────────────────────────────────
+
+def test_apply_profile_does_nothing_if_name_empty(widget, monkeypatch):
+    widget.profile_var = FakeProfileVar("")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"X": {}})
+    applied = []
+    monkeypatch.setattr(importlib, "import_module",
+                         lambda name: type("M", (), {
+                             "apply_params": staticmethod(
+                                 lambda p, app: applied.append(True))})())
+    widget._apply_profile()
+    assert applied == []
+
+
+def test_apply_profile_does_nothing_if_name_not_in_profiles(widget, monkeypatch):
+    widget.profile_var = FakeProfileVar("Missing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Other": {}})
+    applied = []
+    monkeypatch.setattr(importlib, "import_module",
+                         lambda name: type("M", (), {
+                             "apply_params": staticmethod(
+                                 lambda p, app: applied.append(True))})())
+    widget._apply_profile()
+    assert applied == []
+
+
+def test_apply_profile_applies_params_rebuilds_and_uses_restart_active_instance(
+        widget, monkeypatch, fake_app):
+    widget.profile_var = FakeProfileVar("Existing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Existing": {"bar_width": 8}})
+
+    applied_calls = []
+    class FakeModule:
+        @staticmethod
+        def apply_params(params, app):
+            applied_calls.append((params, app.active_instance))
+    monkeypatch.setattr(importlib, "import_module", lambda name: FakeModule)
+
+    restart_calls = []
+    fake_app.restart_active_instance = (
+        lambda module=None, instance=None, after_fn=None:
+        restart_calls.append((module, instance)))
+
+    original_active = fake_app.active_instance
+    widget._apply_profile()
+
+    assert applied_calls == [({"bar_width": 8}, fake_app.active_instance)]
+    assert fake_app.rebuild_calls == 1
+    assert restart_calls == [("bars", fake_app.active_instance)]
+    assert fake_app.active_instance is original_active  # przywrócone po zastosowaniu
+
+
+def test_apply_profile_falls_back_to_legacy_glava_restart(
+        widget, monkeypatch, fake_app):
+    assert not hasattr(fake_app, "restart_active_instance")
+    widget.profile_var = FakeProfileVar("Existing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Existing": {"bar_width": 8}})
+
+    class FakeModule:
+        @staticmethod
+        def apply_params(params, app):
+            pass
+    monkeypatch.setattr(importlib, "import_module", lambda name: FakeModule)
+
+    import gui.glava as glava_mod
+    restart_calls = []
+    monkeypatch.setattr(glava_mod, "glava_restart",
+                         lambda module, extra_flags=None, after_fn=None, instance=None:
+                         restart_calls.append((module, instance)))
+
+    widget._apply_profile()
+
+    assert fake_app.rebuild_calls == 1
+    assert restart_calls == [("bars", fake_app.active_instance)]
+
+
+def test_apply_profile_uses_app_extra_flags_for_legacy_restart(
+        widget, monkeypatch, fake_app):
+    """Legacy fallback przekazuje app.extra_flags jako extra_flags do glava_restart."""
+    assert not hasattr(fake_app, "restart_active_instance")
+    fake_app.extra_flags = "--custom-flag"
+    widget.profile_var = FakeProfileVar("Existing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Existing": {}})
+
+    class FakeModule:
+        @staticmethod
+        def apply_params(params, app):
+            pass
+    monkeypatch.setattr(importlib, "import_module", lambda name: FakeModule)
+
+    import gui.glava as glava_mod
+    flags_seen = []
+    monkeypatch.setattr(glava_mod, "glava_restart",
+                         lambda module, extra_flags=None, after_fn=None, instance=None:
+                         flags_seen.append(extra_flags))
+
+    widget._apply_profile()
+
+    assert flags_seen == ["--custom-flag"]
+
+
+def test_apply_profile_swaps_active_instance_during_apply_and_restores_after(
+        widget, monkeypatch, fake_app, tmp_path):
+    """apply_params(params, app) czyta/pisze app.active_instance —
+    _apply_profile musi tymczasowo podstawić zamrożoną instancję
+    (z _get_instance()), a potem przywrócić oryginalną, NIEZALEŻNIE od wyniku
+    (try/finally) — analogicznie do _save_profile."""
+    frozen = FakeInstance(str(tmp_path), "frozen")
+    w = ConcreteWidget(parent=None, app=fake_app, T=fake_app.T, instance=frozen)
+    w.profile_var = FakeProfileVar("Existing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Existing": {}})
+    fake_app.restart_active_instance = lambda **kw: None
+
+    seen_active_instance = []
+    class FakeModule:
+        @staticmethod
+        def apply_params(params, app):
+            seen_active_instance.append(app.active_instance)
+    monkeypatch.setattr(importlib, "import_module", lambda name: FakeModule)
+
+    original_active = fake_app.active_instance
+    w._apply_profile()
+
+    assert seen_active_instance == [frozen]
+    assert fake_app.active_instance is original_active
+
+
+def test_apply_profile_restores_active_instance_even_if_apply_params_raises(
+        widget, monkeypatch, fake_app, tmp_path):
+    frozen = FakeInstance(str(tmp_path), "frozen")
+    w = ConcreteWidget(parent=None, app=fake_app, T=fake_app.T, instance=frozen)
+    w.profile_var = FakeProfileVar("Existing")
+    monkeypatch.setattr(base_mod, "get_shader_profiles_for_module",
+                         lambda module: {"Existing": {}})
+
+    class BrokenModule:
+        @staticmethod
+        def apply_params(params, app):
+            raise RuntimeError("boom")
+    monkeypatch.setattr(importlib, "import_module", lambda name: BrokenModule)
+
+    original_active = fake_app.active_instance
+    with pytest.raises(RuntimeError):
+        w._apply_profile()
+
+    assert fake_app.active_instance is original_active  # przywrócone mimo wyjątku
+
+
 # ── _delete_profile ───────────────────────────────────────────────────────────
 
 def test_delete_profile_does_nothing_if_name_empty(widget, monkeypatch):
