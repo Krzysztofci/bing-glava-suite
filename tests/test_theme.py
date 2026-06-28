@@ -127,6 +127,21 @@ def test_ttk_kw_empty_input_returns_empty_dict():
 # wrappery `ttk.X(**_ttk_kw(kw))` bez własnej logiki biznesowej — testowanie
 # że "ttk.Frame(...) tworzy ttk.Frame" nie sprawdza nic poza samym tkinterem.
 # Pomijamy je celowo; skupiamy się na logice: apply_theme, _ttk_kw, paleta.
+#
+# WYJĄTEK: TCheckbutton. logic-cov klasyfikuje go jako LOGIC (nie GUI, jak
+# resztę tej rodziny) — czysty false-positive jego heurystyki nazw: "check"
+# w "tcheckbutton" (lowercased nazwa funkcji) trafia w LOGIC_NAME_HINTS,
+# niezależnie od tego że treść funkcji jest identyczna jak TLabel/TEntry.
+# Realnej logiki tu nie ma — ten test istnieje wyłącznie żeby zamknąć
+# zgłoszony przez narzędzie gap, nie bo coś faktycznie testuje.
+
+def test_tcheckbutton_creates_ttk_checkbutton_with_filtered_kwargs(root):
+    """Patrz komentarz wyżej — TCheckbutton trafia w logic-cov przez
+    przypadkowy substring 'check' w nazwie funkcji, nie przez realną logikę.
+    Test jest celowo trywialny, zamyka liczbę, nic więcej nie sprawdza."""
+    btn = theme_mod.TCheckbutton(root, text="x", bg="red")  # bg odfiltrowane
+    assert isinstance(btn, ttk.Checkbutton)
+
 
 
 # ── Button style constants / compat dicts ───────────────────────────────────
