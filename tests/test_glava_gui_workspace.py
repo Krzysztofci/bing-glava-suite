@@ -219,7 +219,15 @@ def test_save_workspace_happy_path_writes_json_with_colors_geometry_glsl(
 
     import gui.colors as colors_mod
     import gui.geometry as geometry_mod
+    import gui.instance as instance_mod
     import gui.modules.glsl_io as glsl_io_mod
+    # _save_workspace robi LOKALNY `from gui.instance import GlavaInstance`
+    # i tworzy ŚWIEŻY GlavaInstance(iid) wewnątrz pętli — self.instances[iid]
+    # służy TYLKO do wydobycia listy inst_id (.keys()), nie jest faktycznie
+    # użyte jako `inst`. Trzeba patchować na źródle, inaczej realny
+    # GlavaInstance dostanie wywołane metody i poleci na nieistniejących
+    # ścieżkach.
+    monkeypatch.setattr(instance_mod, "GlavaInstance", lambda iid: inst)
     monkeypatch.setattr(colors_mod, "read_colors_from_frag",
                          lambda path: {"top": "#111111"})
     monkeypatch.setattr(geometry_mod, "read_geometry", lambda path: (1, 2, 3, 4))
@@ -464,6 +472,32 @@ def test_load_workspace_removes_disable_flag_and_enables_glava_var(
     app._load_workspace()
 
     assert not flag_path.exists()
+    assert app.glava_enabled_var.get() is True
+
+
+def test_load_workspace_swallows_filenotfound_race_on_disable_flag_removal(
+        gg, tk_root, monkeypatch, tmp_path):
+    """os.path.exists(GLAVA_DISABLE_FLAG) widzi plik, ale ktoś go usuwa
+    (np. inny proces) zanim dojdzie do os.remove() -> FileNotFoundError ->
+    except: pass. Wciąż musi ustawić glava_enabled_var na True."""
+    app, t = _setup_load_env(gg, tk_root, monkeypatch, tmp_path, ws_instances=[])
+    flag_path = tmp_path / "disabled_race"
+    flag_path.write_text("")  # istnieje -> przejdzie guard os.path.exists
+    import gui.core as core_mod
+    monkeypatch.setattr(core_mod, "GLAVA_DISABLE_FLAG", str(flag_path))
+
+    real_remove = os.remove
+
+    def fake_remove(p):
+        if p == str(flag_path):
+            raise FileNotFoundError("zniknął tuż przed")
+        return real_remove(p)
+
+    monkeypatch.setattr(gg.os, "remove", fake_remove)
+    app.glava_enabled_var = _FakeVar(False)
+
+    app._load_workspace()  # nie powinno podnieść wyjątku
+
     assert app.glava_enabled_var.get() is True
 
 
