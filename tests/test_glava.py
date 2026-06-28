@@ -76,6 +76,23 @@ class TestPidManagement:
     def test_clear_pid_no_crash_if_missing(self):
         clear_pid(999)   # nie powinno rzucić wyjątku
 
+    def test_write_pid_swallows_exception(self, monkeypatch):
+        """open() rzuca (np. brak uprawnień) -> except Exception: pass,
+        write_pid nie powinno podnieść wyjątku."""
+        monkeypatch.setattr(
+            "builtins.open",
+            lambda *a, **kw: (_ for _ in ()).throw(PermissionError("denied")))
+        write_pid(123, 456)
+
+    def test_clear_pid_swallows_non_filenotfound_exception(self, monkeypatch):
+        """os.remove rzuca coś INNEGO niż FileNotFoundError (np. PermissionError)
+        -> musi trafić w drugi, ogólny except Exception: pass, nie w pierwszy."""
+        import gui.glava as glava_mod
+        monkeypatch.setattr(
+            glava_mod.os, "remove",
+            lambda p: (_ for _ in ()).throw(PermissionError("denied")))
+        clear_pid(123)   # nie powinno rzucić wyjątku
+
     def test_pid_path_format(self, tmp_path):
         import gui.glava as glava_mod
         path = _pid_path(5)
@@ -253,6 +270,19 @@ class TestReadRcModule:
             path = rc_file(f"#request mod {mod}\n")
             assert read_rc_module(path) == mod
 
+    def test_uses_default_rc_glsl_when_path_omitted(self, tmp_path, monkeypatch):
+        """rc_path=None -> funkcja musi spaść na moduł-level RC_GLSL."""
+        import gui.glava as glava_mod
+        rc = tmp_path / "rc.glsl"
+        rc.write_text("#request mod circle\n")
+        monkeypatch.setattr(glava_mod, "RC_GLSL", str(rc))
+        assert read_rc_module() == "circle"
+
+    def test_swallows_exception_and_returns_none(self, tmp_path):
+        """open() na katalogu (istnieje, ale nie jest plikiem) -> IsADirectoryError
+        -> except Exception: pass -> None, bez podniesienia wyjątku."""
+        assert read_rc_module(str(tmp_path)) is None
+
 
 # ---------------------------------------------------------------------------
 # update_autostart
@@ -291,6 +321,89 @@ class TestUpdateAutostart:
         with patch("gui.glava.os.makedirs", side_effect=PermissionError):
             result = update_autostart("--desktop")
         assert result is False
+
+    def test_whitespace_only_flags_defaults_to_desktop(self, tmp_path, monkeypatch):
+        """extra_flags="   " jest "truthy" (niepuste), więc .strip() jest
+        wołane i daje "" -> druga gałąź (if not flags) musi to złapać."""
+        import gui.glava as glava_mod
+        desktop = str(tmp_path / "autostart" / "glava.desktop")
+        monkeypatch.setattr(glava_mod, "AUTOSTART_FILE", desktop)
+        update_autostart("   ")
+        assert "Exec=glava --desktop" in open(desktop).read()
+
+    def test_appends_exec_line_when_missing_in_existing_file(self, tmp_path, monkeypatch):
+        """Aktualizacja ISTNIEJĄCEGO pliku .desktop, który nie ma jeszcze
+        żadnej linii Exec= -> musi ją dopisać na końcu."""
+        import gui.glava as glava_mod
+        desktop_dir = tmp_path / "autostart"
+        desktop_dir.mkdir()
+        desktop = str(desktop_dir / "glava.desktop")
+        open(desktop, "w").write("[Desktop Entry]\nName=GLava\n")
+        monkeypatch.setattr(glava_mod, "AUTOSTART_FILE", desktop)
+        update_autostart("--desktop")
+        content = open(desktop).read()
+        assert "Name=GLava" in content
+        assert "Exec=glava --desktop" in content
+
+
+# ---------------------------------------------------------------------------
+# _sudo_run
+# ---------------------------------------------------------------------------
+
+class TestSudoRun:
+    def test_uses_sudo_directly_when_zenity_unavailable(self, monkeypatch):
+        import gui.glava as glava_mod
+        import shutil as shutil_mod
+        monkeypatch.setattr(shutil_mod, "which", lambda name: None)
+        calls = []
+        monkeypatch.setattr(glava_mod.subprocess, "run",
+                             lambda cmd: calls.append(cmd))
+
+        glava_mod._sudo_run(["apt-get", "update"])
+
+        assert calls == [["sudo", "apt-get", "update"]]
+
+    def test_uses_zenity_password_dialog_when_available(self, monkeypatch):
+        import gui.glava as glava_mod
+        import shutil as shutil_mod
+        monkeypatch.setattr(shutil_mod, "which", lambda name: "/usr/bin/zenity")
+
+        calls = []
+
+        class _Result:
+            stdout = "mypassword\n"
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return _Result()
+
+        monkeypatch.setattr(glava_mod.subprocess, "run", fake_run)
+
+        glava_mod._sudo_run(["apt-get", "update"])
+
+        assert calls[0][0] == ["zenity", "--password", "--title=Autoryzacja"]
+        sudo_cmd, sudo_kwargs = calls[1]
+        assert sudo_cmd == ["sudo", "-S", "apt-get", "update"]
+        assert sudo_kwargs["input"] == "mypassword\n"
+
+    def test_zenity_cancelled_password_skips_sudo_call(self, monkeypatch):
+        """Pusty stdout z zenity (użytkownik kliknął Cancel) -> sudo NIE jest
+        wołane wcale — if passwd: guard."""
+        import gui.glava as glava_mod
+        import shutil as shutil_mod
+        monkeypatch.setattr(shutil_mod, "which", lambda name: "/usr/bin/zenity")
+
+        calls = []
+
+        class _Result:
+            stdout = ""
+
+        monkeypatch.setattr(glava_mod.subprocess, "run",
+                             lambda cmd, **kw: calls.append(cmd) or _Result())
+
+        glava_mod._sudo_run(["apt-get", "update"])
+
+        assert calls == [["zenity", "--password", "--title=Autoryzacja"]]
 
 
 # ---------------------------------------------------------------------------

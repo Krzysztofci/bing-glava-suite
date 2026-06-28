@@ -63,6 +63,31 @@ def test_glava_stop_instance_escalates_to_sigkill_after_timeout(monkeypatch):
     assert fake_proc.killed is True
 
 
+def test_glava_stop_instance_swallows_exception_during_sigkill(monkeypatch):
+    """proc.kill() podczas eskalacji do SIGKILL (po 2s) rzuca
+    ProcessLookupError/OSError -> wewnętrzny except musi to złapać,
+    funkcja nie powinna podnieść wyjątku."""
+    class _NeverDyingProc:
+        pid = 434343
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            raise ProcessLookupError("proces już nie istnieje")
+
+    fake_proc = _NeverDyingProc()
+    monkeypatch.setattr(glava_mod.os, "kill", lambda pid, sig: None)
+    times = iter([1000.0, 1000.0, 2000.0])
+    monkeypatch.setattr(glava_mod.time, "time", lambda: next(times, 2000.0))
+    monkeypatch.setattr(glava_mod.time, "sleep", lambda s: None)
+
+    glava_mod.glava_stop_instance(fake_proc)  # nie powinno podnieść wyjątku
+
+
 def test_glava_stop_instance_no_pid_falls_back_to_wait_then_kill(monkeypatch):
     """proc bez atrybutu .pid (np. czysty mock) -> gałąź proc.wait(timeout=2),
     a po TimeoutExpired -> proc.kill()."""
@@ -217,6 +242,19 @@ def test_adopted_process_wait_polls_until_timeout_when_alive(monkeypatch):
     ap.wait(timeout=0.15)  # proces "żywy" cały czas -> pętla do timeoutu
 
 
+def test_adopted_process_wait_returns_on_oserror_during_read(monkeypatch):
+    """Plik /proc/<pid>/status istniał w chwili os.path.exists(), ale zniknął
+    (proces zakończył się) zanim doszło do open() -> OSError -> except OSError:
+    return, bez podnoszenia wyjątku."""
+    monkeypatch.setattr(os.path, "exists", lambda p: True)
+    monkeypatch.setattr(
+        "builtins.open",
+        lambda *a, **kw: (_ for _ in ()).throw(OSError("proces zniknął")))
+
+    ap = glava_mod._AdoptedProcess(12345, 0)
+    ap.wait(timeout=1)  # nie powinno wisieć ani podnieść wyjątku
+
+
 # =============================================================================
 # Funkcje globalne (legacy/toggle) — dotąd tylko mockowane gdzie indziej
 # =============================================================================
@@ -251,6 +289,37 @@ def test_glava_stop_all_calls_pkill(monkeypatch):
     glava_mod.glava_stop_all()
 
     assert calls == [["pkill", "-x", "glava"]]
+
+
+def test_glava_stop_calls_stop_all(monkeypatch):
+    """glava_stop() to czysty alias dla glava_stop_all() — zachowany dla
+    kompatybilności wstecznej."""
+    calls = []
+    monkeypatch.setattr(glava_mod, "glava_stop_all", lambda: calls.append(True))
+
+    glava_mod.glava_stop()
+
+    assert calls == [True]
+
+
+def test_glava_restart_with_instance_writes_to_instance_rc(monkeypatch):
+    """Legacy glava_restart(instance=...) musi zapisać moduł do rc.glsl
+    KONKRETNEJ instancji, nie do globalnego RC_GLSL (gałąź if instance:)."""
+    monkeypatch.setattr(threading, "Thread", _SyncThread)
+    monkeypatch.setattr(glava_mod, "glava_stop_all", lambda: None)
+    monkeypatch.setattr(glava_mod, "glava_start", lambda *a, **kw: None)
+
+    write_rc_calls = []
+    monkeypatch.setattr(
+        glava_mod, "_write_rc_module",
+        lambda module, rc_path=None: write_rc_calls.append((module, rc_path)))
+
+    class _FakeInstance:
+        rc_glsl = "/tmp/inst-rc.glsl"
+
+    glava_mod.glava_restart("wave", delay_ms=0, instance=_FakeInstance())
+
+    assert write_rc_calls == [("wave", "/tmp/inst-rc.glsl")]
 
 
 def test_glava_toggle_stops_when_running(monkeypatch):
@@ -328,8 +397,28 @@ def test_update_autostart_returns_false_on_exception(monkeypatch, tmp_path):
 # =============================================================================
 # glava_start — gałąź env= (nadpisanie zmiennych środowiskowych)
 # =============================================================================
+#
+# UWAGA: glava_start() pisze bezwarunkowy debug-log (timestamp + stack trace)
+# do ~/.local/logs/glava-start.log przy KAŻDYM wywołaniu — wygląda na
+# zapomniany debug-leftover (brak try/except, łamie własny docstring funkcji,
+# realnie zaśmieca dysk przy każdym odpaleniu testów). Zgłoszone do Krzysztofa,
+# czeka na decyzję czy zostaje. Do tego czasu testy poniżej przekierowują tę
+# ścieżkę na tmp_path, żeby nie zostawiać śladów na realnym dysku.
 
-def test_glava_start_applies_custom_env(monkeypatch, tmp_path):
+@pytest.fixture
+def neutralize_start_log(monkeypatch, tmp_path):
+    real_expanduser = os.path.expanduser
+
+    def fake_expanduser(p):
+        if p == "~/.local/logs/glava-start.log":
+            return str(tmp_path / "glava-start.log")
+        return real_expanduser(p)
+
+    monkeypatch.setattr(glava_mod.os.path, "expanduser", fake_expanduser)
+    return tmp_path
+
+
+def test_glava_start_applies_custom_env(monkeypatch, tmp_path, neutralize_start_log):
     monkeypatch.setattr(glava_mod, "_PID_DIR", str(tmp_path))
 
     captured_env = {}
@@ -347,3 +436,28 @@ def test_glava_start_applies_custom_env(monkeypatch, tmp_path):
     glava_mod.glava_start(env={"MY_CUSTOM_VAR": "1"})
 
     assert captured_env.get("MY_CUSTOM_VAR") == "1"
+
+
+def test_glava_start_writes_pid_when_instance_given(
+        monkeypatch, tmp_path, neutralize_start_log):
+    """Gdy podano instance, glava_start musi zapisać PID nowego procesu
+    pod jego inst_id (write_pid(instance.inst_id, proc.pid))."""
+    monkeypatch.setattr(glava_mod, "_PID_DIR", str(tmp_path))
+
+    class _FakeProc:
+        pid = 555
+
+    def fake_popen(cmd, stdout=None, stderr=None, env=None):
+        return _FakeProc()
+
+    import subprocess as subprocess_mod
+    monkeypatch.setattr(subprocess_mod, "Popen", fake_popen)
+
+    class _FakeInstance:
+        inst_id = 4
+        xdg_dir = "/tmp/xdg-inst-4"
+
+    proc = glava_mod.glava_start(instance=_FakeInstance())
+
+    assert proc.pid == 555
+    assert glava_mod.read_pid(4) == 555
