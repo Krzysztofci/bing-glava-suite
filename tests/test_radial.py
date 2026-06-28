@@ -213,3 +213,19 @@ def test_rotate_to_deg_invalid_falls_back_to_90():
 def test_deg_to_rotate_roundtrip():
     raw = radial_mod._deg_to_rotate(90)
     assert radial_mod._rotate_to_deg(raw) == 90
+
+
+# ── _init_extra — fallback gdy get_screen_info() rzuca ──────────────────────
+
+def test_init_extra_falls_back_to_default_screen_size_on_exception(
+        fake_app, monkeypatch):
+    """get_screen_info importowane na TOP-LEVEL (from ..geometry import
+    get_screen_info) -> patchujemy na module-pod-testem (radial_mod), nie
+    na źródle, w przeciwieństwie do circle.py gdzie import jest lokalny."""
+    monkeypatch.setattr(
+        radial_mod, "get_screen_info",
+        lambda: (_ for _ in ()).throw(RuntimeError("brak X display")))
+
+    w = radial_mod.RadialParamWidget(parent=None, app=fake_app, T=fake_app.T)
+
+    assert (w._sw, w._sh) == (1600, 900)

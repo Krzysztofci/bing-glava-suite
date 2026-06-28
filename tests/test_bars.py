@@ -60,6 +60,29 @@ def widget(fake_app):
 
 
 @pytest.fixture
+def root():
+    r = tk.Tk()
+    r.withdraw()
+    yield r
+    r.destroy()
+
+
+def _capture_on_select(monkeypatch):
+    """on_select jest domknięciem lokalnym w _combo_row, bindowanym przez
+    cb.bind('<<ComboboxSelected>>', on_select) — nie jest atrybutem
+    widgetu. Podsłuchujemy tk.Misc.bind() po func.__name__, ten sam
+    wzorzec co dla on_change/on_entry w base.py/tab_advanced.py."""
+    captured = {}
+    orig_bind = tk.Misc.bind
+    def fake_bind(self, sequence=None, func=None, add=None):
+        if func is not None and getattr(func, "__name__", None) == "on_select":
+            captured["on_select"] = func
+        return orig_bind(self, sequence, func, add)
+    monkeypatch.setattr(tk.Misc, "bind", fake_bind)
+    return captured
+
+
+@pytest.fixture
 def real_glsl_file(fake_app, tmp_path):
     """Tworzy realny plik .glsl z domyślnymi DEFINE'ami SHAPE_PARAMS i
     FLAG_PARAMS — pozwala testować collect_params/apply_params/reset_shader
@@ -436,6 +459,76 @@ def test_validate_buf_sample_does_not_modify_when_sample_within_buf(
 
     assert widget_with_buf_sample_vars.vars["setsamplesize"].get() == "256"
     assert rc_writes == []
+
+
+# ── _combo_row — on_select closure (bindowane na <<ComboboxSelected>>) ──────
+#
+# _combo_row samo jest GUI (layout) i celowo nieprzetestowane, ale on_select
+# w jego wnętrzu to realna logika (walidacja, zapis do rc.glsl, restart) —
+# wymaga prawdziwego Tk (Combobox + StringVar), więc dostaje własny fixture
+# `root`, niezależny od FakeApp.root używanego przez resztę pliku.
+
+def test_combo_row_on_select_valid_value_validates_writes_and_restarts(
+        widget, root, monkeypatch):
+    var = tk.StringVar(master=root, value="512")
+    widget.vars["setbufsize"] = var
+    frame = tk.Frame(root)
+    captured = _capture_on_select(monkeypatch)
+
+    validate_calls = []
+    monkeypatch.setattr(widget, "_validate_buf_sample",
+                         lambda k, v: validate_calls.append((k, v)))
+    write_calls = []
+    monkeypatch.setattr(glsl_io, "write_int_req",
+                         lambda rc, key, val: write_calls.append((rc, key, val)))
+    restart_calls = []
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: restart_calls.append(True))
+
+    widget._combo_row(frame, "Buffer", "setbufsize", [256, 512, 1024], "512", "tip")
+    captured["on_select"](None)
+
+    assert validate_calls == [("setbufsize", 512)]
+    assert write_calls == [(bars_mod.RC_GLSL, "setbufsize", 512)]
+    assert restart_calls == [True]
+
+
+def test_combo_row_on_select_uses_active_rc_glsl_when_app_provides_it(
+        widget, root, fake_app, monkeypatch, tmp_path):
+    var = tk.StringVar(master=root, value="1024")
+    widget.vars["setbufsize"] = var
+    frame = tk.Frame(root)
+    captured = _capture_on_select(monkeypatch)
+
+    rc_path = str(tmp_path / "active_rc.glsl")
+    fake_app.get_active_rc_glsl = lambda: rc_path
+    monkeypatch.setattr(widget, "_validate_buf_sample", lambda k, v: None)
+    write_calls = []
+    monkeypatch.setattr(glsl_io, "write_int_req",
+                         lambda rc, key, val: write_calls.append(rc))
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: None)
+
+    widget._combo_row(frame, "Buffer", "setbufsize", [256, 512, 1024], "1024", "tip")
+    captured["on_select"](None)
+
+    assert write_calls == [rc_path]
+
+
+def test_combo_row_on_select_invalid_value_swallows_valueerror(
+        widget, root, monkeypatch):
+    """var.get() niekonwertowalne na int -> ValueError -> except: pass,
+    żadny zapis/restart nie powinien się wydarzyć."""
+    var = tk.StringVar(master=root, value="not-a-number")
+    widget.vars["setbufsize"] = var
+    frame = tk.Frame(root)
+    captured = _capture_on_select(monkeypatch)
+
+    restart_calls = []
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: restart_calls.append(True))
+
+    widget._combo_row(frame, "Buffer", "setbufsize", [256, 512, 1024], "512", "tip")
+    captured["on_select"](None)
+
+    assert restart_calls == []
 
 
 # ── _reset_shader (widget method) ───────────────────────────────────────────

@@ -71,6 +71,26 @@ def widget(fake_app):
     return circle_mod.CircleParamWidget(parent=None, app=fake_app, T=fake_app.T)
 
 
+@pytest.fixture
+def root():
+    r = tk.Tk()
+    r.withdraw()
+    yield r
+    r.destroy()
+
+
+def _find_widgets_of_type(root_widget, cls):
+    """Rekurencyjnie szuka widgetów danego typu w drzewie — potrzebne, bo
+    SimpleSlider tworzony w _build_position nie jest przechowywany jako
+    self.X, tylko lokalnie w pętli."""
+    found = []
+    for child in root_widget.winfo_children():
+        if isinstance(child, cls):
+            found.append(child)
+        found.extend(_find_widgets_of_type(child, cls))
+    return found
+
+
 # ── _reset_shader — dialog gate ────────────────────────────────────────────────
 
 def test_widget_reset_shader_aborts_if_user_declines_confirm(
@@ -225,3 +245,90 @@ def test_write_flag_off_writes_zero(widget, monkeypatch):
     widget._write_flag("INVERT", _FakeVar(False))
 
     assert write_calls == [{"INVERT": 0}]
+
+
+# ── _init_extra — fallback gdy get_screen_info() rzuca ──────────────────────
+
+def test_init_extra_falls_back_to_default_screen_size_on_exception(
+        fake_app, monkeypatch):
+    """from ..geometry import get_screen_info -> import lokalny, patchujemy
+    na ŹRÓDLE (gui.geometry), nie na circle_mod."""
+    import gui.geometry as geometry_mod
+    monkeypatch.setattr(
+        geometry_mod, "get_screen_info",
+        lambda: (_ for _ in ()).throw(RuntimeError("brak X display")))
+
+    w = circle_mod.CircleParamWidget(parent=None, app=fake_app, T=fake_app.T)
+
+    assert (w._sw, w._sh) == (1600, 900)
+
+
+# ── _build_position — on_offset (domknięcie przekazane do SimpleSlider) ─────
+#
+# k/sv w on_offset to argumenty DOMYŚLNE (k=key, sv=var), nie zmienne
+# domknięcia — __closure__/co_freevars złapałoby tylko 'self'. Właściwą
+# wartość 'key' wyciągamy z on_offset.__defaults__[0].
+
+def test_build_position_on_offset_rounds_updates_var_and_debounces(
+        widget, root, monkeypatch):
+    frame = tk.Frame(root)
+    debounce_calls = []
+    monkeypatch.setattr(widget, "_debounce_int",
+                         lambda k, v: debounce_calls.append((k, v)))
+
+    widget._build_position(frame, {})
+
+    sliders = _find_widgets_of_type(frame, circle_mod.SimpleSlider)
+    target = next(s for s in sliders
+                   if s.on_change.__defaults__[0] == "CENTER_OFFSET_X")
+
+    target.on_change(37.6)  # round(37.6) == 38
+
+    assert widget.vars["CENTER_OFFSET_X"].get() == 38
+    assert debounce_calls == [("CENTER_OFFSET_X", 38)]
+
+
+def test_build_position_on_offset_for_y_axis(widget, root, monkeypatch):
+    frame = tk.Frame(root)
+    debounce_calls = []
+    monkeypatch.setattr(widget, "_debounce_int",
+                         lambda k, v: debounce_calls.append((k, v)))
+
+    widget._build_position(frame, {})
+
+    sliders = _find_widgets_of_type(frame, circle_mod.SimpleSlider)
+    target = next(s for s in sliders
+                   if s.on_change.__defaults__[0] == "CENTER_OFFSET_Y")
+
+    target.on_change(-10.4)  # round(-10.4) == -10
+
+    assert widget.vars["CENTER_OFFSET_Y"].get() == -10
+    assert debounce_calls == [("CENTER_OFFSET_Y", -10)]
+
+
+# ── _debounce_int — dwie gałęzie zapisu ──────────────────────────────────────
+
+def test_debounce_int_offset_keys_write_define_raw(widget, monkeypatch):
+    write_calls = []
+    monkeypatch.setattr(circle_mod.glsl_io, "write_define_raw",
+                         lambda path, key, val: write_calls.append((key, val)))
+    restart_calls = []
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: restart_calls.append(True))
+
+    widget._debounce_int("CENTER_OFFSET_X", 42)
+
+    assert write_calls == [("CENTER_OFFSET_X", 42)]
+    assert restart_calls == [True]
+
+
+def test_debounce_int_other_keys_write_defines(widget, monkeypatch):
+    write_calls = []
+    monkeypatch.setattr(circle_mod.glsl_io, "write_defines",
+                         lambda path, values, params: write_calls.append(values))
+    restart_calls = []
+    monkeypatch.setattr(widget, "_schedule_restart", lambda: restart_calls.append(True))
+
+    widget._debounce_int("C_RADIUS", 200)
+
+    assert write_calls == [{"C_RADIUS": 200}]
+    assert restart_calls == [True]
