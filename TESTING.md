@@ -1,4 +1,4 @@
-# Testing Guide — bing-glava-suite v1.0.0-RC3 (MULTI-INSTANCE)
+# Testing Guide — bing-glava-suite v1.0.0-RC5 (MULTI-INSTANCE)
 
 ---
 
@@ -21,7 +21,7 @@ pythonpath = scripts
 addopts = -v
 ```
 
-Opcja `addopts = -v` sprawia że każdy z 405 testów wyświetla się osobno
+Opcja `addopts = -v` sprawia że każdy z 1111 testów wyświetla się osobno
 z wynikiem PASSED / FAILED. Bez niej pytest pokazuje tylko podsumowanie.
 
 ### Uruchomienie
@@ -31,14 +31,16 @@ cd ~/bing-glava-suite
 pytest
 ```
 
-Wszystkie 405 testów powinno zakończyć się statusem `passed`. Przykładowy
+Wszystkie 1111 testów powinno zakończyć się statusem `passed` (plus 1
+skip — `test_glava_process.py`, pomijany gdy realna binarka `glava` nie
+jest zainstalowana w środowisku testowym). Przykładowy
 wynik poprawnej sesji:
 
 ```
 tests/test_base_widget.py::test_build_creates_widgets PASSED
 tests/test_base_widget.py::test_build_populates_vars PASSED
 ...
-405 passed in ~18s
+1111 passed, 1 skipped in ~25s
 ```
 
 Aby uruchomić tylko jeden plik testowy:
@@ -471,7 +473,76 @@ sudo ./install.sh
 | 5 | Sprawdź `~/.config/glava-inst-{wave_id}/glava/smooth_parameters.glsl` | Wartość grawitacji zmieniona tylko w Wave |
 | 6 | Sprawdź pozostałe instancje | Bars i Radial niezmienione |
 
-## Narzędzia diagnostyczne
+## Część 13: Scenariusze specyficzne dla RC5
+
+Ta sekcja pokrywa wyłącznie zmiany wprowadzone w RC5 (patrz CHANGELOG.md) —
+workspace save/load (pierwsze pokrycie testami w historii projektu, więc
+warto zweryfikować ręcznie na żywym systemie) oraz usunięty debug-log w
+`glava_start`.
+
+### Scenariusz 13.1 — Workspace: anulowanie dialogu zapisu
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Uruchom GUI z co najmniej 1 instancją | — |
+| 2 | Otwórz dialog "Zapisz workspace" | — |
+| 3 | Kliknij Anuluj (lub zamknij dialog X) | Brak nowego pliku w `~/.config/GlavaMP/workspaces/` |
+| 4 | Sprawdź status aplikacji | Bez zmian, brak komunikatu błędu |
+
+### Scenariusz 13.2 — Workspace: niepoprawna nazwa przy zapisie
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Otwórz dialog "Zapisz workspace" | — |
+| 2 | Wpisz nazwę zawierającą `/` (np. `bad/name`) | — |
+| 3 | Zatwierdź | Komunikat błędu, **brak** zapisanego pliku |
+| 4 | Otwórz dialog ponownie, wpisz pustą nazwę / same spacje | Zatwierdzenie nie zapisuje pliku |
+
+### Scenariusz 13.3 — Workspace: wczytanie gdy brak zapisanych workspace'ów
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Usuń / zmień nazwę `~/.config/GlavaMP/workspaces/` (jeśli istnieje) | Katalog pusty lub nieistniejący |
+| 2 | Otwórz dialog "Wczytaj workspace" | Komunikat informacyjny "brak zapisanych workspace'ów", dialog wyboru się nie pojawia |
+
+### Scenariusz 13.4 — Workspace: pełny round-trip z GLSL i geometrią
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Utwórz instancję **bars**, ustaw niestandardową szerokość słupka, pozycję okna, kolory | — |
+| 2 | Zmień też 1-2 parametry wygładzania (np. Grawitacja) | — |
+| 3 | Zapisz workspace pod nazwą `rc5-roundtrip` | Plik `~/.config/GlavaMP/workspaces/rc5-roundtrip.json` zawiera sekcje `colors`, `geometry`, `glsl` (w tym `smooth_parameters.glsl`) dla instancji |
+| 4 | Zamknij instancję, utwórz inną (np. wave) żeby stan się różnił | — |
+| 5 | Wczytaj `rc5-roundtrip` | Instancja bars odtworzona z **dokładnie** tymi samymi: szerokością słupka, pozycją, kolorami, wartością grawitacji |
+| 6 | Sprawdź że GLava faktycznie zrestartowała się z nowymi ustawieniami (nie tylko plik zapisany) | Wizualizacja na ekranie odzwierciedla wczytane parametry |
+
+### Scenariusz 13.5 — Workspace: zapis pozycji okna głównego
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Przesuń i zmień rozmiar głównego okna GUI w nietypowe miejsce/rozmiar | — |
+| 2 | Zamknij GUI (zwykłe zamknięcie, nie kill -9) | `~/.config/GlavaMP/gui.conf` zaktualizowany z nową pozycją/rozmiarem |
+| 3 | Uruchom GUI ponownie | Okno otwiera się dokładnie w tym samym miejscu/rozmiarze |
+
+### Scenariusz 13.6 — Brak logowania debug przy starcie GLava (regresja RC5)
+
+W RC5 usunięto zapomniany blok debug-logujący w `gui/glava.py::glava_start()`,
+który pisał timestamp + stack trace do `~/.local/logs/glava-start.log` przy
+**każdym** starcie GLavy — w tym przy każdym automatycznym restarcie z
+`glava-colors-auto-mi` (zmiana tapety). Ten scenariusz weryfikuje że
+usunięcie faktycznie zadziałało na żywym systemie, nie tylko w testach.
+
+| Krok | Akcja | Oczekiwany wynik |
+|---|---|---|
+| 1 | Usuń `~/.local/logs/glava-start.log` jeśli istnieje (pozostałość z poprzednich wersji) | — |
+| 2 | Uruchom kilka instancji GLava przez GUI (toggle ON, dodaj instancję) | — |
+| 3 | Wymuś zmianę tapety / ręcznie odpal `glava-colors-auto-mi` | Auto-restart instancji następuje normalnie |
+| 4 | Sprawdź `~/.local/logs/glava-start.log` | **Plik nie powinien zostać utworzony ponownie** |
+| 5 | Sprawdź że GLava normalnie się uruchamia/restartuje (funkcjonalność nie powinna się zmienić, tylko zniknąć logowanie) | Wizualizacja działa jak dotychczas |
+
+---
+
+
 
 ```bash
 # Liczba procesów GLava
@@ -497,4 +568,8 @@ grep "#request mod" ~/.config/glava-inst-0/glava/rc.glsl
 
 # Sprawdź geometrię instancji 0
 grep "setgeometry" ~/.config/glava-inst-0/glava/rc.glsl
+
+# RC5: potwierdź że debug-log z glava_start() NIE jest już tworzony
+# (powinien zwrócić "brak pliku" po normalnym użytkowaniu GUI)
+ls -la ~/.local/logs/glava-start.log 2>&1 || echo "brak pliku (oczekiwane w RC5+)"
 ```

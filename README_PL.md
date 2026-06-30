@@ -146,7 +146,7 @@ Przełącznik Włącz/Wyłącz w zakładce Główna:
 
 ---
 
-## Znane ograniczenia (v1.0.0-RC3)
+## Znane ograniczenia (v1.0.0-RC5)
 
 - Color picker używa systemowego dialogu Tk — nie pasuje wizualnie do Forest-ttk-theme.
   Własny picker TTK planowany w przyszłej wersji.

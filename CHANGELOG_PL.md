@@ -2,6 +2,89 @@
 
 ---
 
+## [1.0.0-RC5] — 2026-06-29
+
+### Kandydat do wydania 5 — 100% pokrycia logiki testami
+
+---
+
+### 🧪 Testy i pokrycie
+
+Pełen przegląd pokrycia logiki w całym projekcie, śledzony własnym
+narzędziem `logic-cov` (AST-based, cross-referencowane z `pytest-cov`).
+**Pokrycie logiki: 61% → 100% (2951/2951 instrukcji logicznych, zero
+brakujących)** we wszystkich plikach `scripts/gui/` i `scripts/glava-gui.py`.
+
+- Wszystkie widgety parametrów modułów (`bars`, `circle`, `radial`, `wave`)
+  — domknięte pozostałe dziury w fallbacku informacji o ekranie, zagnieżdżonych
+  callbackach sliderów/offsetów, i wzajemnym ograniczaniu parametrów
+  (min/max grubości w wave).
+- `gui/instance_tab_bar.py` — domknięte gałęzie obronne `TclError`/
+  `IndexError` (zmiana nazwy zakładki na zniszczonym widgecie, wyścig przy
+  odświeżaniu mapy indeksów).
+- `gui/widgets.py` — domknięta ścieżka sukcesu własnego stylowania uchwytu
+  slidera (`_ensure_shift_style`), wcześniej testowana tylko przez fallback.
+- `gui/glava.py` — domknięte pozostałe gałęzie obsługi wyjątków (I/O plików
+  PID, eskalacja SIGTERM→SIGKILL, legacy `glava_restart`/`glava_stop`) oraz
+  ścieżka zapisu PID z parametrem `instance=` w `glava_start`.
+- **Workspace save/load w `glava-gui.py`** (`_save_workspace`,
+  `_load_workspace`, `_save_window_state`) — pierwsze w historii pokrycie
+  testami tych modalnych dialogów (wcześniej 75% pliku, teraz 100%).
+  Obejmuje cały pipeline odtwarzania instancji (definicje GLSL, parametry
+  wygładzania, geometria, kolory, restart) oraz ścieżki anulowania/błędu
+  obu dialogów.
+- **`scripts/glava-colors-auto-mi`** (wieloinstancyjny auto-updater kolorów
+  z tapety, wołany przez demona/cron) — pierwszy w historii zestaw testów
+  (39 testów, 100% pokrycia instrukcji). Ten skrypt nie ma rozszerzenia
+  `.py` i leży poza skonfigurowanym zasięgiem pokrycia projektu, więc
+  wcześniej był całkowicie niezmierzony mimo działania w produkcji przy
+  każdej zmianie tapety.
+
+### 🐛 Naprawione błędy
+
+- **`gui/glava.py::glava_start` — usunięty zapomniany debug-leftover.**
+  Bezwarunkowy, nieowinięty w try/except blok debug-logujący (timestamp +
+  5-poziomowy stack trace) pisał do `~/.local/logs/glava-start.log` przy
+  *każdym* starcie GLavy — łącznie z każdym automatycznym restartem
+  wywołanym przez `glava-colors-auto-mi` przy zmianie tapety. Bez rotacji,
+  bez limitu, realne zużycie dysku w normalnej pracy. Po drodze cicho
+  łamał własny docstring funkcji (stawał się martwym kodem po bloku debug,
+  bo docstring liczy się tylko jako pierwsza instrukcja). Usunięty,
+  przywrócony prawdziwy docstring.
+- `gui/tab_advanced.py` — usunięto dwie potwierdzone-nieosiągalne martwe
+  gałęzie (`_read_request_int` except, martwy `continue` w `_restart_all`),
+  znalezione i zweryfikowane podczas analizy pokrycia (włącznie z
+  interakcją cross-file z `restart_active_instance` z `glava-gui.py`).
+- `gui/tab_main.py` — naprawiono resource leak (`open(path).read()` bez
+  `with`) w `_update_geometry_for_module`.
+- `.github/workflows/test.yml` — usunięto zduplikowany krok "Run tests"
+  (pytest odpalany dwa razy per joba); `sleep 1` przed startem Xvfb
+  zamieniony na poll-loop z `xdpyinfo`; podniesiona rozdzielczość Xvfb,
+  żeby domyślne okno 1040×768 mieściło się bez clampingu.
+
+### 🔍 Znane problemy (przeniesione z RC4, wciąż otwarte)
+
+- Zapis profilu shadera (bars) nie obejmuje `setbufsize`, `setsamplesize`,
+  `setmirror`, `setinterpolate`
+- Zmiana rozmiaru bufora audio wpływa na szerokość wizualizacji (niezamierzony efekt)
+- Zmiana FPS wpływa na prędkość animacji i wysokość słupków w module bars
+- Logi demona w zakładce Advanced są ubogie — logowana tylko zmiana kolorów,
+  inne zdarzenia nie są rejestrowane; logi mogą pokazywać nieaktualne dane
+
+### 📌 Uwaga narzędziowa (nie problem produktu — do backlogu `logic-cov`)
+
+Heurystyka nazw w `logic-cov` klasyfikuje `gui/theme.py::TCheckbutton` jako
+`LOGIC` (trafia w `"check"` wewnątrz `"tcheckbutton"`) mimo że to trywialny
+wrapper `ttk.Checkbutton`, identyczny z natury do `TFrame`/`TLabel`/
+`TEntry`/`TSeparator` (świadomie nietestowanych gdzie indziej w projekcie).
+Dodano test-placeholder wyłącznie żeby zamknąć zgłaszaną dziurę — patrz
+komentarz w `tests/test_theme.py`. Pełny opis tego i innych znalezisk
+dot. `logic-cov` (martwy punkt po rozszerzeniu plików z shebangiem, waga
+GUI maskująca realną logikę w funkcjach z dużą ilością widgetów, propozycja
+mapy testów do roadmapy narzędzia) jest w `logic-cov-feedback.md`.
+
+---
+
 ## [1.0.0-RC4] — 2026-06-15
 
 ### Kandydat do wydania 4 — Infrastruktura CI i naprawa demona

@@ -146,7 +146,7 @@ The Enable/Disable toggle in the Main panel:
 
 ---
 
-## Known limitations (v1.0.0-RC3)
+## Known limitations (v1.0.0-RC5)
 
 - Color picker uses system Tk dialog — does not match Forest-ttk-theme.
   Custom TTK picker planned for a future release.
